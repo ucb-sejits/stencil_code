@@ -55,3 +55,29 @@ class TestStencilGrid(unittest.TestCase):
                 (1, -1, -1), (1, -1, 0), (1, -1, 1), (1, 0, -1), (1, 0, 0), (1, 0, 1), (1, 1, -1), (1, 1, 0), (1, 1, 1)
             ]
         )
+
+    def test_von_neuman_neighborhood(self):
+        stencil_grid = StencilGrid([2, 2])
+
+        neighborhood = stencil_grid.von_neuman_neighborhood()
+
+        self._are_lists_equal(
+            neighborhood,
+            [(-1, 0), (0, -1), (0, 1), (1, 0)]
+        )
+
+        self._are_lists_unequal(
+            neighborhood,
+            [(-1, 0), (0, -1), (0, 0), (0, 1), (1, 0)]
+        )
+
+        stencil_grid = StencilGrid([2, 2, 2])
+
+        neighborhood = stencil_grid.von_neuman_neighborhood()
+
+        self._are_lists_equal(
+            neighborhood,
+            [
+                (-1, 0, 0), (0, -1, 0), (0, 0, -1), (0, 0, 1), (0, 1, 0), (1, 0, 0),
+            ]
+        )
