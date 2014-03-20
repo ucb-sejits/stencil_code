@@ -13,45 +13,46 @@ class SpecializedLaplacian27(StencilKernel):
         """
         return sum([abs(x[i]-y[i]) for i in range(len(x))])
 
-    def kernel(self, input, coefficients, output):
-        for x in input.interior_points():
-            for n in input.neighbors(x, 2):
-                output[x] += coefficients[self.distance(x, n)] * input[n]
+    def kernel(self, source_data, factors, output_data):
+        for x in source_data.interior_points():
+            for n in source_data.neighbors(x, 2):
+                output_data[x] += factors[self.distance(x, n)] * source_data[n]
 
 
-def laplacian_27pt(nx,ny,nz,alpha,beta,gamma,delta,IN,OUT):
+def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, IN, OUT):
     """
     Original version of laplacian
     """
-    for k in range(2,nz-1):
-        for j in range(2,ny-1):
-            for i in range(2,nx-1):
-                OUT[i,j,k] = alpha*IN[i,j,k] + \
-                    beta* ( IN[i+1,j,k]   + IN[i-1,j,k]   + \
-                            IN[i,j+1,k]   + IN[i,j-1,k]   + \
-                            IN[i,j,k+1]   + IN[i,j,k-1]) + \
-                    gamma*( IN[i-1,j,k-1] + IN[i-1,j-1,k] + \
-                            IN[i-1,j+1,k] + IN[i-1,j,k+1] + \
-                            IN[i,j-1,k-1] + IN[i,j+1,k-1] + \
-                            IN[i,j-1,k+1] + IN[i,j+1,k+1] + \
-                            IN[i+1,j,k-1] + IN[i+1,j-1,k]) + \
-                    delta*( IN[i-1,j-1,k-1] + IN[i-1,j+1,k-1] + \
-                            IN[i-1,j-1,k+1] + IN[i-1,j+1,k+1] + \
-                            IN[i+1,j-1,k-1] + IN[i+1,j+1,k-1] + \
-                            IN[i+1,j-1,k+1] + IN[i+1,j+1,k+1])
+    for k in range(2, nz - 1):
+        for j in range(2, ny - 1):
+            for i in range(2, nx - 1):
+                OUT[i, j, k] = alpha * IN[i, j, k] + \
+                    beta * (IN[i + 1, j, k] + IN[i - 1, j, k] +
+                            IN[i, j + 1, k] + IN[i, j - 1, k] +
+                            IN[i, j, k + 1] + IN[i, j, k - 1]) + \
+                    gamma * (IN[i - 1, j, k - 1] + IN[i - 1, j - 1, k] +
+                             IN[i - 1, j + 1, k] + IN[i - 1, j, k + 1] +
+                             IN[i, j - 1, k - 1] + IN[i, j + 1, k - 1] +
+                             IN[i, j - 1, k + 1] + IN[i, j + 1, k + 1] +
+                             IN[i + 1, j, k - 1] + IN[i + 1, j - 1, k]) + \
+                    delta * (IN[i - 1, j - 1, k - 1] + IN[i - 1, j + 1, k - 1] +
+                             IN[i - 1, j - 1, k + 1] + IN[i - 1, j + 1, k + 1] +
+                             IN[i + 1, j - 1, k - 1] + IN[i + 1, j + 1, k - 1] +
+                             IN[i + 1, j - 1, k + 1] + IN[i + 1, j + 1, k + 1])
 
 
 def build_data(nx, ny, nz):
 
     input = StencilGrid([nx, ny, nz])
-    input.set_neighborhood(2, [
-        (0, 0, 0),
-        (1, 0, 0), (0, 1, 0), (0, 0, 1),
-        (-1, -1, 0), (-1, 1, 0), (-1, 0, -1), (-1, 0, 1),
-        (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
-        (-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (-1, 1, 1),
-        (1, -1, -1), (1, -1, 1), (1, 1, -1), (1, 1, 1),
-    ])
+    input.set_neighborhood(2, input.moore_neighborhood(include_origin=True))
+    # input.set_neighborhood(2, [
+    #     (0, 0, 0),
+    #     (1, 0, 0), (0, 1, 0), (0, 0, 1),
+    #     (-1, -1, 0), (-1, 1, 0), (-1, 0, -1), (-1, 0, 1),
+    #     (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
+    #     (-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (-1, 1, 1),
+    #     (1, -1, -1), (1, -1, 1), (1, 1, -1), (1, 1, 1),
+    # ])
     for x in input.interior_points():
         input[x] = random.random()
     coefficients = StencilGrid([4])
@@ -72,8 +73,8 @@ if __name__ == '__main__':
     ny = int(sys.argv[2])
     nz = int(sys.argv[3])
 
-    input, coefficients, output = build_data(nx, ny, nz)
-    SpecializedLaplacian27().kernel(input, coefficients, output)
+    input_grid, coefficients, output = build_data(nx, ny, nz)
+    SpecializedLaplacian27().kernel(input_grid, coefficients, output)
 
     print(output)
     exit(1)
@@ -84,5 +85,4 @@ if __name__ == '__main__':
     beta = 0.5
     gamma = 0.25
     delta = 0.125
-    laplacian_27pt(nx,ny,nz,alpha,beta,gamma,delta,IN,OUT)
-
+    laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, IN, OUT)
