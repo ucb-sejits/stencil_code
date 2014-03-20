@@ -1,7 +1,7 @@
 from numpy import *
 import sys
-from stencil_specializer.stencil_grid import StencilGrid
-from stencil_specializer.stencil_kernel import StencilKernel
+from stencil_specializer.stencil_grid2 import StencilGrid
+from stencil_specializer.stencil_kernel2 import StencilKernel
 
 
 class SpecializedLaplacian27(StencilKernel):
