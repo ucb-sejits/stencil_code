@@ -51,6 +51,25 @@ class StencilGrid(object):
         self.neighbor_definition[neighborhood_id] = coordinate_list
 
     def von_neuman_neighborhood(self):
+        """
+        create a neighborhood of all adjacent points along
+        coordinate axes
+        """
+        neighborhood = []
+        origin = [0 for _ in range(self.dim)]
+        for dimension in range(self.dim):
+            for offset in [-1, 1]:
+                point = origin[:]
+                point[dimension] = offset
+                neighborhood.append(tuple(point))
+
+        return neighborhood
+
+    def moore_neighborhood(self):
+        """
+        create a neighborhood of all adjacent points along
+        coordinate axes
+        """
         neighborhood = []
         origin = [0 for _ in range(self.dim)]
         for dimension in range(self.dim):

@@ -1,12 +1,7 @@
 from numpy import *
 import sys
-<<<<<<< HEAD
-from stencil_specializer.stencil_grid2 import StencilGrid
-from stencil_specializer.stencil_kernel2 import StencilKernel
-=======
 from stencil_code.stencil_grid import StencilGrid
 from stencil_code.stencil_kernel import StencilKernel
->>>>>>> 263256e1397f5d22e99efb2ee77dd08fc7bf4bc2
 
 
 class SpecializedLaplacian27(StencilKernel):
@@ -25,6 +20,9 @@ class SpecializedLaplacian27(StencilKernel):
 
 
 def laplacian_27pt(nx,ny,nz,alpha,beta,gamma,delta,IN,OUT):
+    """
+    Original version of laplacian
+    """
     for k in range(2,nz-1):
         for j in range(2,ny-1):
             for i in range(2,nx-1):
@@ -47,6 +45,8 @@ def build_data(nx, ny, nz):
 
     input = StencilGrid([nx, ny, nz])
     input.set_neighborhood(2, [
+        (0, 0, 0),
+        (1, 0, 0), (0, 1, 0), (0, 0, 1),
         (-1, -1, 0), (-1, 1, 0), (-1, 0, -1), (-1, 0, 1),
         (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
         (-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (-1, 1, 1),
