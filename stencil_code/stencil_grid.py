@@ -1,8 +1,8 @@
-"""A two-dimension grid of numeric values, used for input and output to a stencil kernel.
+"""
+A two-dimension grid of numeric values, used for input and output to a stencil kernel.
 """
 
 import numpy
-import math
 
 
 class StencilGrid(object):
@@ -12,12 +12,14 @@ class StencilGrid(object):
         self.data = numpy.zeros(size)
         self.shape = size
         self.ghost_depth = 1
+        self.grid_variables = []
+        self.interior = []
 
         self.set_grid_variables()
         self.set_interior()
         # add default neighbor definition
         self.neighbor_definition = []
-        self.set_default_neighbor_definition()
+        self.set_default_neighbor_definitions()
 
     # want this to be indexable
     def __getitem__(self, x):
@@ -27,7 +29,7 @@ class StencilGrid(object):
         self.data[x] = y
 
     def set_grid_variables(self):
-        self.grid_variables = ["DIM"+str(x) for x in range(0,self.dim)]
+        self.grid_variables = ["DIM"+str(x) for x in range(0, self.dim)]
 
     def set_interior(self):
         """
@@ -35,25 +37,40 @@ class StencilGrid(object):
         """
         self.interior = [x-2*self.ghost_depth for x in self.shape]
 
-    def set_default_neighbor_definition(self):
+    def set_neighborhood(self, neighborhood_id, coordinate_list):
+        """
+        a grid can one or more notions of a neighborhood of a given grid point
+        neighborhood_id is an integer identifier of the neighborhood
+        coordinate_list is a list of tuples appropriate to the shape of the grid
+        """
+        for coordinate in coordinate_list:
+            assert len(coordinate) == self.dim, "neighborhood coordinates must be of proper dimension"
+
+        while len(self.neighbor_definition) <= neighborhood_id:
+            self.neighbor_definition.append([])
+        self.neighbor_definition[neighborhood_id] = coordinate_list
+
+    def von_neuman_neighborhood(self):
+        neighborhood = []
+        origin = [0 for _ in range(self.dim)]
+        for dimension in range(self.dim):
+            for offset in [-1, 1]:
+                point = origin[:]
+                point[dimension] = offset
+                neighborhood.append(tuple(point))
+
+        return neighborhood
+
+    def set_default_neighbor_definitions(self):
         """
         Sets the default for neighbors[0] and neighbors[1].  Note that neighbors[1]
         does not include the center point.
         """
         self.neighbor_definition = []
 
-        self.neighbor_definition.append([tuple([0 for x in range(self.dim)])])
-        self.neighbor_definition.append([])
-
-        for x in range(self.dim):
-            for y in [0, 1, -1]:
-                tmp = list(self.neighbor_definition[0][0])
-                tmp[x] += y
-                tmp = tuple(tmp)
-                if tmp != self.neighbor_definition[0][0]:
-                    self.neighbor_definition[1].append(tmp)
-
-
+        zero_point = tuple([0 for _ in range(self.dim)])
+        self.neighbor_definition.append([zero_point])
+        self.neighbor_definition.append(self.von_neuman_neighborhood())
 
     def interior_points(self):
         """
@@ -92,4 +109,3 @@ class StencilGrid(object):
 
     def __repr__(self):
         return self.data.__repr__()
-
