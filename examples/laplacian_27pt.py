@@ -3,20 +3,20 @@ import sys
 from stencil_specializer.stencil_grid import StencilGrid
 from stencil_specializer.stencil_kernel import StencilKernel
 
+
 class SpecializedLaplacian27(StencilKernel):
+
+    def distance(self, x, y):
+        """
+        override the StencilKernel distance
+        use manhattan distance
+        """
+        return sum(abs([x[i]-y[i]]) for i in range(len(x)))
 
     def kernel(self, input, coefficients, output):
         for x in input.interior_points():
-            for neighbor_id in range(4):
-                for n in input.neighbors(x, neighbor_id):
-                    output[x] += coefficients[neighbor_id] * input[n]
-                output[x] += input[n]
-            # for n in input.neighbors(x, 1):
-            #     output[x] += coefficients[1] * input[n]
-            # for n in input.neighbors(x, 2):
-            #     output[x] += coefficients[2] * input[n]
-            # for n in input.neighbors(x, 3):
-            #     output[x] += coefficients[3] * input[n]
+            for n in input.neighbors(x, 2):
+                output[x] += coefficients[self.distance(x, n)] * input[n]
 
 
 def laplacian_27pt(nx,ny,nz,alpha,beta,gamma,delta,IN,OUT):
@@ -40,14 +40,12 @@ def laplacian_27pt(nx,ny,nz,alpha,beta,gamma,delta,IN,OUT):
 
 def build_data(nx, ny, nz):
 
-    input = StencilGrid([nx,ny,nz])
+    input = StencilGrid([nx, ny, nz])
     input.set_neighborhood(2, [
         (-1, -1, 0), (-1, 1, 0), (-1, 0, -1), (-1, 0, 1),
-        (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1)
-    ])
-    input.set_neighborhood(3, [
+        (0, -1, -1), (0, -1, 1), (0, 1, -1), (0, 1, 1),
         (-1, -1, -1), (-1, -1, 1), (-1, 1, -1), (-1, 1, 1),
-        (1, -1, -1), (1, -1, 1), (1, 1, -1), (1, 1, 1)
+        (1, -1, -1), (1, -1, 1), (1, 1, -1), (1, 1, 1),
     ])
     for x in input.interior_points():
         input[x] = random.random()

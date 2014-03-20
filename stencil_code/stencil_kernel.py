@@ -378,6 +378,15 @@ class StencilKernel(object):
             self.specialized(*[arg.data for arg in args])
         self.specialized.report(time=t)
 
+    def distance(self, x, y):
+        """
+        default euclidean distance override this to return something
+        reasonable for each neighbor cell distance
+        """
+        return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
+
+
+
 import time
 
 
