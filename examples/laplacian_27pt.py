@@ -11,7 +11,7 @@ class SpecializedLaplacian27(StencilKernel):
         override the StencilKernel distance
         use manhattan distance
         """
-        return sum(abs([x[i]-y[i]]) for i in range(len(x)))
+        return sum([abs(x[i]-y[i]) for i in range(len(x))])
 
     def kernel(self, input, coefficients, output):
         for x in input.interior_points():

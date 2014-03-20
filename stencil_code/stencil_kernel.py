@@ -47,10 +47,10 @@ from ctree.omp.nodes import *
 
 
 class StencilConvert(LazySpecializedFunction):
-    def __init__(self, func, entry_point, input_grids, output_grid, constants):
+    def __init__(self, func, entry_point, input_grids, output_grid, kernel):
         self.input_grids = input_grids
         self.output_grid = output_grid
-        self.constants = constants
+        self.kernel = kernel
         super(StencilConvert, self).__init__(get_ast(func), entry_point)
 
     def args_to_subconfig(self, args):
@@ -83,7 +83,7 @@ class StencilConvert(LazySpecializedFunction):
 
         for transformer in [StencilTransformer(self.input_grids,
                                                self.output_grid,
-                                               self.constants
+                                               self.kernel
                                                ),
                             PyBasicConversions()]:
             tree = transformer.visit(tree)
@@ -172,7 +172,7 @@ class UnrollReplacer(NodeTransformer):
 
 
 class StencilTransformer(NodeTransformer):
-    def __init__(self, input_grids, output_grid, constants):
+    def __init__(self, input_grids, output_grid, kernel):
         # TODO: Give these wrapper classes?
         self.input_grids = input_grids
         self.output_grid = output_grid
@@ -184,7 +184,8 @@ class StencilTransformer(NodeTransformer):
         self.offset_list = None
         self.var_list = []
         self.input_dict = {}
-        self.constants = constants
+        self.constants = kernel.constants
+        self.distance = kernel.distance
         super(StencilTransformer, self).__init__()
 
     def visit_FunctionDef(self, node):
@@ -290,6 +291,10 @@ class StencilTransformer(NodeTransformer):
         return node
 
     def visit_Call(self, node):
+        print(node.func)
+        if isinstance(node.func, ast.Attribute):
+            zero_point = tuple([0 for _ in range(len(self.offset_list))])
+            return Constant(self.distance(zero_point, self.offset_list))
         if node.func.id == 'distance':
             zero_point = tuple([0 for _ in range(len(self.offset_list))])
             return Constant(int(self.distance(zero_point, self.offset_list)))
@@ -297,9 +302,6 @@ class StencilTransformer(NodeTransformer):
             return Cast(Int(), self.visit(node.args[0]))
         node.args = list(map(self.visit, node.args))
         return node
-
-    def distance(self, x, y):
-        return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
 
     def gen_array_macro(self, arg, point):
         name = "_%s_array_macro" % arg
@@ -371,7 +373,7 @@ class StencilKernel(object):
         if not self.specialized_sizes or\
                 self.specialized_sizes != [y.shape for y in args]:
             self.specialized = StencilConvert(
-                self.model, "kernel", args[0:-1], args[-1], self.constants)
+                self.model, "kernel", args[0:-1], args[-1], self)
             self.specialized_sizes = [arg.shape for arg in args]
 
         with Timer() as t:
