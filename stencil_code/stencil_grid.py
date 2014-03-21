@@ -20,6 +20,31 @@ class StencilGrid(object):
         # add default neighbor definition
         self.neighbor_definition = []
         self.set_default_neighbor_definitions()
+        self.corner_points = None
+        self.edge_points = None
+        self.make_corner_points_iterator()
+        self.make_edge_points_iterator()
+
+        # import types
+        #
+        # code = ["def corner_points(self):"]
+        # for dimension_index in range(self.dim):
+        #     for each_dimension in range(self.dim):
+        #         if each_dimension == dimension_index:
+        #             code.append(
+        #                 "%sfor d%s in [0,%d]:" %
+        #                 (' '*4*(each_dimension+1), each_dimension, self.shape[each_dimension])
+        #             )
+        #         else:
+        #             code.append(
+        #                 "%sfor d%s in range(%d):" %
+        #                 (' '*4*(each_dimension+1), each_dimension, self.shape[each_dimension])
+        #             )
+        #     code.append("%syield (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
+        # for line in code:
+        #     print(line)
+        # exec('\n'.join(code))
+        # self.corner_points = types.MethodType(corner_points, self)
 
     # want this to be indexable
     def __getitem__(self, x):
@@ -111,9 +136,62 @@ class StencilGrid(object):
         in the translated language/library.
         """
         import itertools
-        all_dims = [range(self.ghost_depth,self.shape[x]-self.ghost_depth) for x in range(0,self.dim)]
+        all_dims = [range(self.ghost_depth, self.shape[x]-self.ghost_depth) for x in range(0, self.dim)]
         for item in itertools.product(*all_dims):
             yield tuple(item)
+
+    def make_edge_points_iterator(self):
+        import types
+
+        edge_points = None
+        code = ["def edge_points(self):"]
+        for dimension_index in range(self.dim):
+            for each_dimension in range(self.dim):
+                if each_dimension == dimension_index:
+                    border_points = range(self.ghost_depth) + \
+                                range(self.shape[each_dimension]-self.ghost_depth, self.shape[each_dimension])
+                    code.append("%sfor d%s in [%s]:" %
+                                (
+                                    ' '*4*(each_dimension+1),
+                                    each_dimension,
+                                    ','.join(map(lambda x: "%d" % x, border_points))
+                                )
+                    )
+                else:
+                    border_points = range(self.ghost_depth,self.shape[each_dimension]-self.ghost_depth)
+                    code.append("%sfor d%s in [%s]:" %
+                                (
+                                    ' '*4*(each_dimension+1),
+                                    each_dimension,
+                                    ','.join(map(lambda x: "%d" % x, border_points))
+                                )
+                    )
+            code.append("%syield (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
+        # for line in code:
+        #     print(line)
+        exec('\n'.join(code))
+        self.edge_points = types.MethodType(edge_points, self)
+
+    def make_corner_points_iterator(self):
+        import types
+
+        corner_points = None
+        code = ["def corner_points(self):"]
+        for each_dimension in range(self.dim):
+            border_points = range(self.ghost_depth) + \
+                        range(self.shape[each_dimension]-self.ghost_depth, self.shape[each_dimension])
+            code.append("%sfor d%s in [%s]:" %
+                        (
+                            ' '*4*(each_dimension+1),
+                            each_dimension,
+                            ','.join(map(lambda x: "%d" % x, border_points))
+                        )
+            )
+        code.append("%syield (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
+        # for line in code:
+        #     print(line)
+        exec('\n'.join(code))
+        self.corner_points = types.MethodType(corner_points, self)
 
     def border_points(self):
         """
@@ -121,8 +199,15 @@ class StencilGrid(object):
         mode; in SEJITS mode, it should be executed only in the translated
         language/library.
         """
-        # TODO
-        return []
+        # first generate the corner points of the space
+        import itertools
+
+        #for dimension in range(self.dim):
+
+        for point in self.corner_points():
+            yield point
+        for point in self.edge_points():
+            yield point
 
     def neighbors(self, center, neighbors_id):
         """
