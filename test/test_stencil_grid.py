@@ -88,24 +88,24 @@ class TestStencilGrid(unittest.TestCase):
         corners = [x for x in stencil_grid.corner_points()]
         self._are_lists_equal(corners, [(0, 0), (0, 2), (2, 0), (2, 2)])
 
-        print "corners"
-        for point in stencil_grid.corner_points():
-            print(point)
+        # print "corners"
+        # for point in stencil_grid.corner_points():
+        #     print(point)
 
     def test_edge_points(self):
         stencil_grid = StencilGrid([3, 3])
 
         edges = [x for x in stencil_grid.edge_points()]
         self._are_lists_equal(edges, [(0, 1), (2, 1), (1, 0), (1, 2)])
-        print "edges"
-        for point in stencil_grid.edge_points():
-            print(point)
+        # print "edges"
+        # for point in stencil_grid.edge_points():
+        #     print(point)
 
     def test_border_points(self):
         stencil_grid = StencilGrid([3, 3])
 
         border = [x for x in stencil_grid.border_points()]
         self._are_lists_equal(border, [(0, 1), (2, 1), (1, 0), (1, 2), (0, 0), (0, 2), (2, 0), (2, 2)])
-        print "border"
-        for point in stencil_grid.border_points():
-            print(point)
+        # print "border"
+        # for point in stencil_grid.border_points():
+        #     print(point)
