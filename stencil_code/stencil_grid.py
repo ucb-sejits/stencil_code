@@ -141,6 +141,13 @@ class StencilGrid(object):
             yield tuple(item)
 
     def make_edge_points_iterator(self):
+        """
+        creates an iterator for edge points of the stencil.  This is done by dynamically compiling code
+        because it is difficult to create an iterator for the nesting of for loops over and arbitrary
+        shape of the grid.  Edge points are defined to be for each dimension the scalar values of the
+        corner points in that dimension combined with the iteration of all scalars from the other dimensions
+        omitting their corner values
+        """
         import types
 
         edge_points = None
@@ -173,6 +180,12 @@ class StencilGrid(object):
         self.edge_points = types.MethodType(edge_points, self)
 
     def make_corner_points_iterator(self):
+        """
+        creates an iterator for border points of the stencil.  This is done by dynamically compiling code
+        because it is difficult to create an iterator for the nesting of for loops over and arbitrary
+        shape of the grid.  Border points are defined to be iteration over all points within ghost_depth
+        of the min and max values of each dimension
+        """
         import types
 
         corner_points = None
@@ -198,11 +211,10 @@ class StencilGrid(object):
         Iterator over the border points of a grid.  Only executed in pure Python
         mode; in SEJITS mode, it should be executed only in the translated
         language/library.
-        """
-        # first generate the corner points of the space
-        import itertools
 
-        #for dimension in range(self.dim):
+        Border points are the sequential iteration of all corner points
+        followed by all edge points
+        """
 
         for point in self.corner_points():
             yield point
