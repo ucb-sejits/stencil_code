@@ -164,7 +164,7 @@ class StencilGrid(object):
                                     ','.join(map(lambda x: "%d" % x, border_points))
                                 )
                     )
-                else:
+                elif (each_dimension - 1 + self.dim ) % self.dim == dimension_index:
                     border_points = range(self.ghost_depth,self.shape[each_dimension]-self.ghost_depth)
                     code.append("%sfor d%s in [%s]:" %
                                 (
@@ -173,9 +173,18 @@ class StencilGrid(object):
                                     ','.join(map(lambda x: "%d" % x, border_points))
                                 )
                     )
+                else:
+                    border_points = range(self.shape[each_dimension])
+                    code.append("%sfor d%s in [%s]:" %
+                                (
+                                    ' '*4*(each_dimension+1),
+                                    each_dimension,
+                                    ','.join(map(lambda x: "%d" % x, border_points))
+                                )
+                    )
             code.append("%syield (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
-        # for line in code:
-        #     print(line)
+        for line in code:
+            print(line)
         exec('\n'.join(code))
         self.edge_points = types.MethodType(edge_points, self)
 

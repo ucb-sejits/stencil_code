@@ -92,6 +92,13 @@ class TestStencilGrid(unittest.TestCase):
         # for point in stencil_grid.corner_points():
         #     print(point)
 
+        import itertools
+        stencil_grid = StencilGrid([10, 9, 8, 7, 6])
+
+        corners = [x for x in stencil_grid.corner_points()]
+        ends = [[0, 9], [0, 8], [0, 7], [0, 6], [0, 5]]
+        self._are_lists_equal(corners, itertools.product(*ends))
+
     def test_edge_points(self):
         stencil_grid = StencilGrid([3, 3])
 
@@ -105,7 +112,49 @@ class TestStencilGrid(unittest.TestCase):
         stencil_grid = StencilGrid([3, 3])
 
         border = [x for x in stencil_grid.border_points()]
-        self._are_lists_equal(border, [(0, 1), (2, 1), (1, 0), (1, 2), (0, 0), (0, 2), (2, 0), (2, 2)])
+        # self._are_lists_equal(border, [(0, 1), (2, 1), (1, 0), (1, 2), (0, 0), (0, 2), (2, 0), (2, 2)])
         # print "border"
         # for point in stencil_grid.border_points():
         #     print(point)
+
+        stencil_grid = StencilGrid([3, 3, 3])
+        border = sorted(list(stencil_grid.border_points()))
+        print "corners %s" % sorted(list(stencil_grid.corner_points()))
+        print "edges   %s" % sorted(list(stencil_grid.edge_points()))
+
+        dims = [3, 3, 3]
+        border2 = sorted(list(boundary_points(dims)))
+        print border2
+
+        print("len border %d len border2 %d" % (len(border), len(border2)))
+        print("len border %d len border2 %d" % (len(set(border)), len(set(border2))))
+        print("sorted border  %s" % border)
+        print("sorted border2 %s" % border2)
+        self._are_lists_equal(border, border2)
+
+        dims = [3, 3, 3, 3]
+        stencil_grid = StencilGrid(dims)
+        border1 = sorted(list(stencil_grid.border_points()))
+        border2 = sorted(list(boundary_points(dims)))
+        print("len border1 %d len border2 %d" % (len(border1), len(border2)))
+        print("len border1 %d len border2 %d" % (len(set(border1)), len(set(border2))))
+        print("sorted border1 %s" % border1)
+        print("sorted border2 %s" % border2)
+        self._are_lists_equal(list(set(border1)), border2)
+
+
+from itertools import product, ifilterfalse
+import pprint
+
+
+def boundary_points(dimensions):
+    dims = map(lambda x: (0, x-1), dimensions)
+    seen = set()
+    ranges = [xrange(lb, ub+1) for lb, ub in dims]
+    for i, dim in enumerate(dims):
+        for bound in dim:
+            spec = ranges[:i] + [[bound]] + ranges[i+1:]
+            for pt in ifilterfalse(seen.__contains__, product(*spec)):
+                seen.add(pt)
+                yield pt
+
