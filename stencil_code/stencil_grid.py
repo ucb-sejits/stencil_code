@@ -3,6 +3,7 @@ A two-dimension grid of numeric values, used for input and output to a stencil k
 """
 
 import numpy
+from itertools import product, ifilterfalse
 
 
 class StencilGrid(object):
@@ -151,40 +152,52 @@ class StencilGrid(object):
         import types
 
         edge_points = None
-        code = ["def edge_points(self):"]
+        code = [
+            "def edge_points(self):",
+            "    seen = set()",
+            "    rejected = 0",
+        ]
         for dimension_index in range(self.dim):
             for each_dimension in range(self.dim):
                 if each_dimension == dimension_index:
                     border_points = range(self.ghost_depth) + \
-                                range(self.shape[each_dimension]-self.ghost_depth, self.shape[each_dimension])
+                        range(self.shape[each_dimension]-self.ghost_depth, self.shape[each_dimension])
                     code.append("%sfor d%s in [%s]:" %
                                 (
                                     ' '*4*(each_dimension+1),
                                     each_dimension,
                                     ','.join(map(lambda x: "%d" % x, border_points))
                                 )
-                    )
-                elif (each_dimension - 1 + self.dim ) % self.dim == dimension_index:
-                    border_points = range(self.ghost_depth,self.shape[each_dimension]-self.ghost_depth)
+                                )
+                elif (each_dimension - 1 + self.dim) % self.dim == dimension_index:
+                    border_points = range(self.ghost_depth, self.shape[each_dimension]-self.ghost_depth)
                     code.append("%sfor d%s in [%s]:" %
                                 (
                                     ' '*4*(each_dimension+1),
                                     each_dimension,
                                     ','.join(map(lambda x: "%d" % x, border_points))
                                 )
-                    )
+                                )
                 else:
-                    border_points = range(self.shape[each_dimension])
-                    code.append("%sfor d%s in [%s]:" %
+                    code.append("%sfor d%s in range(%s):" %
                                 (
                                     ' '*4*(each_dimension+1),
                                     each_dimension,
-                                    ','.join(map(lambda x: "%d" % x, border_points))
+                                    self.shape[each_dimension]
                                 )
-                    )
-            code.append("%syield (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
-        for line in code:
-            print(line)
+                                )
+            code.append("%spoint = (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
+            code.append("%sif not seen.__contains__(point):" % (' '*4*(self.dim+1)))
+            code.append("%sseen.add(point)" % (' '*4*(self.dim+2)))
+            code.append("%syield point" % (' '*4*(self.dim+2)))
+            # uncomment out below to see how many points rejected as already seen
+            # code.append("%selse:" % (' '*4*(self.dim+1)))
+            # code.append("%srejected += 1" % (' '*4*(self.dim+2)))
+            # code.append('    print "rejected %d points" % rejected' )
+
+        # uncomment to see generated code
+        # for line in code:
+        #     print(line)
         exec('\n'.join(code))
         self.edge_points = types.MethodType(edge_points, self)
 
@@ -201,14 +214,14 @@ class StencilGrid(object):
         code = ["def corner_points(self):"]
         for each_dimension in range(self.dim):
             border_points = range(self.ghost_depth) + \
-                        range(self.shape[each_dimension]-self.ghost_depth, self.shape[each_dimension])
+                range(self.shape[each_dimension]-self.ghost_depth, self.shape[each_dimension])
             code.append("%sfor d%s in [%s]:" %
                         (
                             ' '*4*(each_dimension+1),
                             each_dimension,
                             ','.join(map(lambda x: "%d" % x, border_points))
                         )
-            )
+                        )
         code.append("%syield (%s)" % (' '*4*(self.dim+1), ",".join(map(lambda x: "d%d" % x, range(self.dim)))))
         # for line in code:
         #     print(line)
@@ -230,6 +243,29 @@ class StencilGrid(object):
         for point in self.edge_points():
             yield point
 
+    def boundary_points(self):
+        """
+        different technique using itertools to compute boundary points of a grid
+        """
+        dims = map(lambda x: (0, x-1), self.shape)
+        seen = set()
+        rejected = 0
+        ranges = [xrange(lb, ub+1) for lb, ub in dims]
+        for i, dim in enumerate(dims):
+            for bound in dim:
+                spec = ranges[:i] + [[bound]] + ranges[i+1:]
+                for pt in ifilterfalse(seen.__contains__, product(*spec)):
+                    seen.add(pt)
+                    yield pt
+                # commented out code equivalent to above but tracks dups
+                # for pt in product(*spec):
+                #     if not seen.__contains__(pt):
+                #         seen.add(pt)
+                #         yield pt
+                #     else:
+                #         rejected += 1
+        # print "boundary points rejected %d" % rejected
+
     def neighbors(self, center, neighbors_id):
         """
         Returns the list of neighbors with the given neighbors_id. By
@@ -243,7 +279,7 @@ class StencilGrid(object):
         # pprint.pprint(self.neighbor_definition)
         # return tuples for each neighbor
         for neighbor in self.neighbor_definition[neighbors_id]:
-            yield tuple(map(lambda a,b: a+b, list(center), list(neighbor)))
+            yield tuple(map(lambda a, b: a+b, list(center), list(neighbor)))
 
     def __repr__(self):
         return self.data.__repr__()
