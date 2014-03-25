@@ -236,6 +236,7 @@ class StencilGrid(object):
 
         Border points are the sequential iteration of all corner points
         followed by all edge points
+        Note: boundary points is slightly faster but
         """
 
         for point in self.corner_points():
@@ -246,7 +247,9 @@ class StencilGrid(object):
     def boundary_points(self):
         """
         different technique using itertools to compute boundary points of a grid
+        This method does not work if ghost_depth is != 1
         """
+        assert self.ghost_depth == 1, "ghost depth not 1, use border points instead"
         dims = map(lambda x: (0, x-1), self.shape)
         seen = set()
         rejected = 0

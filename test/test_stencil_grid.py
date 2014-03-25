@@ -122,7 +122,6 @@ class TestStencilGrid(unittest.TestCase):
         # print "corners %s" % sorted(list(stencil_grid.corner_points()))
         # print "edges   %s" % sorted(list(stencil_grid.edge_points()))
 
-        dims = [3, 3, 3]
         border2 = sorted(list(stencil_grid.boundary_points()))
         # print border2
 
@@ -132,8 +131,7 @@ class TestStencilGrid(unittest.TestCase):
         # print("sorted border2 %s" % border2)
         self._are_lists_equal(border, border2)
 
-        dims = [100, 99, 8, 7, 6]
-        stencil_grid = StencilGrid(dims)
+        stencil_grid = StencilGrid([100, 99, 8, 7, 6])
         border1 = sorted(list(stencil_grid.border_points()))
         border2 = sorted(list(stencil_grid.boundary_points()))
         # print("len border1 %d len border2 %d" % (len(border1), len(border2)))
