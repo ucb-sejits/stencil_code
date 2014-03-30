@@ -20,7 +20,7 @@ def unroll(for_node, factor):
                                            x).visit, new_extension)
         new_body.extend(new_extension)
 
-    leftover_For = For(Assign(SymbolRef(for_node.init.left.name),
+    leftover_For = For(Assign(for_node.init.left,
                               Constant(leftover_begin)),
                        for_node.test,
                        for_node.incr,

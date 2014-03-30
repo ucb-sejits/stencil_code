@@ -48,7 +48,7 @@ class TestUnroll(unittest.TestCase):
                                    Add(Constant(1), Constant(2)),
                                    Add(Constant(1), Constant(2))
                                ]),
-                           For(Assign(SymbolRef('x'), Constant(9)),
+                           For(Assign(SymbolRef('x', Int()), Constant(9)),
                                Lt(SymbolRef('x'), Constant(10)),
                                PostInc(SymbolRef('x')),
                                [Add(Constant(1), Constant(2))]
