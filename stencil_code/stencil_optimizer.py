@@ -5,11 +5,13 @@ from copy import deepcopy
 
 def unroll(for_node, factor):
     # Determine the leftover iterations after unrolling
+    # TODO: Requires that parent pointers have been fixed
     initial = for_node.init.right.value
     end = for_node.test.right.value
-    leftover_begin = int((end - initial + 1) / factor) * factor + initial
+    # TODO: Lt vs LtE problems
+    leftover_begin = int((end - initial + 1) / factor) * factor + initial - 1
 
-    new_end = leftover_begin - 1
+    new_end = leftover_begin
     new_incr = AddAssign(SymbolRef(for_node.incr.arg.name), factor)
     new_body = for_node.body[:]
     for x in range(1, factor):
@@ -18,17 +20,19 @@ def unroll(for_node, factor):
                                            x).visit, new_extension)
         new_body.extend(new_extension)
 
-    leftover_For = For(Assign(for_node.init.left,
+    leftover_For = For(Assign(SymbolRef(for_node.init.left.name),
                               Constant(leftover_begin)),
                        for_node.test,
                        for_node.incr,
                        for_node.body)
-    for_node.test = LtE(for_node.init.left.name, new_end)
+    # TODO: Handling LT vs LTE cases?
+    for_node.test = Lt(for_node.init.left.name, new_end)
     for_node.incr = new_incr
     for_node.body = new_body
 
-    if not leftover_begin >= end:
-        for_node.body.append(leftover_For)
+    if leftover_begin < end:
+        # TODO: Handle non for_node parents
+        for_node.parent.body.append(leftover_For)
 
 
 class FindInnerMostLoop(NodeVisitor):
