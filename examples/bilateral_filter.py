@@ -1,5 +1,5 @@
-from examples.stencil_grid.stencil_kernel import *
-from examples.stencil_grid.stencil_grid import StencilGrid
+from stencil_code.stencil_kernel import *
+from stencil_code.stencil_grid import StencilGrid
 
 import sys
 import numpy
