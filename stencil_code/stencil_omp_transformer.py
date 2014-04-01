@@ -131,38 +131,9 @@ class StencilOmpTransformer(NodeTransformer):
         elif str(node.func) == 'int':
             return Cast(Int(), self.visit(node.args[0]))
 
-    def visit_Call(self, node):
-        if isinstance(node.func, ast.Attribute):
-            zero_point = tuple([0 for _ in range(len(self.offset_list))])
-            return Constant(self.distance(zero_point, self.offset_list))
-        if node.func.id == 'distance':
-            zero_point = tuple([0 for _ in range(len(self.offset_list))])
-            return Constant(int(self.distance(zero_point, self.offset_list)))
-        elif node.func.id == 'int':
-            return Cast(Int(), self.visit(node.args[0]))
-        node.args = list(map(self.visit, node.args))
-        return node
-
     def gen_array_macro(self, arg, point):
         name = "_%s_array_macro" % arg
         return FunctionCall(SymbolRef(name), point)
-
-    def visit_AugAssign(self, node):
-        # TODO: Handle all types?
-        value = self.visit(node.value)
-        # HACK to get this to work, PyBasicConversions will skip this AugAssign
-        # node
-        # TODO: Figure out why
-        value = PyBasicConversions().visit(value)
-        if type(node.op) is ast.Add:
-            return AddAssign(self.visit(node.target), value)
-        if type(node.op) is ast.Sub:
-            return SubAssign(self.visit(node.target), value)
-
-    def visit_Assign(self, node):
-        target = PyBasicConversions().visit(self.visit(node.targets[0]))
-        value = PyBasicConversions().visit(self.visit(node.value))
-        return Assign(target, value)
 
     def visit_Name(self, node):
         if node.id in self.constants.keys():

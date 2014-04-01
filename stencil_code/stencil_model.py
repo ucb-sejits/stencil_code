@@ -20,7 +20,8 @@ class InteriorPointsLoop(StencilModelNode):
 
 
 class NeighborPointsLoop(StencilModelNode):
-    def __init__(self, neighbor_id=None, grid_name=None, neighbor_target=None, body=[]):
+    def __init__(self, neighbor_id=None, grid_name=None,
+                 neighbor_target=None, body=[]):
         self.neighbor_id = neighbor_id
         self.grid_name = grid_name
         self.neighbor_target = neighbor_target
