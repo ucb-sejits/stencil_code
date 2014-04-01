@@ -44,9 +44,8 @@ class StencilOmpTransformer(NodeTransformer):
         return "x%d" % self.next_fresh_var
 
     def visit_InteriorPointsLoop(self, node):
-        node = node.base_node
         dim = len(self.output_grid.shape)
-        self.kernel_target = node.target.id
+        self.kernel_target = node.target
         curr_node = None
         ret_node = None
         for d in range(dim):
@@ -86,15 +85,13 @@ class StencilOmpTransformer(NodeTransformer):
         return ret_node
 
     def visit_NeighborPointsLoop(self, node):
-        node = node.base_node
-        neighbors_id = node.iter.args[1].n
-        grid_name = node.iter.func.value.id
+        neighbors_id = node.neighbor_id
+        grid_name = node.grid_name
         grid = self.input_dict[grid_name]
         zero_point = tuple([0 for x in range(grid.dim)])
-        self.neighbor_target = node.target.id
+        self.neighbor_target = node.neighbor_target
         self.neighbor_grid_name = grid_name
         body = []
-        statement = node.body[0]
         for x in grid.neighbors(zero_point, neighbors_id):
             self.offset_list = list(x)
             for statement in node.body:
@@ -128,13 +125,11 @@ class StencilOmpTransformer(NodeTransformer):
         return node
 
     def visit_MathFunction(self, node):
-        node = node.base_node
         if str(node.func) == 'distance':
             zero_point = tuple([0 for _ in range(len(self.offset_list))])
             return Constant(int(self.distance(zero_point, self.offset_list)))
         elif str(node.func) == 'int':
             return Cast(Int(), self.visit(node.args[0]))
-        print(node.func)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):

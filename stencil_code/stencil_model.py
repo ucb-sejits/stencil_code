@@ -14,15 +14,23 @@ class StencilModelNode(ast.AST):
 
 
 class InteriorPointsLoop(StencilModelNode):
-    pass
+    def __init__(self, target=None, body=[]):
+        self.target = target
+        self.body = body
 
 
 class NeighborPointsLoop(StencilModelNode):
-    pass
+    def __init__(self, neighbor_id=None, grid_name=None, neighbor_target=None, body=[]):
+        self.neighbor_id = neighbor_id
+        self.grid_name = grid_name
+        self.neighbor_target = neighbor_target
+        self.body = body
 
 
 class MathFunction(StencilModelNode):
-    pass
+    def __init__(self, func=None, args=[]):
+        self.func = func
+        self.args = args
 
 
 class StencilModelDotGen(DotGenVisitor):
