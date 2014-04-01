@@ -100,9 +100,9 @@ class StencilOmpTransformer(NodeTransformer):
         return body
 
     # Handle array references
-    def visit_Subscript(self, node):
-        grid_name = node.value.name
-        target = node.slice.value
+    def visit_GridElement(self, node):
+        grid_name = node.grid_name
+        target = node.target
         if isinstance(target, SymbolRef):
             target = target.name
             if target == self.kernel_target:

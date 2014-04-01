@@ -34,6 +34,12 @@ class MathFunction(StencilModelNode):
         self.args = args
 
 
+class GridElement(StencilModelNode):
+    def __init__(self, grid_name=None, target=None):
+        self.grid_name = grid_name
+        self.target = target
+
+
 class StencilModelDotGen(DotGenVisitor):
     def label_InteriorPointsLoop(self, node):
         return r"%s" % "InteriorPointsLoop"

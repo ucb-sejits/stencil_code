@@ -27,3 +27,11 @@ class PythonToStencilModel(NodeTransformer):
         if str(node.func) == 'distance' or str(node.func) == 'int':
             return MathFunction(func=node.func, args=node.args)
         return node
+
+    def visit_Subscript(self, node):
+        value = self.visit(node.value)
+        slice = self.visit(node.slice)
+        return GridElement(
+            grid_name=value.name,
+            target=slice.value
+        )
