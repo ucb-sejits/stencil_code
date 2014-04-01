@@ -3,5 +3,11 @@ language: python
 python:
   - "2.7"
 
+install:
+  - git clone git://github.com/ucb-sejits/ctree.git ${HOME}/ctree
+  - cd ${HOME}/ctree
+  - python setup.py install
+  - cd ${TRAVIS_BUILD_DIR}
+
 script:
   - nosetests
