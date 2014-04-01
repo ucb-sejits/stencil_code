@@ -1,11 +1,11 @@
 
 import ast
 
-from ctree.visitors import NodeTransformer
+from ctree.transformations import PyBasicConversions
 from stencil_model import*
 
 
-class PythonToStencilModel(NodeTransformer):
+class PythonToStencilModel(PyBasicConversions):
     def visit_For(self, node):
         node.body = list(map(self.visit, node.body))
         if type(node.iter) is ast.Call and \
@@ -22,9 +22,10 @@ class PythonToStencilModel(NodeTransformer):
                 )
         return node
 
-    def visit_FunctionCall(self, node):
-        node.args = list(map(self.visit, node.args))
+    def visit_Call(self, node):
+        node = super(PythonToStencilModel, self).visit_Call(node)
         if str(node.func) == 'distance' or str(node.func) == 'int':
+            node.args = list(map(self.visit, node.args))
             return MathFunction(func=node.func, args=node.args)
         return node
 

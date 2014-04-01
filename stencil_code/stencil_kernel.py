@@ -65,8 +65,7 @@ class StencilConvert(LazySpecializedFunction):
         # block_factor = 2**tune_cfg['block_factor']
         unroll_factor = 2**tune_cfg['unroll_factor']
 
-        for transformer in [PyBasicConversions(),
-                            PythonToStencilModel(),
+        for transformer in [PythonToStencilModel(),
                             StencilOmpTransformer(self.input_grids,
                                                   self.output_grid,
                                                   self.kernel
