@@ -65,31 +65,32 @@ class Timer:
         self.end = time.clock()
         self.interval = self.end - self.start
 
-kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+with Timer() as t:
+    kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+print("C version time: %.03fs" % t.interval)
 
 
-class Runner(object):
-    def __call__(self, *args, **kwargs):
-        # kernel = Kernel()
-        # kernel.should_unroll = False
-        out_grid = StencilGrid([width, height])
-        out_grid.ghost_depth = radius
-        in_grid = StencilGrid([width, height])
-        in_grid.ghost_depth = radius
-        for x in range(-radius, radius+1):
-            for y in range(-radius, radius+1):
-                in_grid.neighbor_definition[1].append((x, y))
+# class Runner(object):
+#     def __call__(self, *args, **kwargs):
+#         # kernel = Kernel()
+#         # kernel.should_unroll = False
+#         out_grid = StencilGrid([width, height])
+#         out_grid.ghost_depth = radius
+#         in_grid = StencilGrid([width, height])
+#         in_grid.ghost_depth = radius
+#         for x in range(-radius, radius+1):
+#             for y in range(-radius, radius+1):
+#                 in_grid.neighbor_definition[1].append((x, y))
 
-        for x in range(0, width):
-            for y in range(0, height):
-                in_grid.data[(x, y)] = pixels[y * width + x]
-        kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+#         for x in range(0, width):
+#             for y in range(0, height):
+#                 in_grid.data[(x, y)] = pixels[y * width + x]
+#         kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
 
-import timeit
-print("Average C version time: %.03fs" % timeit.timeit(stmt=Runner(),
-      number=10))
+# import timeit
+# print("Average C version time: %.03fs" % timeit.timeit(stmt=Runner(),
+#       number=10))
 
-exit()
 numpy.set_printoptions(threshold=numpy.nan)
 
 actual_grid = StencilGrid([width, height])
@@ -102,6 +103,7 @@ print("Python version time: %.03fs" % t.interval)
 
 numpy.testing.assert_array_almost_equal(actual_grid.data,
                                         out_grid.data, decimal=5)
+exit()
 
 for x in range(0, width):
     for y in range(0,height):

@@ -27,6 +27,7 @@ from ctree.frontend import get_ast
 
 import stencil_optimizer as optimizer
 from stencil_omp_transformer import StencilOmpTransformer
+from stencil_python_frontend import PythonToStencilModel
 
 
 class StencilConvert(LazySpecializedFunction):
@@ -64,11 +65,12 @@ class StencilConvert(LazySpecializedFunction):
         # block_factor = 2**tune_cfg['block_factor']
         unroll_factor = 2**tune_cfg['unroll_factor']
 
-        for transformer in [StencilOmpTransformer(self.input_grids,
+        for transformer in [PyBasicConversions(),
+                            PythonToStencilModel(),
+                            StencilOmpTransformer(self.input_grids,
                                                   self.output_grid,
                                                   self.kernel
-                                                  ),
-                            PyBasicConversions()]:
+                                                  )]:
             tree = transformer.visit(tree)
         first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop

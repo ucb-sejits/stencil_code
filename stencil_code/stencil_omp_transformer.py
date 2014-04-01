@@ -6,6 +6,7 @@ from ctree.c.nodes import *
 from ctree.omp.nodes import *
 from ctree.visitors import NodeTransformer
 from ctree.transformations import PyBasicConversions
+from stencil_model import *
 
 
 class StencilOmpTransformer(NodeTransformer):
@@ -25,94 +26,88 @@ class StencilOmpTransformer(NodeTransformer):
         self.distance = kernel.distance
         super(StencilOmpTransformer, self).__init__()
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
         # generate the proper array macros.
         # TODO: There may be a better way to do this? i.e. done at
         # initialization.
-        for index, arg in enumerate(node.args.args[1:]):
-            # PYTHON3 vs PYTHON2
-            if hasattr(arg, 'arg'):
-                arg = arg.arg
-            else:
-                arg = arg.id
+        for index, arg in enumerate(node.params[1:]):
             if index < len(self.input_grids):
-                self.input_dict[arg] = self.input_grids[index]
+                self.input_dict[arg.name] = self.input_grids[index]
             else:
-                self.output_grid_name = arg
-        node.body = list(map(self.visit, node.body))
+                self.output_grid_name = arg.name
+        node.defn = list(map(self.visit, node.defn))
         return node
 
     def gen_fresh_var(self):
         self.next_fresh_var += 1
         return "x%d" % self.next_fresh_var
 
-    def visit_For(self, node):
-        if type(node.iter) is ast.Call and \
-           type(node.iter.func) is ast.Attribute:
-            if node.iter.func.attr is 'interior_points':
-                dim = len(self.output_grid.shape)
-                self.kernel_target = node.target.id
-                curr_node = None
-                ret_node = None
-                for d in range(dim):
-                    target = SymbolRef(self.gen_fresh_var())
-                    self.var_list.append(target.name)
-                    for_loop = For(
-                        Assign(SymbolRef(target.name, Int()),
-                               Constant(self.ghost_depth)),
-                        LtE(target,
-                            Constant(
-                                self.output_grid.shape[d] -
-                                self.ghost_depth - 1)
-                            ),
-                        PostInc(target),
-                        [])
+    def visit_InteriorPointsLoop(self, node):
+        node = node.base_node
+        dim = len(self.output_grid.shape)
+        self.kernel_target = node.target.id
+        curr_node = None
+        ret_node = None
+        for d in range(dim):
+            target = SymbolRef(self.gen_fresh_var())
+            self.var_list.append(target.name)
+            for_loop = For(
+                Assign(SymbolRef(target.name, Int()),
+                       Constant(self.ghost_depth)),
+                LtE(target,
+                    Constant(
+                        self.output_grid.shape[d] -
+                        self.ghost_depth - 1)
+                    ),
+                PostInc(target),
+                [])
 
-                    if d == 0:
-                        ret_node = for_loop
-                    else:
-                        curr_node.body = [for_loop]
-                        if d == dim - 2:
-                            curr_node.body.insert(0, OmpParallelFor())
-                        elif d == dim - 1:
-                            curr_node.body.insert(0, OmpIvDep())
-                    curr_node = for_loop
-                self.output_index = self.gen_fresh_var()
-                pt = [SymbolRef(x) for x in self.var_list]
-                macro = self.gen_array_macro(self.output_grid_name, pt)
-                curr_node.body = [Assign(SymbolRef(self.output_index, Int()),
-                                         macro)]
-                for elem in map(self.visit, node.body):
-                    if type(elem) == list:
-                        curr_node.body.extend(elem)
-                    else:
-                        curr_node.body.append(elem)
-                self.kernel_target = None
-                return ret_node
-            elif node.iter.func.attr is 'neighbors':
-                neighbors_id = node.iter.args[1].n
-                grid_name = node.iter.func.value.id
-                grid = self.input_dict[grid_name]
-                zero_point = tuple([0 for x in range(grid.dim)])
-                self.neighbor_target = node.target.id
-                self.neighbor_grid_name = grid_name
-                body = []
-                statement = node.body[0]
-                for x in grid.neighbors(zero_point, neighbors_id):
-                    self.offset_list = list(x)
-                    for statement in node.body:
-                        body.append(self.visit(deepcopy(statement)))
-                self.neighbor_target = None
-                return body
-        return node
+            if d == 0:
+                ret_node = for_loop
+            else:
+                curr_node.body = [for_loop]
+                if d == dim - 2:
+                    curr_node.body.insert(0, OmpParallelFor())
+                elif d == dim - 1:
+                    curr_node.body.insert(0, OmpIvDep())
+            curr_node = for_loop
+        self.output_index = self.gen_fresh_var()
+        pt = [SymbolRef(x) for x in self.var_list]
+        macro = self.gen_array_macro(self.output_grid_name, pt)
+        curr_node.body = [Assign(SymbolRef(self.output_index, Int()),
+                                 macro)]
+        for elem in map(self.visit, node.body):
+            if type(elem) == list:
+                curr_node.body.extend(elem)
+            else:
+                curr_node.body.append(elem)
+        self.kernel_target = None
+        return ret_node
+
+    def visit_NeighborPointsLoop(self, node):
+        node = node.base_node
+        neighbors_id = node.iter.args[1].n
+        grid_name = node.iter.func.value.id
+        grid = self.input_dict[grid_name]
+        zero_point = tuple([0 for x in range(grid.dim)])
+        self.neighbor_target = node.target.id
+        self.neighbor_grid_name = grid_name
+        body = []
+        statement = node.body[0]
+        for x in grid.neighbors(zero_point, neighbors_id):
+            self.offset_list = list(x)
+            for statement in node.body:
+                body.append(self.visit(deepcopy(statement)))
+        self.neighbor_target = None
+        return body
 
     # Handle array references
     def visit_Subscript(self, node):
-        grid_name = node.value.id
+        grid_name = node.value.name
         target = node.slice.value
-        if isinstance(target, ast.Name):
-            target = target.id
+        if isinstance(target, SymbolRef):
+            target = target.name
             if target == self.kernel_target:
                 if grid_name is self.output_grid_name:
                     return ArrayRef(SymbolRef(self.output_grid_name),
@@ -127,9 +122,19 @@ class StencilOmpTransformer(NodeTransformer):
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)
                 return ArrayRef(SymbolRef(grid_name), index)
-        elif isinstance(target, ast.Call):
+        elif isinstance(target, FunctionCall) or \
+                isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         return node
+
+    def visit_MathFunction(self, node):
+        node = node.base_node
+        if str(node.func) == 'distance':
+            zero_point = tuple([0 for _ in range(len(self.offset_list))])
+            return Constant(int(self.distance(zero_point, self.offset_list)))
+        elif str(node.func) == 'int':
+            return Cast(Int(), self.visit(node.args[0]))
+        print(node.func)
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Attribute):
