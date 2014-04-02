@@ -106,7 +106,7 @@ class StencilOclTransformer(NodeTransformer):
 
     def gen_local_macro(self):
         dim = len(self.output_grid.shape)
-        index = "get_local_id(d%d) + %d" % (dim - 1, self.ghost_depth)
+        index = "d%d + %d" % (dim - 1, self.ghost_depth)
         for d in reversed(range(dim - 1)):
             index = "(" + index + ") * (get_local_size(d%d) + %d)" % (d, 2 * self.ghost_depth)
             index += " + d%d" % d
