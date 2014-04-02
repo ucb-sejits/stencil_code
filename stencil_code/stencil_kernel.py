@@ -88,6 +88,7 @@ class StencilConvert(LazySpecializedFunction):
             self.gen_array_macro_definition(tree, entry_point.params)
         elif self.backend == StencilOclTransformer:
             kernel = OclFile("kernel", [entry_point])
+            print(kernel)
             return Project([kernel]), entry_point.get_type().as_ctype()
         print(kernel)
         # import ast
