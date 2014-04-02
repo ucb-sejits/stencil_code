@@ -1,11 +1,9 @@
-import ast
 from copy import deepcopy
 
 from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.omp.nodes import *
 from ctree.visitors import NodeTransformer
-from ctree.transformations import PyBasicConversions
 from stencil_model import *
 
 
@@ -31,7 +29,7 @@ class StencilOmpTransformer(NodeTransformer):
         # generate the proper array macros.
         # TODO: There may be a better way to do this? i.e. done at
         # initialization.
-        for index, arg in enumerate(node.params[1:]):
+        for index, arg in enumerate(node.params):
             if index < len(self.input_grids):
                 self.input_dict[arg.name] = self.input_grids[index]
             else:

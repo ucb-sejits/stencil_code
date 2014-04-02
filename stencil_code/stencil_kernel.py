@@ -19,14 +19,15 @@ is cached for future calls.
 
 import math
 
-from ctree.transformations import PyBasicConversions
 from ctree.jit import LazySpecializedFunction
+from ctree.transformations import FixUpParentPointers
 from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.frontend import get_ast
 
 import stencil_optimizer as optimizer
 from stencil_omp_transformer import StencilOmpTransformer
+from stencil_ocl_backend import StencilOclTransformer
 from stencil_python_frontend import PythonToStencilModel
 
 
@@ -35,6 +36,7 @@ class StencilConvert(LazySpecializedFunction):
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.kernel = kernel
+        self.backend = kernel.backend
         super(StencilConvert, self).__init__(get_ast(func), entry_point)
 
     def args_to_subconfig(self, args):
@@ -66,27 +68,28 @@ class StencilConvert(LazySpecializedFunction):
         unroll_factor = 2**tune_cfg['unroll_factor']
 
         for transformer in [PythonToStencilModel(),
-                            StencilOmpTransformer(self.input_grids,
-                                                  self.output_grid,
-                                                  self.kernel
-                                                  )]:
+                            FixUpParentPointers(),
+                            self.backend(self.input_grids,
+                                         self.output_grid,
+                                         self.kernel
+                                         )]:
             tree = transformer.visit(tree)
-        first_For = tree.find(For)
+        # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
         # code somewhere else?
-        inner_For = optimizer.FindInnerMostLoop().find(first_For)
+        # inner_For = optimizer.FindInnerMostLoop().find(first_For)
         # self.block(inner_For, first_For, block_factor)
         # TODO: If should unroll check
-        optimizer.unroll(inner_For, unroll_factor)
-        # remove self param
-        # TODO: Better way to do this?
-        params = tree.find(FunctionDecl, name="kernel").params
-        params.pop(0)
-        self.gen_array_macro_definition(tree, params)
+        # optimizer.unroll(inner_For, unroll_factor)
         entry_point = tree.find(FunctionDecl, name="kernel")
+        if self.backend == StencilOmpTransformer:
+            self.gen_array_macro_definition(tree, entry_point.params)
         entry_point.set_typesig(kernel_sig)
+        # import ast
+        #print(ast.dump(tree))
         return tree, entry_point.get_type().as_ctype()
 
+    # TODO: Move this to OMP Backend
     def gen_array_macro_definition(self, tree, arg_names):
         first_for = tree.find(For)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
@@ -98,7 +101,8 @@ class StencilConvert(LazySpecializedFunction):
                 dim = str(int(arg.data.strides[x]/arg.data.itemsize))
                 calc += "+((_d%s) * %s)" % (str(x), dim)
             calc += ")"
-            first_for.insert_before(Define(defname+params, calc))
+            params = ["_d"+str(x) for x in range(arg.dim)]
+            first_for.insert_before(Define(defname, params, calc))
 
 
     #def block(self, tree, factor):
@@ -106,13 +110,19 @@ class StencilConvert(LazySpecializedFunction):
 
 # may want to make this inherit from something else...
 class StencilKernel(object):
-    def __init__(self, with_cilk=False):
+    backend_dict = {"c": StencilOmpTransformer,
+                    "ocl": StencilOclTransformer,
+                    "opencl": StencilOclTransformer}
+
+    def __init__(self, backend="c"):
         # we want to raise an exception if there is no kernel()
         # method defined.
         try:
             dir(self).index("kernel")
         except ValueError:
             raise Exception("No kernel method defined.")
+
+        self.backend = self.backend_dict[backend]
 
         self.model = self.kernel
 
@@ -126,7 +136,6 @@ class StencilKernel(object):
         self.kernel = self.shadow_kernel
 
         self.specialized_sizes = None
-        self.with_cilk = with_cilk
         self.constants = {}
 
     def shadow_kernel(self, *args):

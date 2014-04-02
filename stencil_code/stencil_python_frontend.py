@@ -6,6 +6,12 @@ from stencil_model import*
 
 
 class PythonToStencilModel(PyBasicConversions):
+    # Strip self paramater from kernel
+    def visit_FunctionDef(self, node):
+        if node.name == 'kernel':
+            node.args.args = node.args.args[1:]
+        return super(PythonToStencilModel, self).visit_FunctionDef(node)
+
     def visit_For(self, node):
         node.body = list(map(self.visit, node.body))
         if type(node.iter) is ast.Call and \
