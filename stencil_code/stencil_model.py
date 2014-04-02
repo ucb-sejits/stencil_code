@@ -3,23 +3,22 @@ from ctree.dotgen import DotGenVisitor
 
 
 class StencilModelNode(ast.AST):
-    _fields = ['base_node']
-
-    def __init__(self, base_node=None):
-        self.base_node = base_node
-        super(StencilModelNode, self).__init__()
-
     def _to_dot(self):
         return StencilModelDotGen.visit(self)
 
 
 class InteriorPointsLoop(StencilModelNode):
+    _fields = ['target', 'body']
+
     def __init__(self, target=None, body=[]):
         self.target = target
         self.body = body
 
 
 class NeighborPointsLoop(StencilModelNode):
+    _fields = ['neighbor_id', 'grid_name',
+               'neighbor_target', 'body=[]']
+
     def __init__(self, neighbor_id=None, grid_name=None,
                  neighbor_target=None, body=[]):
         self.neighbor_id = neighbor_id
@@ -29,6 +28,8 @@ class NeighborPointsLoop(StencilModelNode):
 
 
 class MathFunction(StencilModelNode):
+    _fields = ['func', 'args']
+
     def __init__(self, func=None, args=[]):
         self.func = func
         self.args = args

@@ -135,9 +135,7 @@ class StencilOmpTransformer(NodeTransformer):
         name = "_%s_array_macro" % arg
         return FunctionCall(SymbolRef(name), point)
 
-    def visit_Name(self, node):
-        if node.id in self.constants.keys():
+    def visit_SymbolRef(self, node):
+        if node.name in self.constants.keys():
             return Constant(self.constants[node.id])
-        raise Exception("Undeclared name %s. \
-                Please add it to your kernel's self.constants" % node.id)
         return node
