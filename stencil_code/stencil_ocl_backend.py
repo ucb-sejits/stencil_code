@@ -55,6 +55,7 @@ class StencilOclTransformer(NodeTransformer):
             else:
                 self.output_grid_name = arg.name
         node.defn = self.visit(node.defn[0])
+        node.kernel = True
         return node
 
     def gen_fresh_var(self):

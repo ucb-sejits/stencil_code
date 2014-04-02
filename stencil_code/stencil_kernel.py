@@ -23,6 +23,7 @@ from ctree.jit import LazySpecializedFunction
 from ctree.transformations import FixUpParentPointers
 from ctree.c.types import *
 from ctree.c.nodes import *
+from ctree.ocl.nodes import *
 from ctree.frontend import get_ast
 
 import stencil_optimizer as optimizer
@@ -82,9 +83,13 @@ class StencilConvert(LazySpecializedFunction):
         # TODO: If should unroll check
         # optimizer.unroll(inner_For, unroll_factor)
         entry_point = tree.find(FunctionDecl, name="kernel")
+        entry_point.set_typesig(kernel_sig)
         if self.backend == StencilOmpTransformer:
             self.gen_array_macro_definition(tree, entry_point.params)
-        entry_point.set_typesig(kernel_sig)
+        elif self.backend == StencilOclTransformer:
+            kernel = OclFile("kernel", [entry_point])
+            return Project([kernel]), entry_point.get_type().as_ctype()
+        print(kernel)
         # import ast
         #print(ast.dump(tree))
         return tree, entry_point.get_type().as_ctype()
