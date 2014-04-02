@@ -108,8 +108,40 @@ class StencilOclTransformer(NodeTransformer):
         dim = len(self.output_grid.shape)
         index = "d%d + %d" % (dim - 1, self.ghost_depth)
         for d in reversed(range(dim - 1)):
-            index = "(" + index + ") * (get_local_size(d%d) + %d)" % (d, 2 * self.ghost_depth)
+            index = "(" + index + ") * (get_local_size(%d) + %d)" % (d, 2 * self.ghost_depth)
             index += " + d%d" % d
+        return index
+
+    def gen_global_index(self):
+        dim = len(self.output_grid.shape)
+        index = SymbolRef("id%d" % (dim - 1))
+        for d in reversed(range(dim - 1)):
+            index = Add(
+                Mul(
+                    index,
+                    Constant(self.output_grid.shape[d])
+                ),
+                SymbolRef("id%d" % d)
+            )
+        return index
+
+    def gen_block_index(self):
+        dim = len(self.output_grid.shape)
+        index = Add(
+            get_local_id(dim - 1),
+            Constant(self.ghost_depth)
+        )
+        for d in reversed(range(dim - 1)):
+            index = Add(
+                Mul(
+                    index,
+                    Add(
+                        get_local_size(d),
+                        Constant(2 * self.ghost_depth)
+                    ),
+                ),
+                Add(get_local_id(d), self.ghost_depth)
+            )
         return index
 
     def visit_InteriorPointsLoop(self, node):
@@ -117,7 +149,7 @@ class StencilOclTransformer(NodeTransformer):
         self.kernel_target = node.target
 
         global_index = [get_global_id(index) for index in range(dim)]
-        global_idx = self.global_array_macro(global_index)
+        global_idx = SymbolRef('out_index')
         self.output_index = global_idx
 
         local_index = [Add(get_local_id(index), Constant(self.ghost_depth)) for
@@ -125,6 +157,12 @@ class StencilOclTransformer(NodeTransformer):
         local_idx = self.local_array_macro(local_index)
 
         body = []
+        for d in range(dim):
+            body.append(Assign(SymbolRef('id%d' % d, UInt()), get_global_id(d)))
+        body.append(Assign(SymbolRef('out_index', UInt()),
+                    self.gen_global_index()))
+        body.append(Assign(SymbolRef('blk_index', UInt()),
+                    self.gen_block_index()))
         body.append(Define("local_array_macro", ["d%d" % i for i in range(dim)],
                     self.gen_local_macro()))
         body.append(Define("global_array_macro", ["d%d" % i for i in range(dim)],
