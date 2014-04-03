@@ -24,6 +24,7 @@ from ctree.transformations import FixUpParentPointers
 from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.ocl.nodes import *
+from ctree.templates.nodes import FileTemplate, StringTemplate
 from ctree.frontend import get_ast
 
 import stencil_optimizer as optimizer
@@ -88,9 +89,37 @@ class StencilConvert(LazySpecializedFunction):
             self.gen_array_macro_definition(tree, entry_point.params)
         elif self.backend == StencilOclTransformer:
             kernel = OclFile("kernel", [entry_point])
-            print(kernel)
-            return Project([kernel]), entry_point.get_type().as_ctype()
-        print(kernel)
+            control = CFile("control")
+            body = control.body
+            import os
+            import ctree
+            tmpl_path = os.path.join(os.getcwd(), "templates", "OclStencil.tmpl.c")
+            tmpl_args = {
+                'array_decl': StringTemplate('double* in_grid, double* out_grid'),
+                'grid_size': Constant(program_config[0][-1][0]),
+                'kernel_path': kernel.get_generated_path_ref(),
+                'kernel_name': String(entry_point.name),
+                'dim': Constant(program_config[0][-1][2]),
+                'output_ref': SymbolRef(entry_point.params[-1]),
+            }
+            body.append(FileTemplate(tmpl_path, tmpl_args))
+            tmpl_path = os.path.join(os.getcwd(), "templates", "OclLoadGrid.tmpl.c")
+            for index, param in enumerate(entry_point.params):
+                tmpl_args = {
+                    'grid_size': Constant(program_config[0][index][0]),
+                    'arg_ref': SymbolRef(param.name),
+                    'arg_index': Constant(index)
+                }
+                body.append(FileTemplate(tmpl_path, tmpl_args))
+            tmpl_path = os.path.join(os.getcwd(), "templates", "secondHalf.tmpl.c")
+            tmpl_args = {
+                'grid_size': Constant(program_config[0][-1][0]),
+                'dim': Constant(program_config[0][-1][2]),
+                'output_ref': SymbolRef(entry_point.params[-1]),
+            }
+            body.append(FileTemplate(tmpl_path, tmpl_args))
+            proj = Project([kernel, control])
+            return proj, entry_point.get_type().as_ctype()
         # import ast
         #print(ast.dump(tree))
         return tree, entry_point.get_type().as_ctype()

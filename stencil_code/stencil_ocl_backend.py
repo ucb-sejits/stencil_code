@@ -56,6 +56,8 @@ class StencilOclTransformer(NodeTransformer):
                 self.output_grid_name = arg.name
         node.defn = self.visit(node.defn[0])
         node.kernel = True
+        for param in node.params[0:-1]:
+            param.set_global()
         return node
 
     def gen_fresh_var(self):
@@ -148,7 +150,7 @@ class StencilOclTransformer(NodeTransformer):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
 
-        global_index = [get_global_id(index) for index in range(dim)]
+        global_index = [SymbolRef("id%d" % d) for d in range(dim)]
         global_idx = SymbolRef('out_index')
         self.output_index = global_idx
 
@@ -173,13 +175,12 @@ class StencilOclTransformer(NodeTransformer):
             body2 = []
             for x in range(1, self.ghost_depth + 1):
                 block_idx1 = self.local_array_macro(local_index[:d] +
-                                               [Add(get_local_id(d),
-                                                    Constant(x))] + local_index[d+1:])
+                                                    [Constant(0)] +
+                                                    local_index[d+1:])
 
                 block_idx2 = self.local_array_macro(local_index[:d] +
-                                               [Add(get_local_id(d),
-                                                    Constant(x + self.ghost_depth + 1))] +
-                                               local_index[d+1:])
+                                                    [Constant(0)] +
+                                                    local_index[d+1:])
 
                 target1 = global_index[:d] + global_index[d+1:]
                 target2 = global_index[:d] + global_index[d+1:]
