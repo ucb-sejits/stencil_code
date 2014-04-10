@@ -4,6 +4,7 @@ from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.ocl.nodes import *
 from ctree.ocl.macros import *
+from ctree.cpp.nodes import *
 from ctree.visitors import NodeTransformer
 from stencil_model import *
 from ctree.templates.nodes import StringTemplate
@@ -192,9 +193,9 @@ class StencilOclTransformer(NodeTransformer):
                     SymbolRef('global_index'))
                 )
         )
-        body.append(Define("local_array_macro", ["d%d" % i for i in range(dim)],
+        body.append(CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
                     self.gen_local_macro()))
-        body.append(Define("global_array_macro", ["d%d" % i for i in range(dim)],
+        body.append(CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
                     self.gen_global_macro()))
         for d in range(0, dim):
             body1 = []

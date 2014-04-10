@@ -13,8 +13,8 @@ int stencil($array_decl)
     const unsigned int grid_size = $grid_size;  // number of elements in array
     int err;                            // error code returned from api calls
 
-    size_t global[$dim] = {48, 48};             // global domain size for our calculation
-    size_t local[$dim] = {12, 12};                  // local domain size for our calculation
+    size_t global[$dim] = $global_size;             // global domain size for our calculation
+    size_t local[$dim] = {4, 4};                  // local domain size for our calculation
 
     cl_device_id device_id;             // compute device id
     cl_context context;                 // compute context

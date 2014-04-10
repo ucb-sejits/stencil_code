@@ -138,6 +138,7 @@ class StencilConvert(LazySpecializedFunction):
                 'kernel_path': kernel.get_generated_path_ref(),
                 'kernel_name': String(entry_point.name),
                 'num_args': Constant(len(entry_point.params) - 1),
+                'global_size': ArrayDef([dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3]]),
                 'dim': Constant(program_config[0][-1][2]),
                 'output_ref': SymbolRef(entry_point.params[-2].name),
                 'load_params': blk,
@@ -147,7 +148,7 @@ class StencilConvert(LazySpecializedFunction):
                     FunctionCall(
                         SymbolRef('clReleaseMemObject'),
                         ['device_' + param.name]
-                    ) for param in entry_point.params[:-2]
+                    ) for param in entry_point.params[:-1]
                 ]
             }
             body.append(FileTemplate(tmpl_path, tmpl_args))
