@@ -97,10 +97,7 @@ class StencilOclTransformer(NodeTransformer):
 
     def local_array_macro(self, point):
         dim = len(self.output_grid.shape)
-        index = Add(
-            get_local_id(dim),
-            Constant(self.ghost_depth)
-        )
+        index = get_local_id(dim)
         for d in reversed(range(dim)):
             index = Add(
                 Mul(
@@ -110,13 +107,13 @@ class StencilOclTransformer(NodeTransformer):
                         Constant(2 * self.ghost_depth)
                     ),
                 ),
-                Add(point[d], self.ghost_depth)
+                point[d]
             )
         return FunctionCall(SymbolRef("local_array_macro"), point)
 
     def gen_local_macro(self):
         dim = len(self.output_grid.shape)
-        index = "d%d + %d" % (dim - 1, self.ghost_depth)
+        index = "d%d" % (dim - 1)
         for d in reversed(range(dim - 1)):
             index = "(" + index + ") * (get_local_size(%d) + %d)" % (d, 2 * self.ghost_depth)
             index += " + d%d" % d
@@ -197,55 +194,35 @@ class StencilOclTransformer(NodeTransformer):
                     self.gen_local_macro()))
         body.append(CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
                     self.gen_global_macro()))
-        for d in range(0, dim):
-            body1 = []
-            body2 = []
-            for x in range(1, self.ghost_depth + 1):
-                block_idx1 = self.local_array_macro(local_index[:d] +
-                                                    [Constant(0)] +
-                                                    local_index[d+1:])
+        local_size_total = get_local_size(0)
+        curr_node = For(Assign(SymbolRef('d%d' % (dim - 1), Int()), get_local_id(dim - 1)),
+                Lt(SymbolRef('d%d' % (dim - 1)), Add(get_local_size(dim - 1), Constant(self.ghost_depth * 2))),
+                AddAssign(SymbolRef('d%d' % (dim - 1)), get_local_size(dim - 1)),
+                []
+            )
+        body.append(curr_node)
+        for d in reversed(range(0, dim - 1)):
+            curr_node.body.append(
+                For(
+                    Assign(SymbolRef('d%d' % d, Int()), get_local_id(d)),
+                    Lt(SymbolRef('d%d' % d), Add(get_local_size(d), Constant(self.ghost_depth * 2))),
+                    AddAssign(SymbolRef('d%d' %d), get_local_size(d)),
+                    []
+                )
+            )
+            curr_node = curr_node.body[0]
 
-                block_idx2 = self.local_array_macro(local_index[:d] +
-                                                    [Constant(0)] +
-                                                    local_index[d+1:])
-
-                target1 = global_index[:d] + global_index[d+1:]
-                target2 = global_index[:d] + global_index[d+1:]
-                target1.insert(d,
-                    Sub(
-                        Mul(
-                            get_local_size(d),
-                            get_group_id(d)
-                        ),
-                        Constant(x)
-                    )
+        curr_node.body.append(Assign(
+                 ArrayRef(
+                    SymbolRef('block'),
+                    self.local_array_macro([SymbolRef("d%d" % d) for d in range(0, dim)])
+                ),
+                ArrayRef(
+                    SymbolRef(self.input_names[0]),
+                    self.global_array_macro([Add(SymbolRef("d%d" % d), Mul(get_group_id(d), get_local_size(d))) for d in range(0, dim)])
                 )
-                target2.insert(d,
-                    Mul(get_local_size(d), Add(get_group_id(d), Constant(x)))
-                )
-                input_idx1 = self.global_array_macro(target1)
-                input_idx2 = self.global_array_macro(target2)
-                body1.append(
-                    Assign(
-                        ArrayRef(SymbolRef('block'), block_idx1),
-                        ArrayRef(SymbolRef(self.input_names[0]), input_idx1)
-                    )
-                )
-                body2.append(
-                    Assign(
-                        ArrayRef(SymbolRef('block'), block_idx2),
-                        ArrayRef(SymbolRef(self.input_names[0]), input_idx2)
-                    )
-                )
-            body.append(If(Eq(get_local_id(d), Constant(0)), body1))
-            body.append(If(Eq(get_local_id(d), Sub(get_local_size(d), Constant(1))), body2))
-
-            # base_corner = [Sub(Add(Mul(get_local_size(i), get_group_id(i)), getlocal_size(i)),
-            # Constant(1 - dim)) for i in range(dim)]
-            # corner1 = self.global_array_macro(base_corner)
-            # second_corner = base_corner[:d] + [Mul(get_local_size(i), get_group_id(i) for i in
-            #                                        range(d,dim)]
-            # corner2 = self.global_array_macro(second_corner)
+            )
+        )
 
         body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
@@ -291,7 +268,7 @@ class StencilOclTransformer(NodeTransformer):
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
             elif grid_name == self.neighbor_grid_name:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
+                pt = list(map(lambda x, y: Add(Add(SymbolRef(x), SymbolRef(y)), Constant(self.ghost_depth)),
                               self.var_list, self.offset_list))
                 #index = self.gen_array_macro(grid_name, pt)
                 index = self.local_array_macro(pt)
