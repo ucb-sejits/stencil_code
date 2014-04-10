@@ -1,7 +1,7 @@
     // Create the data array in device memory for our calculation
     //
-    device_data = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof($arg_ref[0]) * grid_size, NULL, NULL);
-    if (!device_data)
+    cl_mem device_$arg_ref = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof($arg_ref[0]) * grid_size, NULL, NULL);
+    if (!device_$arg_ref)
     {
         printf("Error: Failed to allocate device memory!\n");
         return err;
@@ -9,7 +9,7 @@
 
     // Write our data set into the data array in device memory
     //
-    err = clEnqueueWriteBuffer(commands, device_data, CL_TRUE, 0, sizeof($arg_ref[0]) * grid_size, $arg_ref, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, device_$arg_ref, CL_TRUE, 0, sizeof($arg_ref[0]) * grid_size, $arg_ref, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to write to source array!\n");
@@ -18,8 +18,7 @@
 
     // Set the arguments to our compute kernel
     //
-    err = 0;
-    err  = clSetKernelArg(kernel, $arg_index, sizeof(cl_mem), &device_data);
+    err  = clSetKernelArg(kernel, $arg_index, sizeof(cl_mem), &device_$arg_ref);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to set kernel arguments! %d\n", err);

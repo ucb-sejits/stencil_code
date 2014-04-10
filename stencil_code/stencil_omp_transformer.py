@@ -35,6 +35,7 @@ class StencilOmpTransformer(NodeTransformer):
             else:
                 self.output_grid_name = arg.name
         node.defn = list(map(self.visit, node.defn))
+        node.name = "stencil_kernel"
         return node
 
     def gen_fresh_var(self):

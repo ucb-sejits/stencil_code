@@ -13,16 +13,14 @@ int stencil($array_decl)
     const unsigned int grid_size = $grid_size;  // number of elements in array
     int err;                            // error code returned from api calls
 
-    size_t global = $grid_size;             // global domain size for our calculation
-    size_t local = 32;                  // local domain size for our calculation
+    size_t global[$dim] = {48, 48};             // global domain size for our calculation
+    size_t local[$dim] = {12, 12};                  // local domain size for our calculation
 
     cl_device_id device_id;             // compute device id
     cl_context context;                 // compute context
     cl_command_queue commands;          // compute command queue
     cl_program program;                 // compute program
     cl_kernel kernel;                   // compute kernel
-
-    cl_mem device_data;                       // device memory used for the data array
 
     // Connect to a compute device
     //
@@ -114,30 +112,63 @@ int stencil($array_decl)
         return err;
     }
 
-    // // Create the data array in device memory for our calculation
-    // //
-    // device_data = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof($array_ref[0]) * grid_size, NULL, NULL);
-    // if (!device_data)
-    // {
-    //     printf("Error: Failed to allocate device memory!\n");
-    //     return err;
-    // }
+    $load_params
+    err = clSetKernelArg(kernel, $num_args, sizeof(float) * (local[0] + 2) * (local[1] + 2), NULL);
+    if (err != CL_SUCCESS)
+    {
+        printf("Error: Failed to create local memory!\n");
+        return err;
+    }
 
-    // // Write our data set into the data array in device memory
-    // //
-    // err = clEnqueueWriteBuffer(commands, device_data, CL_TRUE, 0, sizeof($array_ref[0]) * grid_size, $array_ref, 0, NULL, NULL);
-    // if (err != CL_SUCCESS)
-    // {
-    //     printf("Error: Failed to write to source array!\n");
-    //     return err;
-    // }
-
-    // // Set the arguments to our compute kernel
-    // //
+    // Allocate local memory
     // err = 0;
-    // err  = clSetKernelArg(kernel, 0, sizeof(cl_mem), &device_data);
+    // err  = clSetKernelArg(kernel, $local_mem_index, sizeof(char) * $local_mem_size, NULL);
     // if (err != CL_SUCCESS)
     // {
     //     printf("Error: Failed to set kernel arguments! %d\n", err);
     //     return err;
     // }
+
+    // Get the maximum work group size for executing the kernel on the device
+    //
+    // err = clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
+    // if (err != CL_SUCCESS)
+    // {
+    //     printf("Error: Failed to retrieve kernel work group info! %d\n", err);
+    //     return err;
+    // }
+
+    // Execute the kernel over the entire range of our 1d input data set
+    // using the maximum number of work group items for this device
+    //
+    err = clEnqueueNDRangeKernel(commands, kernel, $dim, 0, global, local, 0, NULL, NULL);
+    if (err)
+    {
+        printf("Error: Failed to execute kernel!\n");
+        printf("Error: %d\n", err);
+        return err;
+    }
+
+    // Wait for the command commands to get serviced before reading back results
+    //
+    clFinish(commands);
+
+    // Read back the results from the device to verify the output
+    //
+    err = clEnqueueReadBuffer( commands, device_$output_ref, CL_TRUE, 0, sizeof($output_ref[0]) * $grid_size, $output_ref, 0, NULL, NULL );
+    if (err != CL_SUCCESS)
+    {
+        printf("Error: Failed to read data array! %d\n", err);
+        return err;
+    }
+
+    // Shutdown and cleanup
+    //
+    $release_params
+    clReleaseProgram(program);
+    clReleaseKernel(kernel);
+    clReleaseCommandQueue(commands);
+    clReleaseContext(context);
+
+    return 0;
+}

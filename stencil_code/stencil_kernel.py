@@ -23,6 +23,7 @@ from ctree.jit import LazySpecializedFunction
 from ctree.transformations import FixUpParentPointers
 from ctree.c.types import *
 from ctree.c.nodes import *
+from ctree.c.macros import *
 from ctree.ocl.nodes import *
 from ctree.templates.nodes import FileTemplate, StringTemplate
 from ctree.frontend import get_ast
@@ -33,12 +34,20 @@ from stencil_ocl_backend import StencilOclTransformer
 from stencil_python_frontend import PythonToStencilModel
 
 
+import logging
+
+logging.basicConfig(level=20)
+
 class StencilConvert(LazySpecializedFunction):
-    def __init__(self, func, entry_point, input_grids, output_grid, kernel):
+    def __init__(self, func, input_grids, output_grid, kernel):
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.kernel = kernel
         self.backend = kernel.backend
+        if self.backend == StencilOmpTransformer:
+            entry_point = "stencil_kernel"
+        elif self.backend == StencilOclTransformer:
+            entry_point = "stencil"
         super(StencilConvert, self).__init__(get_ast(func), entry_point)
 
     def args_to_subconfig(self, args):
@@ -63,6 +72,7 @@ class StencilConvert(LazySpecializedFunction):
         param_types = []
         for arg in program_config[0]:
             param_types.append(NdPointer(arg[1], arg[2], arg[3]))
+        param_types.append(param_types[0])
         kernel_sig = FuncType(Void(), param_types)
 
         tune_cfg = program_config[1]
@@ -83,43 +93,69 @@ class StencilConvert(LazySpecializedFunction):
         # self.block(inner_For, first_For, block_factor)
         # TODO: If should unroll check
         # optimizer.unroll(inner_For, unroll_factor)
-        entry_point = tree.find(FunctionDecl, name="kernel")
+        entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         entry_point.set_typesig(kernel_sig)
         if self.backend == StencilOmpTransformer:
             self.gen_array_macro_definition(tree, entry_point.params)
+        # TODO: This logic should be provided by the backends
         elif self.backend == StencilOclTransformer:
+            entry_point.set_kernel()
+            # ext = StringTemplate("#pragma OPENCL EXTENSION cl_khr_fp64 : enable \n")
+            # entry_point.defn.insert(0, printf("in_grid[0] - %f\\n",
+            #                         ArrayRef(SymbolRef('in_grid'),
+            #                         Constant(0))))
+            # entry_point.defn.append(printf("out_grid[1] - %f\\n",
+            #                         ArrayRef(SymbolRef('out_grid'),
+            #                         Constant(1))))
+            # entry_point.defn.insert(0, printf("global_id(1) - %d\\n",
+            #                         FunctionCall(SymbolRef('get_global_id'),
+            #                                      [Constant(1)])))
+            # entry_point.defn.insert(0, printf("global_id(0) - %d\\n",
+            #                         FunctionCall(SymbolRef('get_global_id'),
+            #                                      [Constant(0)])))
             kernel = OclFile("kernel", [entry_point])
             control = CFile("control")
             body = control.body
             import os
-            import ctree
-            tmpl_path = os.path.join(os.getcwd(), "templates", "OclStencil.tmpl.c")
-            tmpl_args = {
-                'array_decl': StringTemplate('double* in_grid, double* out_grid'),
-                'grid_size': Constant(program_config[0][-1][0]),
-                'kernel_path': kernel.get_generated_path_ref(),
-                'kernel_name': String(entry_point.name),
-                'dim': Constant(program_config[0][-1][2]),
-                'output_ref': SymbolRef(entry_point.params[-1]),
-            }
-            body.append(FileTemplate(tmpl_path, tmpl_args))
-            tmpl_path = os.path.join(os.getcwd(), "templates", "OclLoadGrid.tmpl.c")
-            for index, param in enumerate(entry_point.params):
+            blk = []
+            tmpl_path = os.path.join(os.getcwd(), "templates",
+                                     "OclLoadGrid.tmpl.c")
+            for index, param in enumerate(entry_point.params[:-1]):
                 tmpl_args = {
-                    'grid_size': Constant(program_config[0][index][0]),
+                    'grid_size': Constant(program_config[0][index][0] **
+                                          program_config[0][index][2]),
                     'arg_ref': SymbolRef(param.name),
                     'arg_index': Constant(index)
                 }
-                body.append(FileTemplate(tmpl_path, tmpl_args))
-            tmpl_path = os.path.join(os.getcwd(), "templates", "secondHalf.tmpl.c")
+                blk.append(FileTemplate(tmpl_path, tmpl_args))
+            tmpl_path = os.path.join(os.getcwd(), "templates",
+                                     "OclStencil.tmpl.c")
             tmpl_args = {
-                'grid_size': Constant(program_config[0][-1][0]),
+                'array_decl': StringTemplate(
+                    'float* in_grid, float* out_grid'
+                ),
+                'grid_size': Constant(program_config[0][-1][0] ** program_config[0][-1][2]),
+                'kernel_path': kernel.get_generated_path_ref(),
+                'kernel_name': String(entry_point.name),
+                'num_args': Constant(len(entry_point.params) - 1),
                 'dim': Constant(program_config[0][-1][2]),
-                'output_ref': SymbolRef(entry_point.params[-1]),
+                'output_ref': SymbolRef(entry_point.params[-2].name),
+                'load_params': blk,
+                # 'local_mem_index': Constant(len(entry_point.params)),
+                # 'local_mem_size': Mul(Add(Constant(4)))
+                'release_params': [
+                    FunctionCall(
+                        SymbolRef('clReleaseMemObject'),
+                        ['device_' + param.name]
+                    ) for param in entry_point.params[:-2]
+                ]
             }
             body.append(FileTemplate(tmpl_path, tmpl_args))
             proj = Project([kernel, control])
-            return proj, entry_point.get_type().as_ctype()
+            # from ctree.dotgen import to_dot
+            # ctree.browser_show_ast(proj, 'graph.png')
+            return proj, FuncType(Int(), param_types[:-1]).as_ctype()
+
         # import ast
         #print(ast.dump(tree))
         return tree, entry_point.get_type().as_ctype()
@@ -128,7 +164,7 @@ class StencilConvert(LazySpecializedFunction):
     def gen_array_macro_definition(self, tree, arg_names):
         first_for = tree.find(For)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
-            defname = "_%s_array_macro" % arg_names[index]
+            defname = "_%s_array_macro" % arg_names[index].name
             params = ','.join(["_d"+str(x) for x in range(arg.dim)])
             params = "(%s)" % params
             calc = "((_d%d)" % (arg.dim - 1)
@@ -180,7 +216,7 @@ class StencilKernel(object):
         if not self.specialized_sizes or\
                 self.specialized_sizes != [y.shape for y in args]:
             self.specialized = StencilConvert(
-                self.model, "kernel", args[0:-1], args[-1], self)
+                self.model, args[0:-1], args[-1], self)
             self.specialized_sizes = [arg.shape for arg in args]
 
         with Timer() as t:

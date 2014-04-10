@@ -10,7 +10,7 @@ class StencilGrid(object):
 
     def __init__(self, size):
         self.dim = len(size)
-        self.data = numpy.zeros(size)
+        self.data = numpy.zeros(size, dtype=numpy.float32)
         self.shape = size
         self.ghost_depth = 1
         self.grid_variables = []

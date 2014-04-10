@@ -2,6 +2,7 @@ import ctree
 import math
 from stencil_code.stencil_kernel import StencilKernel
 from stencil_code.stencil_grid import StencilGrid
+import numpy as np
 
 width = 50
 height = 50
@@ -25,6 +26,9 @@ in_grid.ghost_depth = radius
 
 for x in range(0, width):
     for y in range(0, width):
-        in_grid.data[(x, y)] = 1
+        in_grid.data[(x, y)] = 1.0
 
 Kernel(backend='ocl').kernel(in_grid, out_grid)
+
+print(in_grid)
+print(out_grid)
