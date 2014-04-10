@@ -130,20 +130,20 @@ class StencilConvert(LazySpecializedFunction):
                 blk.append(FileTemplate(tmpl_path, tmpl_args))
             tmpl_path = os.path.join(os.getcwd(), "templates",
                                      "OclStencil.tmpl.c")
+            decl = ""
+            for param in entry_point.params[:-1]:
+                decl += str(SymbolRef(param.name, param.type)) + ", "
             tmpl_args = {
-                'array_decl': StringTemplate(
-                    'float* in_grid, float* out_grid'
-                ),
+                'array_decl': StringTemplate(decl[:-2]),
                 'grid_size': Constant(program_config[0][-1][0] ** program_config[0][-1][2]),
                 'kernel_path': kernel.get_generated_path_ref(),
                 'kernel_name': String(entry_point.name),
                 'num_args': Constant(len(entry_point.params) - 1),
                 'global_size': ArrayDef([dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3]]),
+                'local_size': ArrayDef([4 for dim in program_config[0][0][3]]),
                 'dim': Constant(program_config[0][-1][2]),
                 'output_ref': SymbolRef(entry_point.params[-2].name),
                 'load_params': blk,
-                # 'local_mem_index': Constant(len(entry_point.params)),
-                # 'local_mem_size': Mul(Add(Constant(4)))
                 'release_params': [
                     FunctionCall(
                         SymbolRef('clReleaseMemObject'),

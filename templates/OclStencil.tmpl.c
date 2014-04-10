@@ -14,7 +14,7 @@ int stencil($array_decl)
     int err;                            // error code returned from api calls
 
     size_t global[$dim] = $global_size;             // global domain size for our calculation
-    size_t local[$dim] = {4, 4};                  // local domain size for our calculation
+    size_t local[$dim] = $local_size;                  // local domain size for our calculation
 
     cl_device_id device_id;             // compute device id
     cl_context context;                 // compute context
