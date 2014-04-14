@@ -24,6 +24,7 @@ from ctree.transformations import FixUpParentPointers
 from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.c.macros import *
+from ctree.cpp.nodes import *
 from ctree.ocl.nodes import *
 from ctree.templates.nodes import FileTemplate, StringTemplate
 from ctree.frontend import get_ast
@@ -36,7 +37,7 @@ from stencil_python_frontend import PythonToStencilModel
 
 import logging
 
-logging.basicConfig(level=20)
+# logging.basicConfig(level=20)
 
 class StencilConvert(LazySpecializedFunction):
     def __init__(self, func, input_grids, output_grid, kernel):
@@ -95,26 +96,11 @@ class StencilConvert(LazySpecializedFunction):
         # optimizer.unroll(inner_For, unroll_factor)
         entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         entry_point.set_typesig(kernel_sig)
-        if self.backend == StencilOmpTransformer:
-            self.gen_array_macro_definition(tree, entry_point.params)
         # TODO: This logic should be provided by the backends
-        elif self.backend == StencilOclTransformer:
+        if self.backend == StencilOclTransformer:
             entry_point.set_kernel()
-            # ext = StringTemplate("#pragma OPENCL EXTENSION cl_khr_fp64 : enable \n")
-            # entry_point.defn.insert(0, printf("in_grid[0] - %f\\n",
-            #                         ArrayRef(SymbolRef('in_grid'),
-            #                         Constant(0))))
-            # entry_point.defn.append(printf("out_grid[1] - %f\\n",
-            #                         ArrayRef(SymbolRef('out_grid'),
-            #                         Constant(1))))
-            # entry_point.defn.insert(0, printf("global_id(1) - %d\\n",
-            #                         FunctionCall(SymbolRef('get_global_id'),
-            #                                      [Constant(1)])))
-            # entry_point.defn.insert(0, printf("global_id(0) - %d\\n",
-            #                         FunctionCall(SymbolRef('get_global_id'),
-            #                                      [Constant(0)])))
             kernel = OclFile("kernel", [entry_point])
-            control = CFile("control")
+            control = CFile("control", config_target='opencl')
             body = control.body
             import os
             blk = []
@@ -140,7 +126,7 @@ class StencilConvert(LazySpecializedFunction):
                 'kernel_name': String(entry_point.name),
                 'num_args': Constant(len(entry_point.params) - 1),
                 'global_size': ArrayDef([dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3]]),
-                'local_size': ArrayDef([4 for dim in program_config[0][0][3]]),
+                'local_size': ArrayDef([16 for dim in program_config[0][0][3]]),
                 'dim': Constant(program_config[0][-1][2]),
                 'output_ref': SymbolRef(entry_point.params[-2].name),
                 'load_params': blk,
@@ -159,23 +145,9 @@ class StencilConvert(LazySpecializedFunction):
 
         # import ast
         #print(ast.dump(tree))
+        # TODO: This should be done in the visitors
+        tree.files[0].config_target = 'omp'
         return tree, entry_point.get_type().as_ctype()
-
-    # TODO: Move this to OMP Backend
-    def gen_array_macro_definition(self, tree, arg_names):
-        first_for = tree.find(For)
-        for index, arg in enumerate(self.input_grids + (self.output_grid,)):
-            defname = "_%s_array_macro" % arg_names[index].name
-            params = ','.join(["_d"+str(x) for x in range(arg.dim)])
-            params = "(%s)" % params
-            calc = "((_d%d)" % (arg.dim - 1)
-            for x in range(arg.dim - 1):
-                dim = str(int(arg.data.strides[x]/arg.data.itemsize))
-                calc += "+((_d%s) * %s)" % (str(x), dim)
-            calc += ")"
-            params = ["_d"+str(x) for x in range(arg.dim)]
-            first_for.insert_before(Define(defname, params, calc))
-
 
     #def block(self, tree, factor):
 
@@ -183,10 +155,11 @@ class StencilConvert(LazySpecializedFunction):
 # may want to make this inherit from something else...
 class StencilKernel(object):
     backend_dict = {"c": StencilOmpTransformer,
+                    "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
                     "opencl": StencilOclTransformer}
 
-    def __init__(self, backend="c"):
+    def __init__(self, backend="c", pure_python=False):
         # we want to raise an exception if there is no kernel()
         # method defined.
         try:
@@ -198,7 +171,7 @@ class StencilKernel(object):
 
         self.model = self.kernel
 
-        self.pure_python = False
+        self.pure_python = pure_python
         self.pure_python_kernel = self.kernel
         self.should_unroll = True
         self.should_cacheblock = False

@@ -5,11 +5,31 @@ from ctree.c.nodes import *
 from ctree.omp.nodes import *
 from ctree.visitors import NodeTransformer
 from stencil_model import *
+from ctree.cpp.nodes import CppDefine
+from stencil_grid import *
 
 
 class StencilOmpTransformer(NodeTransformer):
-    def __init__(self, input_grids, output_grid, kernel):
+    def __init__(self, input_grids=None, output_grid=None, kernel=None):
         # TODO: Give these wrapper classes?
+        if not input_grids and not output_grid and not kernel:
+            width = 50
+            radius = 1
+            output_grid = StencilGrid([width, width])
+            output_grid.ghost_depth = radius
+            in_grid = StencilGrid([width, width])
+            in_grid.ghost_depth = radius
+
+            for x in range(0, width):
+                for y in range(0, width):
+                    in_grid.data[(x, y)] = 1.0
+
+            for x in range(-radius, radius+1):
+                for y in range(-radius, radius+1):
+                    in_grid.neighbor_definition[1].append((x, y))
+
+            input_grids = [in_grid]
+            kernel = {'constants': None, 'distance': None}
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.ghost_depth = output_grid.ghost_depth
@@ -36,6 +56,17 @@ class StencilOmpTransformer(NodeTransformer):
                 self.output_grid_name = arg.name
         node.defn = list(map(self.visit, node.defn))
         node.name = "stencil_kernel"
+        for index, arg in enumerate(self.input_grids + (self.output_grid,)):
+            defname = "_%s_array_macro" % node.params[index].name
+            params = ','.join(["_d"+str(x) for x in range(arg.dim)])
+            params = "(%s)" % params
+            calc = "((_d%d)" % (arg.dim - 1)
+            for x in range(arg.dim - 1):
+                dim = str(int(arg.data.strides[x]/arg.data.itemsize))
+                calc += "+((_d%s) * %s)" % (str(x), dim)
+            calc += ")"
+            params = ["_d"+str(x) for x in range(arg.dim)]
+            node.defn.insert(0, CppDefine(defname, params, calc))
         return node
 
     def gen_fresh_var(self):
