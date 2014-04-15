@@ -62,8 +62,8 @@ class TestOmpBackend(unittest.TestCase):
         beta = 1.0
 
         class LaplacianKernel(StencilKernel):
-            def __init__(self, backend='c'):
-                super(LaplacianKernel, self).__init__(backend=backend)
+            def __init__(self, backend='c', pure_python=False):
+                super(LaplacianKernel, self).__init__(backend=backend, pure_python=pure_python)
                 self.constants = {'alpha': 0.5, 'beta': 1.0}
 
             def kernel(self, in_grid, out_grid):

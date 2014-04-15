@@ -2,6 +2,7 @@ from stencil_code.stencil_kernel import StencilKernel
 from stencil_code.stencil_grid import StencilGrid
 import numpy as np
 import unittest
+import random
 
 height = 50
 stdev_d = 3
@@ -21,7 +22,7 @@ class TestOclBackend(unittest.TestCase):
 
         for x in range(0, width):
             for y in range(0, width):
-                in_grid.data[(x, y)] = 1.0
+                in_grid.data[(x, y)] = random.random() * random.randint(0, 1000)
 
         for x in range(-radius, radius+1):
             for y in range(-radius, radius+1):
