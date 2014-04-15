@@ -2,6 +2,7 @@ from stencil_code.stencil_kernel import StencilKernel
 from stencil_code.stencil_grid import StencilGrid
 import numpy as np
 import unittest
+import random
 
 height = 50
 stdev_d = 3
@@ -21,7 +22,7 @@ class TestOmpBackend(unittest.TestCase):
 
         for x in range(0, width):
             for y in range(0, width):
-                in_grid.data[(x, y)] = 1.0
+                in_grid.data[(x, y)] = random.random() * random.randint(0, 1000)
 
         for x in range(-radius, radius+1):
             for y in range(-radius, radius+1):
@@ -55,3 +56,19 @@ class TestOmpBackend(unittest.TestCase):
                     for z in in_img.neighbors(x, 1):
                         out_img[x] -= 0.125 * 2.0 * in_img[z]
          self._check(Kernel)
+
+    def test_laplacian(self):
+        alpha = 0.5
+        beta = 1.0
+
+        class LaplacianKernel(StencilKernel):
+            def __init__(self, backend='c'):
+                super(LaplacianKernel, self).__init__(backend=backend)
+                self.constants = {'alpha': 0.5, 'beta': 1.0}
+
+            def kernel(self, in_grid, out_grid):
+                for x in in_grid.interior_points():
+                    out_grid[x] = alpha * in_grid[x]
+                    for y in in_grid.neighbors(x, 1):
+                        out_grid[x] += beta * in_grid[y]
+        self._check(LaplacianKernel)
