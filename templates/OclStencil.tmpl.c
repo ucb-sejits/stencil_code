@@ -6,10 +6,10 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef __APPLE__
-#include <OpenCL/cl_platform.h>
+#ifdef APPLE
+#include <OpenCL/opencl.h>
 #else
-#include <CL/cl_platform.h>
+#include <CL/cl.h>
 #endif
 
 int stencil($array_decl)
