@@ -10,7 +10,7 @@ radius = 1
 width = 2*8 + radius * 2
 
 
-class TestOclBackend(unittest.TestCase):
+class TestOmpBackend(unittest.TestCase):
     def setUp(self):
         out_grid1 = StencilGrid([width, width])
         out_grid1.ghost_depth = radius
