@@ -6,7 +6,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <OpenCL/opencl.h>
+#ifdef __APPLE__
+#include <OpenCL/cl_platform.h>
+#else
+#include <CL/cl_platform.h>
+#endif
 
 int stencil($array_decl)
 {
