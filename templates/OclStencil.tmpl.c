@@ -28,7 +28,7 @@ int stencil($array_decl)
 
     // Connect to a compute device
     //
-    int gpu = 1;
+    int gpu = $use_gpu;
     err = clGetDeviceIDs(NULL, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
     if (err != CL_SUCCESS)
     {

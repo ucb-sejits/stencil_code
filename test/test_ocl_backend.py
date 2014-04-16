@@ -31,7 +31,7 @@ class TestOclBackend(unittest.TestCase):
 
     def _check(self, test_kernel):
         in_grid, out_grid1, out_grid2 = self.grids
-        test_kernel(backend='ocl').kernel(in_grid, out_grid1)
+        test_kernel(backend='ocl', testing=True).kernel(in_grid, out_grid1)
         test_kernel(pure_python=True).kernel(in_grid, out_grid2)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)

@@ -195,8 +195,14 @@ class StencilOclTransformer(NodeTransformer):
         body.append(CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
                     self.gen_global_macro()))
         local_size_total = get_local_size(0)
-        curr_node = For(Assign(SymbolRef('d%d' % (dim - 1), Int()), get_local_id(dim - 1)),
-                Lt(SymbolRef('d%d' % (dim - 1)), Add(get_local_size(dim - 1), Constant(self.ghost_depth * 2))),
+        curr_node = For(Assign(SymbolRef('d%d' % (dim - 1), Int()),
+                               get_local_id(dim - 1)),
+                Lt(
+                    SymbolRef('d%d' % (dim - 1)),
+                    Add(get_local_size(dim - 1),
+                        Constant(self.ghost_depth * 2)
+                    )
+                ),
                 AddAssign(SymbolRef('d%d' % (dim - 1)), get_local_size(dim - 1)),
                 []
             )
@@ -205,7 +211,12 @@ class StencilOclTransformer(NodeTransformer):
             curr_node.body.append(
                 For(
                     Assign(SymbolRef('d%d' % d, Int()), get_local_id(d)),
-                    Lt(SymbolRef('d%d' % d), Add(get_local_size(d), Constant(self.ghost_depth * 2))),
+                    Lt(
+                        SymbolRef('d%d' % d),
+                        Add(
+                            get_local_size(d), Constant(self.ghost_depth * 2)
+                        )
+                    ),
                     AddAssign(SymbolRef('d%d' %d), get_local_size(d)),
                     []
                 )
@@ -215,11 +226,21 @@ class StencilOclTransformer(NodeTransformer):
         curr_node.body.append(Assign(
                  ArrayRef(
                     SymbolRef('block'),
-                    self.local_array_macro([SymbolRef("d%d" % d) for d in range(0, dim)])
+                    self.local_array_macro(
+                        [SymbolRef("d%d" % d) for d in range(0, dim)]
+                    )
                 ),
                 ArrayRef(
                     SymbolRef(self.input_names[0]),
-                    self.global_array_macro([Add(SymbolRef("d%d" % d), Mul(get_group_id(d), get_local_size(d))) for d in range(0, dim)])
+                    self.global_array_macro(
+                        [Sub(
+                            Add(
+                                SymbolRef("d%d" % d),
+                                Mul(get_group_id(d), get_local_size(d))
+                            ),
+                            Constant(self.ghost_depth)
+                        ) for d in range(0, dim)]
+                    )
                 )
             )
         )

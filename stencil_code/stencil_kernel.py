@@ -120,13 +120,14 @@ class StencilConvert(LazySpecializedFunction):
             for param in entry_point.params[:-1]:
                 decl += str(SymbolRef(param.name, param.type)) + ", "
             tmpl_args = {
+                'use_gpu': Constant(1) if not self.kernel.testing else Constant(0),
                 'array_decl': StringTemplate(decl[:-2]),
                 'grid_size': Constant(program_config[0][-1][0] ** program_config[0][-1][2]),
                 'kernel_path': kernel.get_generated_path_ref(),
                 'kernel_name': String(entry_point.name),
                 'num_args': Constant(len(entry_point.params) - 1),
                 'global_size': ArrayDef([dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3]]),
-                'local_size': ArrayDef([16 for dim in program_config[0][0][3]]),
+                'local_size': ArrayDef([2 for dim in program_config[0][0][3]]),
                 'dim': Constant(program_config[0][-1][2]),
                 'output_ref': SymbolRef(entry_point.params[-2].name),
                 'load_params': blk,
@@ -159,7 +160,7 @@ class StencilKernel(object):
                     "ocl": StencilOclTransformer,
                     "opencl": StencilOclTransformer}
 
-    def __init__(self, backend="c", pure_python=False):
+    def __init__(self, backend="c", pure_python=False, testing=False):
         # we want to raise an exception if there is no kernel()
         # method defined.
         try:
@@ -168,6 +169,7 @@ class StencilKernel(object):
             raise Exception("No kernel method defined.")
 
         self.backend = self.backend_dict[backend]
+        self.testing = testing
 
         self.model = self.kernel
 
