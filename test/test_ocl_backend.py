@@ -34,7 +34,9 @@ class TestOclBackend(unittest.TestCase):
         test_kernel(backend='ocl', testing=True).kernel(in_grid, out_grid1)
         test_kernel(pure_python=True).kernel(in_grid, out_grid2)
         try:
-            np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
+            np.testing.assert_array_almost_equal(out_grid1.data,
+                                                 out_grid2.data,
+                                                 decimal=3)
         except AssertionError as e:
             self.fail("Output grids not equal: %s" % e.message)
 
