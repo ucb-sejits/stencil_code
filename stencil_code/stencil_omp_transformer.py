@@ -156,7 +156,7 @@ class StencilOmpTransformer(NodeTransformer):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        return node
+        raise Exception("Found GridElement that is not supported")
 
     def visit_MathFunction(self, node):
         if str(node.func) == 'distance':
