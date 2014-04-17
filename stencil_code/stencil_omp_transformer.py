@@ -4,6 +4,7 @@ from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.omp.nodes import *
 from ctree.visitors import NodeTransformer
+from ctree.templates.nodes import StringTemplate
 from stencil_model import *
 from ctree.cpp.nodes import CppDefine
 from stencil_grid import *
@@ -67,7 +68,10 @@ class StencilOmpTransformer(NodeTransformer):
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.dim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
-        return node
+        abs_decl = FunctionDecl(
+            Int(), SymbolRef('abs'), [SymbolRef('n', Int())]
+        )
+        return [abs_decl, node]
 
     def gen_fresh_var(self):
         self.next_fresh_var += 1

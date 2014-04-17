@@ -37,7 +37,7 @@ from stencil_python_frontend import PythonToStencilModel
 
 import logging
 
-logging.basicConfig(level=20)
+# logging.basicConfig(level=20)
 
 class StencilConvert(LazySpecializedFunction):
     def __init__(self, func, input_grids, output_grid, kernel):
