@@ -68,8 +68,7 @@ int stencil($array_decl)
 
     // Allocate memory to hold kernel
     //
-    char *KernelSource = malloc(kernelFileSize*sizeof(char));
-    memset(KernelSource, 0, kernelFileSize);
+    char *KernelSource = (char *)calloc(sizeof(char), kernelFileSize);
     if (KernelSource == NULL) {
         printf("Error: failed to allocate memory to hold kernel text.\n");
         return err;
