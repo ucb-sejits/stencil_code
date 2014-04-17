@@ -125,3 +125,38 @@ class TestOmpBackend(unittest.TestCase):
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
         except:
             self.fail("Output grids not equal")
+
+    def test_laplacian_kernel(self):
+        alpha = 0.5
+        beta = 1.0
+
+        class LaplacianKernel(StencilKernel):
+            def __init__(self, alpha, beta, pure_python=False):
+                super(LaplacianKernel, self).__init__(pure_python=pure_python)
+                self.constants = {'alpha': alpha, 'beta': beta}
+
+            def kernel(self, in_grid, out_grid):
+                for x in in_grid.interior_points():
+                    out_grid[x] = alpha * in_grid[x]
+                    for y in in_grid.neighbors(x, 1):
+                        out_grid[x] += beta * in_grid[y]
+
+        nx = 50
+        ny = 50
+        nz = 50
+        input_grid = StencilGrid([nx, ny, nz])
+        output_grid1 = StencilGrid([nx, ny, nz])
+        output_grid2 = StencilGrid([nx, ny, nz])
+
+        for x in input_grid.interior_points():
+            input_grid[x] = random.randint(0, nx * ny * nz)
+
+        laplacian = LaplacianKernel(alpha, beta)
+        laplacian.kernel(input_grid, output_grid1)
+        LaplacianKernel(alpha, beta, pure_python=True).kernel(input_grid,
+                                                              output_grid2)
+        try:
+            np.testing.assert_array_almost_equal(output_grid1.data,
+                                                 output_grid2.data)
+        except:
+            self.fail("Output grids not equal")

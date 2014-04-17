@@ -48,12 +48,11 @@ class TestOclBackend(unittest.TestCase):
                         out_grid[x] += in_grid[y]
         self._check(Kernel)
 
-    @unittest.skip("Not yet supported")
     def test_2d_heat(self):
         class Kernel(StencilKernel):
             def kernel(self, in_img, out_img):
                 for x in out_img.interior_points():
-                    out_img[x] = in_img[x]
+                    # out_img[x] = in_img[x]
                     for y in in_img.neighbors(x, 0):
                         out_img[x] += 0.125 * in_img[y]
                     for z in in_img.neighbors(x, 1):
