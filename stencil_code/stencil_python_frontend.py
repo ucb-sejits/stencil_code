@@ -26,7 +26,7 @@ class PythonToStencilModel(PyBasicConversions):
                     neighbor_target=node.target.id,
                     body=node.body
                 )
-        return node
+        return super(PythonToStencilModel, self).visit_For(node)
 
     def visit_Call(self, node):
         node = super(PythonToStencilModel, self).visit_Call(node)
