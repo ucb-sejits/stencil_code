@@ -26,11 +26,34 @@ int stencil($array_decl)
     cl_program program;                 // compute program
     cl_kernel kernel;                   // compute kernel
 
-    // Connect to a compute device
-    //
-    int gpu = $use_gpu;
-    err = clGetDeviceIDs(NULL, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
+    // Find number of platforms
+    cl_uint num_platforms;
+
+    err = clGetPlatformIDs(0, NULL, &num_platforms);
+    if (err != CL_SUCCESS || num_platforms <= 0)
+    {
+        printf("Error: Could not find a platform!\n");
+        return err;
+    }
+
+    // Get all platforms
+    cl_platform_id platforms[num_platforms];
+
+    err = clGetPlatformIDs(num_platforms, platforms, NULL);
     if (err != CL_SUCCESS)
+    {
+        printf("Error: Failed to get all platforms!\n");
+        return err;
+    }
+
+    // Secure a device
+    for (int i = 0; i < num_platforms; i++)
+    {
+        err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_DEFAULT, 1, &device_id, NULL);
+        if (err == CL_SUCCESS)
+            break;
+    }
+    if (device_id == NULL)
     {
         printf("Error: Failed to create a device group!\n");
         return err;
