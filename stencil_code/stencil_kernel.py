@@ -127,7 +127,7 @@ class StencilConvert(LazySpecializedFunction):
                 'kernel_name': String(entry_point.name),
                 'num_args': Constant(len(entry_point.params) - 1),
                 'global_size': ArrayDef([dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3]]),
-                'local_size': ArrayDef([4 for dim in program_config[0][0][3]]),
+                'local_size': ArrayDef([1 for dim in program_config[0][0][3]]),
                 'dim': Constant(program_config[0][-1][2]),
                 'output_ref': SymbolRef(entry_point.params[-2].name),
                 'load_params': blk,
