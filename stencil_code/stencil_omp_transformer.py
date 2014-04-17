@@ -13,7 +13,7 @@ from stencil_grid import *
 class StencilOmpTransformer(NodeTransformer):
     def __init__(self, input_grids=None, output_grid=None, kernel=None):
         # TODO: Give these wrapper classes?
-        if not input_grids and not output_grid and not kernel: #pragma: no # cover
+        if not input_grids and not output_grid and not kernel:  # pragma: no cover
             width = 50
             radius = 1
             output_grid = StencilGrid([width, width])
