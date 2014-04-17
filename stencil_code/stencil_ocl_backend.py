@@ -13,7 +13,7 @@ from ctree.templates.nodes import StringTemplate
 
 class StencilOclTransformer(NodeTransformer):
     def __init__(self, input_grids=None, output_grid=None, kernel=None):
-        if input_grids is not None:
+        if input_grids is not None: #pragma: no cover
             self.input_grids = input_grids
             self.output_grid = output_grid
             self.ghost_depth = output_grid.ghost_depth
@@ -31,7 +31,7 @@ class StencilOclTransformer(NodeTransformer):
         self.input_names = []
         super(StencilOclTransformer, self).__init__()
 
-    def _instantiate_defaults(self):
+    def _instantiate_defaults(self): #pragma: no cover
         width = 16
         self.input_grids = [StencilGrid([width, width])]
         self.output_grid = StencilGrid([width, width])
