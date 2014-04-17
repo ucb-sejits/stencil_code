@@ -32,4 +32,8 @@ install:
 
 
 script:
-  - nosetests --verbose
+  - nosetests --verbose --with-coverage --cover-package=stencil_code --cover-erase
+
+after_success:
+  # publish coverage report
+  - coveralls
