@@ -7,15 +7,20 @@ from ctree.ocl.macros import *
 from ctree.cpp.nodes import *
 from ctree.visitors import NodeTransformer
 from stencil_model import *
+from stencil_grid import *
 from ctree.templates.nodes import StringTemplate
 
 
 class StencilOclTransformer(NodeTransformer):
-    def __init__(self, input_grids, output_grid, kernel):
-        # TODO: Give these wrapper classes?
-        self.input_grids = input_grids
-        self.output_grid = output_grid
-        self.ghost_depth = output_grid.ghost_depth
+    def __init__(self, input_grids=None, output_grid=None, kernel=None):
+        if input_grids is not None:
+            self.input_grids = input_grids
+            self.output_grid = output_grid
+            self.ghost_depth = output_grid.ghost_depth
+            self.constants = kernel.constants
+            self.distance = kernel.distance
+        else:
+            self._instantiate_defaults()
         self.next_fresh_var = 0
         self.output_index = None
         self.neighbor_grid_name = None
@@ -23,10 +28,16 @@ class StencilOclTransformer(NodeTransformer):
         self.offset_list = None
         self.var_list = []
         self.input_dict = {}
-        self.constants = kernel.constants
-        self.distance = kernel.distance
         self.input_names = []
         super(StencilOclTransformer, self).__init__()
+
+    def _instantiate_defaults(self):
+        width = 16
+        self.input_grids = [StencilGrid([width, width])]
+        self.output_grid = StencilGrid([width, width])
+        self.output_grid.ghost_depth = 1
+        self.constants = {}
+
 
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to

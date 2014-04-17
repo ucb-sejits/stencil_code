@@ -18,7 +18,7 @@ int stencil($array_decl)
     int err;                            // error code returned from api calls
 
     size_t global[$dim] = $global_size;             // global domain size for our calculation
-    size_t local[$dim] = $local_size;                  // local domain size for our calculation
+    size_t local = 64;                  // local domain size for our calculation
 
     cl_device_id device_id;             // compute device id
     cl_context context;                 // compute context
@@ -139,7 +139,7 @@ int stencil($array_decl)
     }
 
     $load_params
-    err = clSetKernelArg(kernel, $num_args, sizeof(float) * (local[0] + 2) * (local[1] + 2), NULL);
+    err = clSetKernelArg(kernel, $num_args, sizeof(float) * (local + 2) * (local + 2), NULL);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to create local memory!\n");
@@ -156,18 +156,18 @@ int stencil($array_decl)
     // }
 
     // Get the maximum work group size for executing the kernel on the device
-    //
-    // err = clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
-    // if (err != CL_SUCCESS)
-    // {
-    //     printf("Error: Failed to retrieve kernel work group info! %d\n", err);
-    //     return err;
-    // }
+
+    err = clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL);
+    if (err != CL_SUCCESS)
+    {
+         printf("Error: Failed to retrieve kernel work group info! %d\n", err);
+         return err;
+    }
 
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
     //
-    err = clEnqueueNDRangeKernel(commands, kernel, $dim, 0, global, local, 0, NULL, NULL);
+    err = clEnqueueNDRangeKernel(commands, kernel, $dim, 0, global, NULL, 0, NULL, NULL);
     if (err)
     {
         printf("Error: Failed to execute kernel!\n");
