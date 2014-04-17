@@ -63,9 +63,9 @@ class StencilOclTransformer(NodeTransformer):
         node.params[-1].set_local()
         return node
 
-    def gen_fresh_var(self):
-        self.next_fresh_var += 1
-        return "x%d" % self.next_fresh_var
+    # def gen_fresh_var(self):
+    #     self.next_fresh_var += 1
+    #     return "x%d" % self.next_fresh_var
 
     def global_array_macro(self, point):
         dim = len(self.output_grid.shape)
@@ -126,24 +126,24 @@ class StencilOclTransformer(NodeTransformer):
             )
         return index
 
-    def gen_block_index(self):
-        dim = len(self.output_grid.shape)
-        index = Add(
-            get_local_id(dim - 1),
-            Constant(self.ghost_depth)
-        )
-        for d in reversed(range(dim - 1)):
-            index = Add(
-                Mul(
-                    index,
-                    Add(
-                        get_local_size(d),
-                        Constant(2 * self.ghost_depth)
-                    ),
-                ),
-                Add(get_local_id(d), self.ghost_depth)
-            )
-        return index
+    # def gen_block_index(self):
+    #     dim = len(self.output_grid.shape)
+    #     index = Add(
+    #         get_local_id(dim - 1),
+    #         Constant(self.ghost_depth)
+    #     )
+    #     for d in reversed(range(dim - 1)):
+    #         index = Add(
+    #             Mul(
+    #                 index,
+    #                 Add(
+    #                     get_local_size(d),
+    #                     Constant(2 * self.ghost_depth)
+    #                 ),
+    #             ),
+    #             Add(get_local_id(d), self.ghost_depth)
+    #         )
+    #     return index
 
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
