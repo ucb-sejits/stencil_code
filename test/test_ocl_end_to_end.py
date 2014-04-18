@@ -58,3 +58,22 @@ class TestOclEndToEnd(unittest.TestCase):
                     for z in in_img.neighbors(x, 1):
                         out_img[x] -= 0.125 * 2.0 * in_img[z]
         self._check(Kernel)
+
+    def test_laplacian(self):
+        alpha = 0.5
+        beta = 1.0
+
+        class LaplacianKernel(StencilKernel):
+            def __init__(self, backend='c', pure_python=False, testing=False):
+                super(LaplacianKernel, self).__init__(backend=backend,
+                                                      pure_python=pure_python,
+                                                      testing=testing)
+                self.constants = {'alpha': 0.5, 'beta': 1.0}
+
+            def kernel(self, in_grid, out_grid):
+                for x in in_grid.interior_points():
+                    out_grid[x] = alpha * in_grid[x]
+                    for y in in_grid.neighbors(x, 1):
+                        out_grid[x] += beta * in_grid[y]
+
+        self._check(LaplacianKernel)

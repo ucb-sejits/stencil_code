@@ -315,5 +315,5 @@ class StencilOclTransformer(NodeTransformer):
 
     def visit_SymbolRef(self, node):
         if node.name in self.constants.keys():
-            return Constant(self.constants[node.id])
+            return Constant(self.constants[node.name])
         return node
