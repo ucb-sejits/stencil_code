@@ -247,7 +247,8 @@ class StencilOclTransformer(NodeTransformer):
 
         body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
-            body.append(Assign(SymbolRef('local_id%d' % d, UInt()), get_local_id(d)))
+            body.append(Assign(SymbolRef('local_id%d' % d, UInt()),
+                               Add(get_local_id(d), Constant(self.ghost_depth))))
             self.var_list.append("local_id%d" % d)
 
         for child in map(self.visit, node.body):
@@ -286,10 +287,11 @@ class StencilOclTransformer(NodeTransformer):
                 elif grid_name in self.input_dict:
                     # grid = self.input_dict[grid_name]
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
-                    index = self.gen_array_macro(grid_name, pt)
-                    return ArrayRef(SymbolRef(grid_name), index)
+                    # index = self.gen_array_macro(grid_name, pt)
+                    index = self.local_array_macro(pt)
+                    return ArrayRef(SymbolRef('block'), index)
             elif grid_name == self.neighbor_grid_name:
-                pt = list(map(lambda x, y: Add(Add(SymbolRef(x), SymbolRef(y)), Constant(self.ghost_depth)),
+                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
                               self.var_list, self.offset_list))
                 #index = self.gen_array_macro(grid_name, pt)
                 index = self.local_array_macro(pt)

@@ -52,7 +52,7 @@ class TestOclEndToEnd(unittest.TestCase):
         class Kernel(StencilKernel):
             def kernel(self, in_img, out_img):
                 for x in out_img.interior_points():
-                    # out_img[x] = in_img[x]
+                    out_img[x] = in_img[x]
                     for y in in_img.neighbors(x, 0):
                         out_img[x] += 0.125 * in_img[y]
                     for z in in_img.neighbors(x, 1):
