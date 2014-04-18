@@ -3,7 +3,7 @@ from ctree.dotgen import DotGenVisitor
 
 
 class StencilModelNode(ast.AST):
-    def _to_dot(self):
+    def _to_dot(self):  # pragma: no cover
         return StencilModelDotGen.visit(self)
 
 
@@ -43,7 +43,7 @@ class GridElement(StencilModelNode):
         self.target = target
 
 
-class StencilModelDotGen(DotGenVisitor):
+class StencilModelDotGen(DotGenVisitor):  # pragma: no cover
     def label_InteriorPointsLoop(self, node):
         return r"%s" % "InteriorPointsLoop"
 
