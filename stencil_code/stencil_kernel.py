@@ -35,7 +35,8 @@ from stencil_python_frontend import PythonToStencilModel
 # logging.basicConfig(level=20)
 
 class StencilConvert(LazySpecializedFunction):
-    def __init__(self, func, input_grids, output_grid, kernel):
+    def __init__(self, func, input_grids, output_grid, kernel, testing=False):
+        self.testing = testing
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.kernel = kernel
@@ -53,15 +54,27 @@ class StencilConvert(LazySpecializedFunction):
         return conf
 
     def get_tuning_driver(self):
-        from ctree.tune import (
-            BruteForceTuningDriver,
-            IntegerParameter,
-            MinimizeTime
-        )
+        if self.testing:
+            from ctree.tune import (
+                BruteForceTuningDriver,
+                IntegerParameter,
+                MinimizeTime
+            )
 
-        params = [IntegerParameter("block_factor", 4, 8),
-                  IntegerParameter("unroll_factor", 1, 4)]
-        return BruteForceTuningDriver(params, MinimizeTime())
+            params = [IntegerParameter("block_factor", 4, 8),
+                      IntegerParameter("unroll_factor", 1, 4)]
+            return BruteForceTuningDriver(params, MinimizeTime())
+        else:
+            from ctree.opentuner.driver import OpenTunerDriver
+            from opentuner.search.manipulator import ConfigurationManipulator
+            from opentuner.search.manipulator import PowerOfTwoParameter
+            from opentuner.search.objective import MinimizeTime
+
+            manip = ConfigurationManipulator()
+            manip.add_parameter(PowerOfTwoParameter("block_factor", 4, 8))
+            manip.add_parameter(PowerOfTwoParameter("unroll_factor", 1, 4))
+
+            return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
 
     def transform(self, tree, program_config):
         """Convert the Python AST to a C AST."""
@@ -186,7 +199,7 @@ class StencilKernel(object):
         if not self.specialized_sizes or\
                 self.specialized_sizes != [y.shape for y in args]:
             self.specialized = StencilConvert(
-                self.model, args[0:-1], args[-1], self)
+                self.model, args[0:-1], args[-1], self, self.testing)
             self.specialized_sizes = [arg.shape for arg in args]
 
         with Timer() as t:

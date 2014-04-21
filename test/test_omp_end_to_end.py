@@ -32,7 +32,7 @@ class TestOmpEndToEnd(unittest.TestCase):
 
     def _check(self, test_kernel):
         in_grid, out_grid1, out_grid2 = self.grids
-        test_kernel(backend='omp').kernel(in_grid, out_grid1)
+        test_kernel(backend='omp', testing=True).kernel(in_grid, out_grid1)
         test_kernel(pure_python=True).kernel(in_grid, out_grid2)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
@@ -63,9 +63,10 @@ class TestOmpEndToEnd(unittest.TestCase):
         beta = 1.0
 
         class LaplacianKernel(StencilKernel):
-            def __init__(self, backend='c', pure_python=False):
+            def __init__(self, backend='c', pure_python=False, testing=True):
                 super(LaplacianKernel, self).__init__(backend=backend,
-                                                      pure_python=pure_python)
+                                                      pure_python=pure_python,
+                                                      testing=True)
                 self.constants = {'alpha': 0.5, 'beta': 1.0}
 
             def kernel(self, in_grid, out_grid):
@@ -120,7 +121,9 @@ class TestOmpEndToEnd(unittest.TestCase):
         gaussian1 = gaussian(stdev_d, radius * 2)
         gaussian2 = gaussian(stdev_s, 256)
 
-        Kernel(backend='omp').kernel(in_grid, gaussian1, gaussian2, out_grid1)
+        Kernel(backend='omp', testing=True).kernel(in_grid, gaussian1,
+                                                 gaussian2,
+                                       out_grid1)
         Kernel(pure_python=True).kernel(in_grid, gaussian1, gaussian2, out_grid2)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
@@ -133,7 +136,8 @@ class TestOmpEndToEnd(unittest.TestCase):
 
         class LaplacianKernel(StencilKernel):
             def __init__(self, alpha, beta, pure_python=False):
-                super(LaplacianKernel, self).__init__(pure_python=pure_python)
+                super(LaplacianKernel, self).__init__(
+                    pure_python=pure_python, testing=True)
                 self.constants = {'alpha': alpha, 'beta': beta}
 
             def kernel(self, in_grid, out_grid):
