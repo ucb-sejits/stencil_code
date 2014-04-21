@@ -24,18 +24,13 @@ from ctree.transformations import FixUpParentPointers
 from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.c.macros import *
-from ctree.cpp.nodes import *
 from ctree.ocl.nodes import *
 from ctree.templates.nodes import FileTemplate, StringTemplate
 from ctree.frontend import get_ast
-
-import stencil_optimizer as optimizer
-from stencil_omp_transformer import StencilOmpTransformer
-from stencil_ocl_backend import StencilOclTransformer
+from stencil_code.backend.omp import StencilOmpTransformer
+from stencil_code.backend.ocl import StencilOclTransformer
 from stencil_python_frontend import PythonToStencilModel
 
-
-import logging
 
 # logging.basicConfig(level=20)
 

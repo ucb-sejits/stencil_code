@@ -13,6 +13,7 @@ class InteriorPointsLoop(StencilModelNode):
     def __init__(self, target=None, body=None):
         self.target = target
         self.body = body
+        super(InteriorPointsLoop, self).__init__()
 
 
 class NeighborPointsLoop(StencilModelNode):
@@ -25,6 +26,7 @@ class NeighborPointsLoop(StencilModelNode):
         self.grid_name = grid_name
         self.neighbor_target = neighbor_target
         self.body = body
+        super(NeighborPointsLoop, self).__init__()
 
 
 class MathFunction(StencilModelNode):
@@ -33,6 +35,7 @@ class MathFunction(StencilModelNode):
     def __init__(self, func=None, args=None):
         self.func = func
         self.args = args
+        super(MathFunction, self).__init__()
 
 
 class GridElement(StencilModelNode):
@@ -41,6 +44,7 @@ class GridElement(StencilModelNode):
     def __init__(self, grid_name=None, target=None):
         self.grid_name = grid_name
         self.target = target
+        super(StencilModelNode, self).__init__()
 
 
 class StencilModelDotGen(DotGenVisitor):  # pragma: no cover

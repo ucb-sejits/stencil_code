@@ -1,8 +1,6 @@
 import unittest
 
-from stencil_code.stencil_omp_transformer import *
-from ctree.c.nodes import *
-from ctree.c.types import *
+from stencil_code.backend.omp import *
 from ctree.transformations import PyBasicConversions
 
 
