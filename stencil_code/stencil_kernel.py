@@ -30,6 +30,7 @@ from ctree.frontend import get_ast
 from stencil_code.backend.omp import StencilOmpTransformer
 from stencil_code.backend.ocl import StencilOclTransformer
 from stencil_python_frontend import PythonToStencilModel
+import stencil_optimizer as optimizer
 
 
 # logging.basicConfig(level=20)
@@ -105,6 +106,10 @@ class StencilConvert(LazySpecializedFunction):
         entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
+        if self.backend == StencilOmpTransformer:
+            first_For = tree.find(For)
+            inner_For = optimizer.FindInnerMostLoop().find(first_For)
+            optimizer.unroll(inner_For, unroll_factor)
         if self.backend == StencilOclTransformer:
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
@@ -204,7 +209,7 @@ class StencilKernel(object):
 
         with Timer() as t:
             self.specialized(*[arg.data for arg in args])
-        self.specialized.report(time=t)
+        self.specialized.report(time=t.interval)
 
     def distance(self, x, y):
         """
