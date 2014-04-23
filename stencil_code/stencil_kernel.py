@@ -55,27 +55,27 @@ class StencilConvert(LazySpecializedFunction):
         return conf
 
     def get_tuning_driver(self):
-        if self.testing:
-            from ctree.tune import (
-                BruteForceTuningDriver,
-                IntegerParameter,
-                MinimizeTime
-            )
+        # if self.testing:
+        from ctree.tune import (
+            BruteForceTuningDriver,
+            IntegerParameter,
+            MinimizeTime
+        )
 
-            params = [IntegerParameter("block_factor", 4, 8),
-                      IntegerParameter("unroll_factor", 1, 4)]
-            return BruteForceTuningDriver(params, MinimizeTime())
-        else:
-            from ctree.opentuner.driver import OpenTunerDriver
-            from opentuner.search.manipulator import ConfigurationManipulator
-            from opentuner.search.manipulator import PowerOfTwoParameter
-            from opentuner.search.objective import MinimizeTime
-
-            manip = ConfigurationManipulator()
-            manip.add_parameter(PowerOfTwoParameter("block_factor", 4, 8))
-            manip.add_parameter(PowerOfTwoParameter("unroll_factor", 1, 4))
-
-            return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
+        params = [IntegerParameter("block_factor", 4, 8),
+                  IntegerParameter("unroll_factor", 1, 4)]
+        return BruteForceTuningDriver(params, MinimizeTime())
+        # else:
+        #     from ctree.opentuner.driver import OpenTunerDriver
+        #     from opentuner.search.manipulator import ConfigurationManipulator
+        #     from opentuner.search.manipulator import PowerOfTwoParameter
+        #     from opentuner.search.objective import MinimizeTime
+        #
+        #     manip = ConfigurationManipulator()
+        #     manip.add_parameter(PowerOfTwoParameter("block_factor", 4, 8))
+        #     manip.add_parameter(PowerOfTwoParameter("unroll_factor", 1, 4))
+        #
+        #     return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
 
     def transform(self, tree, program_config):
         """Convert the Python AST to a C AST."""
