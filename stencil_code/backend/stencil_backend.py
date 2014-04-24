@@ -34,8 +34,8 @@ class StencilBackend(NodeTransformer):
         self.var_list = []
         self.input_dict = {}
         self.input_names = []
-        self.constants = {}
-        # self.distance = kernel.distance
+        self.constants = kernel.constants
+        self.distance = kernel.distance
         super(StencilBackend, self).__init__()
 
     def visit_FunctionDecl(self, node):
