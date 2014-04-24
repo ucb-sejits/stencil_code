@@ -21,12 +21,8 @@ class StencilBackend(NodeTransformer):
                 for y in range(0, width):
                     in_grid.data[(x, y)] = 1.0
 
-            for x in range(-radius, radius+1):
-                for y in range(-radius, radius+1):
-                    in_grid.neighbor_definition[1].append((x, y))
-
-            input_grids = [in_grid]
-            kernel = {'constants': None, 'distance': None}
+            input_grids = (in_grid, )
+            kernel = {'constants': {'a': 3}, 'distance': None}
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.ghost_depth = output_grid.ghost_depth
@@ -38,8 +34,8 @@ class StencilBackend(NodeTransformer):
         self.var_list = []
         self.input_dict = {}
         self.input_names = []
-        self.constants = kernel.constants
-        self.distance = kernel.distance
+        self.constants = {}
+        # self.distance = kernel.distance
         super(StencilBackend, self).__init__()
 
     def visit_FunctionDecl(self, node):

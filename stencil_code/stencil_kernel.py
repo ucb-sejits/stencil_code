@@ -33,7 +33,7 @@ from stencil_python_frontend import PythonToStencilModel
 import stencil_optimizer as optimizer
 
 
-# logging.basicConfig(level=20)
+logging.basicConfig(level=20)
 
 class StencilConvert(LazySpecializedFunction):
     def __init__(self, func, input_grids, output_grid, kernel, testing=False):
@@ -62,8 +62,9 @@ class StencilConvert(LazySpecializedFunction):
             MinimizeTime
         )
 
-        params = [IntegerParameter("block_factor", 4, 8),
-                  IntegerParameter("unroll_factor", 1, 4)]
+        params = [IntegerParameter("unroll_factor", 1, 4)]
+        for d in range(len(self.input_grids[0].shape) - 1):
+            params.append(IntegerParameter("block_factor_%s" % d, 4, 8))
         return BruteForceTuningDriver(params, MinimizeTime())
         # else:
         #     from ctree.opentuner.driver import OpenTunerDriver
@@ -86,7 +87,8 @@ class StencilConvert(LazySpecializedFunction):
         kernel_sig = FuncType(Void(), param_types)
 
         tune_cfg = program_config[1]
-        # block_factor = 2**tune_cfg['block_factor']
+        block_factors = [2**tune_cfg['block_factor_%s' % d] for d in
+                         range(len(self.input_grids[0].shape) - 1)]
         unroll_factor = 2**tune_cfg['unroll_factor']
 
         for transformer in [PythonToStencilModel(),
@@ -107,9 +109,14 @@ class StencilConvert(LazySpecializedFunction):
         entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOmpTransformer:
-            first_For = tree.find(For)
-            inner_For = optimizer.FindInnerMostLoop().find(first_For)
-            optimizer.unroll(inner_For, unroll_factor)
+            if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
+                    >= unroll_factor:
+                first_For = tree.find(For)
+                inner_For = optimizer.FindInnerMostLoop().find(first_For)
+                inner, first = optimizer.block_loops(inner_For, first_For,
+                                                    block_factors + [1])
+                first_For.replace(first)
+                optimizer.unroll(inner, unroll_factor)
         if self.backend == StencilOclTransformer:
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])

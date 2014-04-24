@@ -60,6 +60,23 @@ class StencilOclTransformer(StencilBackend):
             )
         return FunctionCall(SymbolRef("local_array_macro"), point)
 
+
+    def gen_array_macro(self, arg, point):
+        dim = len(self.output_grid.shape)
+        index = get_local_id(dim)
+        for d in reversed(range(dim)):
+            index = Add(
+                Mul(
+                    index,
+                    Add(
+                        get_local_size(d),
+                        Constant(2 * self.ghost_depth)
+                    ),
+                ),
+                point[d]
+            )
+        return FunctionCall(SymbolRef("local_array_macro"), point)
+
     def gen_local_macro(self):
         dim = len(self.output_grid.shape)
         index = "d%d" % (dim - 1)

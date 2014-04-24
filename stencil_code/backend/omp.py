@@ -20,7 +20,10 @@ class StencilOmpTransformer(StencilBackend):
         abs_decl = FunctionDecl(
             Int(), SymbolRef('abs'), [SymbolRef('n', Int())]
         )
-        return [abs_decl, node]
+        macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
+                          TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
+                          SymbolRef('_a'), SymbolRef('_b')))
+        return [abs_decl, macro, node]
 
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
