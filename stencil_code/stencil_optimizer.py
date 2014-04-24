@@ -100,7 +100,7 @@ class StencilCacheBlocker(object):
                 return For(node.init,
                            node.test,
                            node.incr,
-                           self.visit(node.body))
+                           list(map(self.visit, node.body)))
 
 
     def block(self, tree, factors):
@@ -132,7 +132,7 @@ class LoopBlocker(object):
     def loop_block(self, node, block_size):
         outer_incr_name = SymbolRef(node.init.left.name + node.init.left.name)
 
-        new_inner_test = node.test
+        new_inner_test = deepcopy(node.test)
         new_inner_test.right = FunctionCall("min", [
                 Add(outer_incr_name, Constant(block_size - 1)),
                 node.test.right
@@ -146,13 +146,14 @@ class LoopBlocker(object):
         newtest = deepcopy(node.test)
         newtest.left = SymbolRef(node.init.left.name + node.init.left.name)
 
+        old_incr = 1 if type(node.incr) is UnaryOp else node.incr.arg
         new_outer_for = For(
             Assign(SymbolRef(node.init.left.name + node.init.left.name,
                              Int()),
                              node.init.right),
             newtest,
-            MulAssign(SymbolRef(node.init.left.name + node.init.left.name), SymbolRef(
-                block_size)),
+            AddAssign(SymbolRef(node.init.left.name + node.init.left.name),
+                Mul(Constant(old_incr), SymbolRef(block_size))),
             [new_inner_for])
 
         return new_outer_for
@@ -186,7 +187,7 @@ class LoopSwitcher(NodeTransformer):
         if self.current_loop == self.first_target:
             # save the loop
             self.saved_first_loop = node
-            new_body = self.visit(node.body)
+            new_body = list(map(self.visit, node.body))
             assert self.second_target < self.current_loop + 1, 'Tried to switch loops %d and %d but only %d loops available' % (
                 self.first_target, self.second_target, self.current_loop + 1)
             # replace with the second loop (which has now been saved)
@@ -207,4 +208,4 @@ class LoopSwitcher(NodeTransformer):
         return For(node.init,
                    node.test,
                    node.incr,
-                   self.visit(node.body))
+                   list(map(self.visit, node.body)))

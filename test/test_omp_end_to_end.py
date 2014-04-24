@@ -9,7 +9,7 @@ height = 50
 stdev_d = 3
 stdev_s = 70
 radius = 1
-width = 2*8 + radius * 2
+width = 2*15 + radius * 2
 
 
 class TestOmpEndToEnd(unittest.TestCase):
@@ -39,7 +39,7 @@ class TestOmpEndToEnd(unittest.TestCase):
         except:
             self.fail("Output grids not equal")
 
-    def test_simple_ocl_kernel(self):
+    def test_simple_kernel(self):
         class Kernel(StencilKernel):
             def kernel(self, in_grid, out_grid):
                 for x in out_grid.interior_points():
