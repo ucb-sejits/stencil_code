@@ -10,7 +10,7 @@ env:
 before_install:
 
   - sudo apt-get update -qq
-  - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers libiomp5
+  - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers openmprtl
 
 install:
   - pip install numpy Sphinx coveralls coverage nose pygments
