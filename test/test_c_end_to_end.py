@@ -1,3 +1,5 @@
+__author__ = 'leonardtruong'
+
 from stencil_code.stencil_kernel import StencilKernel
 from stencil_code.stencil_grid import StencilGrid
 import numpy as np
@@ -12,7 +14,7 @@ radius = 1
 width = 2*15 + radius * 2
 
 
-class TestOmpEndToEnd(unittest.TestCase):
+class TestCEndToEnd(unittest.TestCase):
     def setUp(self):
         out_grid1 = StencilGrid([width, width])
         out_grid1.ghost_depth = radius
@@ -32,7 +34,7 @@ class TestOmpEndToEnd(unittest.TestCase):
 
     def _check(self, test_kernel):
         in_grid, out_grid1, out_grid2 = self.grids
-        test_kernel(backend='omp', testing=True).kernel(in_grid, out_grid1)
+        test_kernel(backend='c', testing=True).kernel(in_grid, out_grid1)
         test_kernel(pure_python=True).kernel(in_grid, out_grid2)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
@@ -136,7 +138,7 @@ class TestOmpEndToEnd(unittest.TestCase):
 
         class LaplacianKernel(StencilKernel):
             def __init__(self, alpha, beta, pure_python=False):
-                super(LaplacianKernel, self).__init__(backend='omp',
+                super(LaplacianKernel, self).__init__(backend='c',
                     pure_python=pure_python, testing=True)
                 self.constants = {'alpha': alpha, 'beta': beta}
 

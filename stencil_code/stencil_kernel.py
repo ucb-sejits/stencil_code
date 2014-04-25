@@ -29,6 +29,7 @@ from ctree.templates.nodes import FileTemplate, StringTemplate
 from ctree.frontend import get_ast
 from stencil_code.backend.omp import StencilOmpTransformer
 from stencil_code.backend.ocl import StencilOclTransformer
+from stencil_code.backend.c import StencilCTransformer
 from stencil_python_frontend import PythonToStencilModel
 import stencil_optimizer as optimizer
 from ctypes import byref, c_float
@@ -43,10 +44,10 @@ class StencilConvert(LazySpecializedFunction):
         self.output_grid = output_grid
         self.kernel = kernel
         self.backend = kernel.backend
-        if self.backend == StencilOmpTransformer:
-            entry_point = "stencil_kernel"
-        elif self.backend == StencilOclTransformer:
+        if self.backend == StencilOclTransformer:
             entry_point = "stencil"
+        else:
+            entry_point = "stencil_kernel"
         super(StencilConvert, self).__init__(get_ast(func), entry_point)
 
     def args_to_subconfig(self, args):
@@ -111,15 +112,6 @@ class StencilConvert(LazySpecializedFunction):
         entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
-        if self.backend == StencilOmpTransformer:
-            if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
-                    >= unroll_factor:
-                first_For = tree.find(For)
-                inner_For = optimizer.FindInnerMostLoop().find(first_For)
-                inner, first = optimizer.block_loops(inner_For, first_For,
-                                                    block_factors + [1])
-                first_For.replace(first)
-                optimizer.unroll(inner, unroll_factor)
         if self.backend == StencilOclTransformer:
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
@@ -165,6 +157,15 @@ class StencilConvert(LazySpecializedFunction):
             # from ctree.dotgen import to_dot
             # ctree.browser_show_ast(proj, 'graph.png')
             return proj, FuncType(Int(), param_types[:-1]).as_ctype()
+        else:
+            if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
+                    >= unroll_factor:
+                first_For = tree.find(For)
+                inner_For = optimizer.FindInnerMostLoop().find(first_For)
+                inner, first = optimizer.block_loops(inner_For, first_For,
+                                                     block_factors + [1])
+                first_For.replace(first)
+                optimizer.unroll(inner, unroll_factor)
 
         # import ast
         #print(ast.dump(tree))
@@ -177,7 +178,7 @@ class StencilConvert(LazySpecializedFunction):
 
 # may want to make this inherit from something else...
 class StencilKernel(object):
-    backend_dict = {"c": StencilOmpTransformer,
+    backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
                     "opencl": StencilOclTransformer}
