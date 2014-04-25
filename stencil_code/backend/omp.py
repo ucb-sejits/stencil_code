@@ -4,7 +4,7 @@ from ctree.cpp.nodes import CppDefine
 from stencil_backend import *
 
 
-class StencilOmpTransformer(StencilBackend):
+class StencilOmpTransformer(StencilBackend):  #pragma: no cover
     def visit_FunctionDecl(self, node):
         super(StencilOmpTransformer, self).visit_FunctionDecl(node)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
