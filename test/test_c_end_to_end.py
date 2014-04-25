@@ -123,7 +123,7 @@ class TestCEndToEnd(unittest.TestCase):
         gaussian1 = gaussian(stdev_d, radius * 2)
         gaussian2 = gaussian(stdev_s, 256)
 
-        Kernel(backend='omp', testing=True).kernel(in_grid, gaussian1,
+        Kernel(backend='c', testing=True).kernel(in_grid, gaussian1,
                                                  gaussian2,
                                        out_grid1)
         Kernel(pure_python=True).kernel(in_grid, gaussian1, gaussian2, out_grid2)

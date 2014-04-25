@@ -2,6 +2,7 @@ from stencil_code.stencil_kernel import StencilKernel
 from stencil_code.stencil_grid import StencilGrid
 import numpy as np
 import unittest
+from nose.plugins.attrib import attr
 import random
 import math
 
@@ -39,7 +40,9 @@ class TestOmpEndToEnd(unittest.TestCase):
         except:
             self.fail("Output grids not equal")
 
+    @attr('omp')
     def test_simple_kernel(self):
+        self.fail()
         class Kernel(StencilKernel):
             def kernel(self, in_grid, out_grid):
                 for x in out_grid.interior_points():
@@ -47,6 +50,7 @@ class TestOmpEndToEnd(unittest.TestCase):
                         out_grid[x] += in_grid[y]
         self._check(Kernel)
 
+    @attr('omp')
     def test_2d_heat(self):
          class Kernel(StencilKernel):
             def kernel(self, in_img, out_img):
@@ -58,6 +62,7 @@ class TestOmpEndToEnd(unittest.TestCase):
                         out_img[x] -= 0.125 * 2.0 * in_img[z]
          self._check(Kernel)
 
+    @attr('omp')
     def test_laplacian(self):
         alpha = 0.5
         beta = 1.0
@@ -76,6 +81,7 @@ class TestOmpEndToEnd(unittest.TestCase):
                         out_grid[x] += beta * in_grid[y]
         self._check(LaplacianKernel)
 
+    @attr('omp')
     def test_bilateral_filter(self):
         width = 50
         height = 50
@@ -130,6 +136,7 @@ class TestOmpEndToEnd(unittest.TestCase):
         except:
             self.fail("Output grids not equal")
 
+    @attr('omp')
     def test_laplacian_kernel(self):
         alpha = 0.5
         beta = 1.0
