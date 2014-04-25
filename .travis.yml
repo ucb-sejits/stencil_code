@@ -10,30 +10,15 @@ env:
 before_install:
 
   - sudo apt-get update -qq
-  - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers openmprtl
+  - sudo apt-get install -qq llvm-$LLVM_VERSION fglrx=2:8.960-0ubuntu1 opencl-headers
 
 install:
   - pip install numpy Sphinx coveralls coverage nose pygments
 
-  - git clone https://github.com/clang-omp/llvm ${HOME}/llvm
-  - git clone https://github.com/clang-omp/compiler-rt  ${HOME}/llvm/projects/compiler-rt
-  - git clone -b clang-omp https://github.com/clang-omp/clang ${HOME}/llvm/tools/clang
-  - mkdir build
-  - mkdir llvm-omp
-  - cd build
-  - ../llvm/configure --enable-optimized --prefix=${HOME}/llvm-omp
-  - REQUIRES_RTTI=1 make
-  - make install
-  - export PATH=/install/prefix/bin:$PATH
-  - export C_INCLUDE_PATH=${HOME}/llvm-omp/include:$C_INCLUDE_PATH
-  - export CPLUS_INCLUDE_PATH=${HOME}/llvm-omp:$CPLUS_INCLUDE_PATH
-  - export LIBRARY_PATH=${HOME}/llvm-omp:$LIBRARY_PATH
-  - export LD_LIBRARY_PATH=${HOME}/llvm-omp:$LD_LIBRARY_PATH
-
   # install llvmpy
-  - git clone -b llvm-3.4 https://github.com/gentoo90/llvmpy ${HOME}/llvmpy
+  - git clone git://github.com/llvmpy/llvmpy.git ${HOME}/llvmpy
   - cd ${HOME}/llvmpy
-  - LLVM_CONFIG_PATH=${HOME}/llvm-omp/bin/llvm-config python setup.py install
+  - LLVM_CONFIG_PATH=/usr/bin/llvm-config-$LLVM_VERSION python setup.py install
 
   # install opentuner
   - git clone https://github.com/mbdriscoll/opentuner.git ${HOME}/opentuner
@@ -47,7 +32,7 @@ install:
 
 
 script:
-  - nosetests --verbose --with-coverage --cover-package=stencil_code --cover-erase
+  - nosetests -I=omp --verbose --with-coverage --cover-package=stencil_code --cover-erase
 
 after_success:
   # publish coverage report
