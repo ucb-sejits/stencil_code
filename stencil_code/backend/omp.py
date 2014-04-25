@@ -1,4 +1,5 @@
 from ctree.omp.nodes import *
+from ctree.omp.macros import *
 from ctree.cpp.nodes import CppDefine
 from stencil_backend import *
 
@@ -23,7 +24,13 @@ class StencilOmpTransformer(StencilBackend):
         macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
                           TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
                           SymbolRef('_a'), SymbolRef('_b')))
-        return [abs_decl, macro, node]
+        node.params.append(SymbolRef('duration', Ptr(Float())))
+        start_time = Assign(SymbolRef('start_time', Double()), omp_get_wtime())
+        node.defn.insert(0, start_time)
+        end_time = Assign(Deref(SymbolRef('duration')),
+                          Sub(omp_get_wtime(), SymbolRef('start_time')))
+        node.defn.append(end_time)
+        return [IncludeOmpHeader(), abs_decl, macro, node]
 
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)

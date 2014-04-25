@@ -14,7 +14,7 @@ class StencilOclTransformer(StencilBackend):
         # This function grabs the input and output grid names which are used to
         # generate the proper array macros.
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
-        for param in node.params[0:-1]:
+        for param in node.params[:-1]:
             param.set_global()
             param.set_const()
         node.params[-1].set_global()

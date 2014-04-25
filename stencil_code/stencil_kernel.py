@@ -31,6 +31,7 @@ from stencil_code.backend.omp import StencilOmpTransformer
 from stencil_code.backend.ocl import StencilOclTransformer
 from stencil_python_frontend import PythonToStencilModel
 import stencil_optimizer as optimizer
+from ctypes import byref, c_float
 
 
 # logging.basicConfig(level=20)
@@ -50,7 +51,7 @@ class StencilConvert(LazySpecializedFunction):
 
     def args_to_subconfig(self, args):
         conf = ()
-        for arg in args:
+        for arg in args[:-1]:
             conf += ((len(arg), arg.dtype, arg.ndim, arg.shape),)
         return conf
 
@@ -83,7 +84,9 @@ class StencilConvert(LazySpecializedFunction):
         param_types = []
         for arg in program_config[0]:
             param_types.append(NdPointer(arg[1], arg[2], arg[3]))
-        param_types.append(param_types[0])
+        param_types.append(Ptr(Float()))
+        if self.backend == StencilOclTransformer:
+            param_types.append(param_types[0])
         kernel_sig = FuncType(Void(), param_types)
 
         tune_cfg = program_config[1]
@@ -141,7 +144,7 @@ class StencilConvert(LazySpecializedFunction):
                 decl += str(SymbolRef(param.name, param.type)) + ", "
             tmpl_args = {
                 'use_gpu': Constant(1) if not self.kernel.testing else Constant(0),
-                'array_decl': StringTemplate(decl[:-2]),
+                'array_decl': StringTemplate(decl[:-2] + ', float* duration'),
                 'grid_size': Constant(program_config[0][-1][0] ** program_config[0][-1][2]),
                 'kernel_path': kernel.get_generated_path_ref(),
                 'kernel_name': String(entry_point.name),
@@ -214,9 +217,12 @@ class StencilKernel(object):
                 self.model, args[0:-1], args[-1], self, self.testing)
             self.specialized_sizes = [arg.shape for arg in args]
 
-        with Timer() as t:
-            self.specialized(*[arg.data for arg in args])
-        self.specialized.report(time=t.interval)
+        duration = c_float()
+        args = [arg.data for arg in args]
+        args.append(byref(duration))
+        self.specialized(*args)
+        self.specialized.report(time=duration)
+        print("Took %.3fs" % duration.value)
 
     def distance(self, x, y):
         """

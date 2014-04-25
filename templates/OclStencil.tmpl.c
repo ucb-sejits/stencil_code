@@ -25,6 +25,7 @@ int stencil($array_decl)
     cl_command_queue commands;          // compute command queue
     cl_program program;                 // compute program
     cl_kernel kernel;                   // compute kernel
+    cl_event event;
 
     // Find number of platforms
     cl_uint num_platforms;
@@ -70,7 +71,7 @@ int stencil($array_decl)
 
     // Create a command commands
     //
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
     if (!commands)
     {
         printf("Error: Failed to create a command commands!\n");
@@ -167,7 +168,8 @@ int stencil($array_decl)
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
     //
-    err = clEnqueueNDRangeKernel(commands, kernel, $dim, 0, global, NULL, 0, NULL, NULL);
+    err = clEnqueueNDRangeKernel(commands, kernel, $dim, 0, global, NULL, 0,
+    NULL, &event);
     if (err)
     {
         printf("Error: Failed to execute kernel!\n");
@@ -178,6 +180,11 @@ int stencil($array_decl)
     // Wait for the command commands to get serviced before reading back results
     //
     clFinish(commands);
+
+    cl_ulong time_start, time_end;
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+    *duration = (float)1.0e-9 * (time_end - time_start);
 
     // Read back the results from the device to verify the output
     //
