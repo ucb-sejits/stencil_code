@@ -42,7 +42,6 @@ class TestOmpEndToEnd(unittest.TestCase):
 
     @attr('omp')
     def test_simple_kernel(self):
-        self.fail()
         class Kernel(StencilKernel):
             def kernel(self, in_grid, out_grid):
                 for x in out_grid.interior_points():
