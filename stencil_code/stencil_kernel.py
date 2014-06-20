@@ -27,9 +27,9 @@ from ctree.c.macros import *
 from ctree.ocl.nodes import *
 from ctree.templates.nodes import FileTemplate, StringTemplate
 from ctree.frontend import get_ast
-from stencil_code.backend.omp import StencilOmpTransformer
-from stencil_code.backend.ocl import StencilOclTransformer
-from stencil_code.backend.c import StencilCTransformer
+from backend.omp import StencilOmpTransformer
+from backend.ocl import StencilOclTransformer
+from backend.c import StencilCTransformer
 from stencil_python_frontend import PythonToStencilModel
 import stencil_optimizer as optimizer
 from ctypes import byref, c_float

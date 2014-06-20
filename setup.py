@@ -6,6 +6,7 @@ setup(
 
     packages=[
         'stencil_code',
+        'stencil_code.backend',
     ],
 
     package_data={
