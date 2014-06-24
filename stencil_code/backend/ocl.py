@@ -1,11 +1,12 @@
 from copy import deepcopy
 
-from ctree.c.types import *
 from ctree.c.nodes import *
 from ctree.ocl.macros import *
 from ctree.cpp.nodes import *
 from ..stencil_model import *
 from stencil_backend import StencilBackend
+import numpy as np
+import ctypes as ct
 
 
 class StencilOclTransformer(StencilBackend):
@@ -14,12 +15,20 @@ class StencilOclTransformer(StencilBackend):
         # This function grabs the input and output grid names which are used to
         # generate the proper array macros.
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
-        for param in node.params[:-1]:
+        for index, param in enumerate(node.params[:-1]):
+            # TODO: Transform numpy type to ctype
+            arg = self.input_grids[index]
+            param.type = ct.POINTER(ct.c_float)()
             param.set_global()
             param.set_const()
+        node.set_kernel()
         node.params[-1].set_global()
-        node.params.append(SymbolRef('block', node.params[0].type))
+        arg = self.output_grid
+        node.params[-1].type = ct.POINTER(ct.c_float)()
+        # node.params.append(SymbolRef('block', np.ctypeslib.ndpointer(arg.data.dtype, arg.data.ndim, arg.data.shape)()))
+        node.params.append(SymbolRef('block', ct.POINTER(ct.c_float)()))
         node.params[-1].set_local()
+        node.defn = node.defn[0]
         return node
 
     def global_array_macro(self, point):
@@ -108,11 +117,11 @@ class StencilOclTransformer(StencilBackend):
         for d in range(dim):
             body.append(
                 Assign(
-                    SymbolRef('id%d' % d, UInt()),
+                    SymbolRef('id%d' % d, ct.c_int()),
                     Add(get_global_id(d), self.ghost_depth)
                 )
             )
-        body.append(Assign(SymbolRef('global_index', UInt()),
+        body.append(Assign(SymbolRef('global_index', ct.c_int()),
                     self.gen_global_index()))
 
         local_index = [Add(get_local_id(index), Constant(self.ghost_depth)) for
@@ -126,7 +135,7 @@ class StencilOclTransformer(StencilBackend):
             self.gen_global_macro())
         )
         local_size_total = get_local_size(0)
-        curr_node = For(Assign(SymbolRef('d%d' % (dim - 1), Int()),
+        curr_node = For(Assign(SymbolRef('d%d' % (dim - 1), ct.c_int()),
                                get_local_id(dim - 1)),
                         Lt(
                             SymbolRef('d%d' % (dim - 1)),
@@ -143,7 +152,7 @@ class StencilOclTransformer(StencilBackend):
         for d in reversed(range(0, dim - 1)):
             curr_node.body.append(
                 For(
-                    Assign(SymbolRef('d%d' % d, Int()), get_local_id(d)),
+                    Assign(SymbolRef('d%d' % d, ct.c_int()), get_local_id(d)),
                     Lt(
                         SymbolRef('d%d' % d),
                         Add(
@@ -168,7 +177,7 @@ class StencilOclTransformer(StencilBackend):
                     self.global_array_macro(
                         [Add(
                             SymbolRef("d%d" % d),
-                            Mul(get_group_id(d), get_local_size(d))
+                            Mul(FunctionCall(SymbolRef('get_group_id'),[Constant(d)]), get_local_size(d))
                         ) for d in range(0, dim)]
                     )
                 )
@@ -177,7 +186,7 @@ class StencilOclTransformer(StencilBackend):
 
         body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
-            body.append(Assign(SymbolRef('local_id%d' % d, UInt()),
+            body.append(Assign(SymbolRef('local_id%d' % d, ct.c_int()),
                                Add(get_local_id(d), Constant(self.ghost_depth))))
             self.var_list.append("local_id%d" % d)
 

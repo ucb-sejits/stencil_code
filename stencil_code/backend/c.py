@@ -2,6 +2,7 @@ __author__ = 'leonardtruong'
 from ctree.cpp.nodes import CppDefine
 from ctree.templates.nodes import StringTemplate
 from stencil_backend import *
+from ctypes import c_int, POINTER, c_float
 
 
 class StencilCTransformer(StencilBackend):
@@ -19,12 +20,12 @@ class StencilCTransformer(StencilBackend):
             params = ["_d"+str(x) for x in range(arg.dim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
         abs_decl = FunctionDecl(
-            Int(), SymbolRef('abs'), [SymbolRef('n', Int())]
+            c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
         macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
                           TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
                           SymbolRef('_a'), SymbolRef('_b')))
-        node.params.append(SymbolRef('duration', Ptr(Float())))
+        node.params.append(SymbolRef('duration', POINTER(c_float)))
         start_time = Assign(StringTemplate('clock_t start_time'), FunctionCall(
             SymbolRef('clock')))
         node.defn.insert(0, start_time)
@@ -40,17 +41,17 @@ class StencilCTransformer(StencilBackend):
         curr_node = None
         ret_node = None
         for d in range(dim):
-            target = SymbolRef(self.gen_fresh_var())
-            self.var_list.append(target.name)
+            target = self.gen_fresh_var()
+            self.var_list.append(target)
             for_loop = For(
-                Assign(SymbolRef(target.name, Int()),
+                Assign(SymbolRef(target, c_int()),
                        Constant(self.ghost_depth)),
-                LtE(target,
+                LtE(SymbolRef(target),
                     Constant(
                         self.output_grid.shape[d] -
                         self.ghost_depth - 1)
                     ),
-                PostInc(target),
+                PostInc(SymbolRef(target)),
                 [])
 
             if d == 0:
@@ -61,7 +62,7 @@ class StencilCTransformer(StencilBackend):
         self.output_index = self.gen_fresh_var()
         pt = [SymbolRef(x) for x in self.var_list]
         macro = self.gen_array_macro(self.output_grid_name, pt)
-        curr_node.body = [Assign(SymbolRef(self.output_index, Int()),
+        curr_node.body = [Assign(SymbolRef(self.output_index, c_int()),
                                  macro)]
         for elem in map(self.visit, node.body):
             if type(elem) == list:
@@ -87,7 +88,7 @@ class StencilCTransformer(StencilBackend):
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
             elif grid_name == self.neighbor_grid_name:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
+                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)
                 return ArrayRef(SymbolRef(grid_name), index)

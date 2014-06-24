@@ -2,6 +2,7 @@ from ctree.omp.nodes import *
 from ctree.omp.macros import *
 from ctree.cpp.nodes import CppDefine
 from stencil_backend import *
+from ctypes import c_int, POINTER, c_float, c_double
 
 
 class StencilOmpTransformer(StencilBackend):  #pragma: no cover
@@ -19,13 +20,13 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
             params = ["_d"+str(x) for x in range(arg.dim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
         abs_decl = FunctionDecl(
-            Int(), SymbolRef('abs'), [SymbolRef('n', Int())]
+            c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
         macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
                           TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
                           SymbolRef('_a'), SymbolRef('_b')))
-        node.params.append(SymbolRef('duration', Ptr(Float())))
-        start_time = Assign(SymbolRef('start_time', Double()), omp_get_wtime())
+        node.params.append(SymbolRef('duration', POINTER(c_float)))
+        start_time = Assign(SymbolRef('start_time', c_double()), omp_get_wtime())
         node.defn.insert(0, start_time)
         end_time = Assign(Deref(SymbolRef('duration')),
                           Sub(omp_get_wtime(), SymbolRef('start_time')))
@@ -41,7 +42,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
             target = SymbolRef(self.gen_fresh_var())
             self.var_list.append(target.name)
             for_loop = For(
-                Assign(SymbolRef(target.name, Int()),
+                Assign(SymbolRef(target.name, c_int()),
                        Constant(self.ghost_depth)),
                 LtE(target,
                     Constant(
@@ -63,7 +64,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         self.output_index = self.gen_fresh_var()
         pt = [SymbolRef(x) for x in self.var_list]
         macro = self.gen_array_macro(self.output_grid_name, pt)
-        curr_node.body = [Assign(SymbolRef(self.output_index, Int()),
+        curr_node.body = [Assign(SymbolRef(self.output_index, c_int()),
                                  macro)]
         for elem in map(self.visit, node.body):
             if type(elem) == list:

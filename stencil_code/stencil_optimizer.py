@@ -1,6 +1,6 @@
 from ctree.visitors import NodeTransformer, NodeVisitor
 from ctree.c.nodes import *
-from ctree.c.types import Int
+from ctypes import c_int
 from copy import deepcopy
 
 
@@ -149,7 +149,7 @@ class LoopBlocker(object):
         old_incr = 1 if type(node.incr) is UnaryOp else node.incr.arg
         new_outer_for = For(
             Assign(SymbolRef(node.init.left.name + node.init.left.name,
-                             Int()),
+                             c_int()),
                              node.init.right),
             newtest,
             AddAssign(SymbolRef(node.init.left.name + node.init.left.name),

@@ -19,23 +19,68 @@ is cached for future calls.
 
 import math
 
-from ctree.jit import LazySpecializedFunction
-from ctree.transformations import FixUpParentPointers
-from ctree.c.types import *
-from ctree.c.nodes import *
-from ctree.c.macros import *
-from ctree.ocl.nodes import *
-from ctree.templates.nodes import FileTemplate, StringTemplate
+from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
+from ctree.c.nodes import FunctionDecl, For
+from ctree.ocl.nodes import OclFile
+import ctree.np
 from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
 from backend.ocl import StencilOclTransformer
 from backend.c import StencilCTransformer
 from stencil_python_frontend import PythonToStencilModel
 import stencil_optimizer as optimizer
-from ctypes import byref, c_float
+from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
+from pycl import (
+    clCreateProgramWithSource, clCreateContextFromType, clCreateCommandQueue,
+    buffer_from_ndarray, buffer_to_ndarray, cl_mem, localmem,
+    clEnqueueNDRangeKernel
+)
+import numpy as np
 
 
 # logging.basicConfig(level=20)
+
+
+class StencilFunction(ConcreteSpecializedFunction):
+
+    def finalize(self, tree, entry_name, entry_type):
+        self._c_function = self._compile(entry_name, tree, entry_type)
+        return self
+
+    def __call__(self, *args):
+        return self._c_function(*args)
+
+
+class OclStencilFunction(ConcreteSpecializedFunction):
+    def __init__(self):
+        self.context = clCreateContextFromType()
+        self.queue = clCreateCommandQueue(self.context)
+
+    def finalize(self, kernel, global_size):
+        self.kernel = kernel
+        self.global_size = global_size
+        # self._c_function = self._compile(entry_name, tree, entry_type)
+        return self
+
+    def __call__(self, *args):
+        self.kernel.argtypes = tuple(cl_mem for _ in args[:-1]) + (localmem, )
+        bufs = []
+        for index, arg in enumerate(args[:-1]):
+            buf, evt = buffer_from_ndarray(self.queue, arg, blocking=False)
+            evt.wait()
+            bufs.append(buf)
+            self.kernel.setarg(index, buf, sizeof(cl_mem))
+        local = 64
+        localmem_size = sizeof(c_float) * (local + 2) * (local + 2)
+        self.kernel.setarg(
+            len(args) - 1, localmem(localmem_size), localmem_size
+        )
+        evt = clEnqueueNDRangeKernel(self.queue, self.kernel, self.global_size)
+        evt.wait()
+        buf, evt = buffer_to_ndarray(self.queue, bufs[-1], args[-2])
+        evt.wait()
+        print(buf)
+        return buf
 
 
 class SpecializedStencil(LazySpecializedFunction):
@@ -61,11 +106,7 @@ class SpecializedStencil(LazySpecializedFunction):
         self.output_grid = output_grid
         self.kernel = kernel
         self.backend = kernel.backend
-        if self.backend == StencilOclTransformer:
-            entry_point = "stencil"
-        else:
-            entry_point = "stencil_kernel"
-        super(SpecializedStencil, self).__init__(get_ast(func), entry_point)
+        super(SpecializedStencil, self).__init__(get_ast(func))
 
     def args_to_subconfig(self, args):
         """
@@ -114,11 +155,13 @@ class SpecializedStencil(LazySpecializedFunction):
         """
         param_types = []
         for arg in program_config[0]:
-            param_types.append(NdPointer(arg[1], arg[2], arg[3]))
-        param_types.append(Ptr(Float()))
+            param_types.append(np.ctypeslib.ndpointer(arg[1], arg[2], arg[3]))
+        # TODO: Hack for newcl branch, fix this
         if self.backend == StencilOclTransformer:
             param_types.append(param_types[0])
-        kernel_sig = FuncType(Void(), param_types)
+        else:
+            param_types.append(POINTER(c_float))
+        kernel_sig = CFUNCTYPE(c_void_p, *param_types)
 
         tune_cfg = program_config[1]
         block_factors = [2**tune_cfg['block_factor_%s' % d] for d in
@@ -126,7 +169,6 @@ class SpecializedStencil(LazySpecializedFunction):
         unroll_factor = 2**tune_cfg['unroll_factor']
 
         for transformer in [PythonToStencilModel(),
-                            FixUpParentPointers(),
                             self.backend(self.input_grids,
                                          self.output_grid,
                                          self.kernel
@@ -140,68 +182,39 @@ class SpecializedStencil(LazySpecializedFunction):
         # TODO: If should unroll check
         # optimizer.unroll(inner_For, unroll_factor)
         entry_point = tree.find(FunctionDecl, name="stencil_kernel")
-        entry_point.set_typesig(kernel_sig)
+        # TODO: This should be handled by the backend
+        # if self.backend != StencilOclTransformer:
+        for index, _type in enumerate(param_types):
+            entry_point.params[index].type = _type()
+        # entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
+            entry_point.params[-1]._local = True
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
-            control = CFile("control", config_target='opencl')
-            body = control.body
-            import os
-            blk = []
-            tmpl_path = os.path.join(os.getcwd(), "templates",
-                                     "OclLoadGrid.tmpl.c")
-            for index, param in enumerate(entry_point.params[:-1]):
-                tmpl_args = {
-                    'grid_size': Constant(program_config[0][index][0] **
-                                          program_config[0][index][2]),
-                    'arg_ref': SymbolRef(param.name),
-                    'arg_index': Constant(index)
-                }
-                blk.append(FileTemplate(tmpl_path, tmpl_args))
-            tmpl_path = os.path.join(os.getcwd(), "templates",
-                                     "OclStencil.tmpl.c")
-            decl = ""
-            for param in entry_point.params[:-1]:
-                decl += str(SymbolRef(param.name, param.type)) + ", "
-            tmpl_args = {
-                'use_gpu': Constant(1) if not self.kernel.testing else Constant(0),
-                'array_decl': StringTemplate(decl[:-2] + ', float* duration'),
-                'grid_size': Constant(program_config[0][-1][0] ** program_config[0][-1][2]),
-                'kernel_path': kernel.get_generated_path_ref(),
-                'kernel_name': String(entry_point.name),
-                'num_args': Constant(len(entry_point.params) - 1),
-                'global_size': ArrayDef([dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3]]),
-                'dim': Constant(program_config[0][-1][2]),
-                'output_ref': SymbolRef(entry_point.params[-2].name),
-                'load_params': blk,
-                'release_params': [
-                    FunctionCall(
-                        SymbolRef('clReleaseMemObject'),
-                        ['device_' + param.name]
-                    ) for param in entry_point.params[:-1]
-                ]
-            }
-            body.append(FileTemplate(tmpl_path, tmpl_args))
-            proj = Project([kernel, control])
-            # from ctree.dotgen import to_dot
-            # ctree.browser_show_ast(proj, 'graph.png')
-            return proj, FuncType(Int(), param_types[:-1]).as_ctype()
+            fn = OclStencilFunction()
+            program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
+            stencil_kernel_ptr = program['stencil_kernel']
+            global_size = tuple(dim - 2 * self.input_grids[0].ghost_depth for dim in program_config[0][0][3])
+            return fn.finalize(stencil_kernel_ptr, global_size)
         else:
             if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
                     >= unroll_factor:
-                first_For = tree.find(For)
-                inner_For = optimizer.FindInnerMostLoop().find(first_For)
-                inner, first = optimizer.block_loops(inner_For, first_For,
-                                                     block_factors + [1])
-                first_For.replace(first)
-                optimizer.unroll(inner, unroll_factor)
+                pass
+                # FIXME: Lack of parent pointers breaks current loop unrolling
+                # first_For = tree.find(For)
+                # inner_For = optimizer.FindInnerMostLoop().find(first_For)
+                # inner, first = optimizer.block_loops(inner_For, first_For,
+                #                                      block_factors + [1])
+                # first_For.replace(first)
+                # optimizer.unroll(inner, unroll_factor)
 
         # import ast
-        #print(ast.dump(tree))
+        # print(ast.dump(tree))
         # TODO: This should be done in the visitors
         tree.files[0].config_target = 'omp'
-        return tree, entry_point.get_type().as_ctype()
+        fn = StencilFunction()
+        return fn.finalize(tree, "stencil_kernel", kernel_sig)
 
 
 class StencilKernel(object):
@@ -280,6 +293,23 @@ class StencilKernel(object):
         self.specialized.report(time=duration)
         print("Took %.3fs" % duration.value)
 
+    def semantic_transform(self, args):
+        tree = PythonToStencilModel().visit(get_ast(self.model))
+        # return tree.files[0].body[0]
+        tree = StencilOclTransformer(
+            args[0:-1], args[-1], self
+        ).visit(tree)
+        # param_types = []
+        # for arg in args:
+        #    param_types.append(NdPointer(arg.data.dtype, arg.data.ndim, arg.data.shape))
+        # kernel_sig = FuncType(Void(), param_types)
+        # entry_point = tree.find(FunctionDecl, name="stencil_kernel")
+        # entry_point.set_typesig(kernel_sig)
+        return tree
+
+    def backend_transform(self, model, args, backend):
+        return StencilCTransformer(args[0:-1], args[-1], self).visit(model)
+
     def distance(self, x, y):
         """
         default euclidean distance override this to return something
@@ -288,4 +318,3 @@ class StencilKernel(object):
         :param y: Point represented as a list or tuple
         """
         return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
-

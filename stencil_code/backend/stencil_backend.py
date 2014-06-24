@@ -1,7 +1,7 @@
 from copy import deepcopy
 
-from ctree.c.types import *
 from ctree.c.nodes import *
+from ctypes import c_int
 from ctree.visitors import NodeTransformer
 from ..stencil_model import *
 from ..stencil_grid import *
@@ -104,7 +104,7 @@ class StencilBackend(NodeTransformer):
             zero_point = tuple([0 for _ in range(len(self.offset_list))])
             return Constant(int(self.distance(zero_point, self.offset_list)))
         elif str(node.func) == 'int':
-            return Cast(Int(), self.visit(node.args[0]))
+            return Cast(c_int(), self.visit(node.args[0]))
 
     def gen_array_macro(self, arg, point):
         name = "_%s_array_macro" % arg
