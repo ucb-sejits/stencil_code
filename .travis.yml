@@ -56,18 +56,20 @@ after_success:
   # publish coverage report
   - source deactivate
   - coveralls
-  - git clone -b gh-pages https://github.com/ucb-sejits/stencil_code.git ${TRAVIS_BUILD_DIR}/doc
-  - cd ${TRAVIS_BUILD_DIR}/doc
-  - make html
-  - cp -r _build/html .
-  - git config --global user.name 'Ctree Doc Bot'
-  - git config --global user.email 'mbdriscoll+ctreeoauth@gmail.com'
-  - git add -A .
-  - git commit -m "Updating documentation from Travis Build ${TRAVIS_BUILD_ID}."
-  # set up oauth for push
-  - git config credential.helper "store --file=.git/credentials"
-  - echo "https://${GH_TOKEN}:x-oauth-basic@github.com" > .git/credentials
-  - git push origin gh-pages
+  # Tell read the docs to rebuild docs
+  - curl -X POST http://readthedocs.org/build/stencil-code
+  # - git clone -b gh-pages https://github.com/ucb-sejits/stencil_code.git ${TRAVIS_BUILD_DIR}/doc
+  # - make -C doc html
+  # - cd ${TRAVIS_BUILD_DIR}/doc
+  # - cp -r _build/html .
+  # - git config --global user.name 'Ctree Doc Bot'
+  # - git config --global user.email 'mbdriscoll+ctreeoauth@gmail.com'
+  # - git add -A .
+  # - git commit -m "Updating documentation from Travis Build ${TRAVIS_BUILD_ID}."
+  # # set up oauth for push
+  # - git config credential.helper "store --file=.git/credentials"
+  # - echo "https://${GH_TOKEN}:x-oauth-basic@github.com" > .git/credentials
+  # - git push origin gh-pages
 
 notifications:
   slack: ucb-sejits:cPZxBunxagWZ763mcsIXOV0W
