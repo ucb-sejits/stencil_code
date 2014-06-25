@@ -9,8 +9,11 @@ for more information on ctree see [ctree on github](http://github.com/ucb-sejits
 
 Example usage
 =============
+[Simple](#simple)
+[Bilateral Filter](#bilateralfilter)
 
-Defining a simple kernel
+<a name='simple'/>
+### A simple kernel
 ```python
 class Kernel(StencilKernel):
     def kernel(self, in_grid, out_grid):
@@ -26,6 +29,10 @@ for x in in_grid.interior_points():
     in_grid[x] = 1.0
 
 kernel.kernel(in_grid, out_grid)
+```
+
+<a name='bilateralfilter'/>
+### A bilateral filter
 ```python
 width = int(sys.argv[2])
 height = int(sys.argv[3])
