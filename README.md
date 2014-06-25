@@ -82,4 +82,3 @@ gaussian2 = gaussian(stdev_s, 256)
 
 kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
 ```
-A bilateral filter
