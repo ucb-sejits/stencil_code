@@ -1,17 +1,22 @@
-"""
-A two-dimension grid of numeric values, used for input and output to a stencil kernel.
-"""
-
 import numpy
 from itertools import product, ifilterfalse
 
 
 class StencilGrid(object):
+    """
+    A two-dimension grid of numeric values, used for input and output to a
+    stencil kernel.
+    """
 
-    def __init__(self, size):
-        self.dim = len(size)
-        self.data = numpy.zeros(size, dtype=numpy.float32)
-        self.shape = size
+    def __init__(self, shape):
+        """__init__
+
+        :param shape: the shape of the StencilGrid, e.g. `(1024, 1024)`
+        :type shape: int or sequence of ints
+        """
+        self.dim = len(shape)
+        self.data = numpy.zeros(shape, dtype=numpy.float32)
+        self.shape = shape
         self.ghost_depth = 1
         self.grid_variables = []
         self.interior = []
@@ -49,9 +54,23 @@ class StencilGrid(object):
 
     # want this to be indexable
     def __getitem__(self, x):
+        """__getitem__
+
+        :param x: The index of the StencilGrid to return. Equivalent to indexing
+                  a numpy array.
+        :type x: int
+        """
         return self.data[x]
 
     def __setitem__(self, x, y):
+        """__setitem__
+
+        :param x: The index of the StencilGrid to set. Equivalent to setting a
+                  numpy array.
+        :type x: int
+        :param y: The value to set at index `x`.
+        :type y: `self.data.dtype`
+        """
         self.data[x] = y
 
     def set_grid_variables(self):
@@ -252,7 +271,7 @@ class StencilGrid(object):
         assert self.ghost_depth == 1, "ghost depth not 1, use border points instead"
         dims = map(lambda x: (0, x-1), self.shape)
         seen = set()
-        rejected = 0
+        # rejected = 0
         ranges = [xrange(lb, ub+1) for lb, ub in dims]
         for i, dim in enumerate(dims):
             for bound in dim:
