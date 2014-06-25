@@ -6,3 +6,73 @@ for more information on ctree see [ctree on github](http://github.com/ucb-sejits
 
 [![Build Status](https://travis-ci.org/ucb-sejits/stencil_code.svg?branch=master)](https://travis-ci.org/ucb-sejits/stencil_code)
 [![Coverage Status](https://coveralls.io/repos/ucb-sejits/stencil_code/badge.png?branch=master)](https://coveralls.io/r/ucb-sejits/stencil_code?branch=master)
+
+Example usage
+=============
+
+Defining a simple kernel
+```python
+class Kernel(StencilKernel):
+    def kernel(self, in_grid, out_grid):
+        for x in out_grid.interior_points():
+            for y in in_grid.neighbors(x, 1):
+                out_grid[x] += in_grid[y]
+
+kernel = Kernel()
+width = 1024
+in_grid = StencilGrid([width])
+out_grid = StencilGrid([width])
+for x in in_grid.interior_points():
+    in_grid[x] = 1.0
+
+kernel.kernel(in_grid, out_grid)
+```python
+width = int(sys.argv[2])
+height = int(sys.argv[3])
+image_in = open(sys.argv[1], 'rb')
+stdev_d = 3
+stdev_s = 70
+radius = stdev_d * 3
+
+class Kernel(StencilKernel):
+    def kernel(self, in_img, filter_d, filter_s, out_img):
+        for x in out_img.interior_points():
+            for y in in_img.neighbors(x, 1):
+                out_img[x] += in_img[y] * filter_d[int(distance(x, y))] *\
+                    filter_s[abs(int(in_img[x] - in_img[y]))]
+
+
+def gaussian(stdev, length):
+    result = StencilGrid([length])
+    scale = 1.0/(stdev*math.sqrt(2.0*math.pi))
+    divisor = -1.0 / (2.0 * stdev * stdev)
+    for x in range(length):
+        result[x] = scale * math.exp(float(x) * float(x) * divisor)
+    return result
+
+# Instantiate a kernel
+kernel = Kernel()
+
+# Instantiate StencilGrids
+out_grid = StencilGrid([width, height])
+out_grid.ghost_depth = radius
+in_grid = StencilGrid([width, height])
+in_grid.ghost_depth = radius
+
+# Define a neighborhood
+for x in range(-radius, radius+1):
+    for y in range(-radius, radius+1):
+        in_grid.neighbor_definition[1].append((x, y))
+
+# Copy image data into in_grid
+for x in range(0, width):
+    for y in range(0, height):
+        in_grid.data[(x, y)] = pixels[y * width + x]
+
+# Create our filters
+gaussian1 = gaussian(stdev_d, radius*2)
+gaussian2 = gaussian(stdev_s, 256)
+
+kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+```
+A bilateral filter
