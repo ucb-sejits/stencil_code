@@ -4,7 +4,6 @@ python:
   - "2.7"
 
 env:
-env:
   global:
     # encrypted OAuth token so Travis can commit docs back to Github
     - secure: "QBB2KT4EFUdSkH9fjo5J/02zuZlD0FbVsKwYJgW6c4INp1UY/nx0nrsgjPSZQMD2HBztdfEZInugoVrOJwXBzWJ5Ioc19T9oYhnzaIF6oJRo1mTYDhragvdwiLfb0AyylGq7bgP4lgoMBtE1Oxauf0rKVEYiVeEhvHJup/di6A4="
