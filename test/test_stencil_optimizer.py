@@ -9,7 +9,7 @@ class TestUnroll(unittest.TestCase):
     def _check(self, actual, expected):
         self.assertEqual(str(actual), str(expected))
 
-    @unittest.skip()
+    @unittest.skip("Optimizer broken by newcl branch")
     def test_simple_unroll(self):
         actual = For(Assign(SymbolRef('x', c_int()), Constant(0)),
                      Lt(SymbolRef('x'), Constant(9)),
@@ -26,7 +26,7 @@ class TestUnroll(unittest.TestCase):
         unroll(actual, actual, 2)
         self._check(actual, expected)
 
-    @unittest.skip()
+    @unittest.skip("Optimizer broken by newcl branch")
     def test_leftover_unroll(self):
         actual = For(Assign(SymbolRef('y', c_int()), Constant(0)),
                      Lt(SymbolRef('y'), Constant(10)),
