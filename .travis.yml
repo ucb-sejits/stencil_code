@@ -57,7 +57,7 @@ after_success:
   # publish coverage report
   - source deactivate
   - coveralls
-  - git clone -b gh-pages git://github.com/ucb-sejits/stencil_code.git ${TRAVIS_BUILD_DIR}/doc
+  - git clone -b gh-pages https://github.com/ucb-sejits/stencil_code.git ${TRAVIS_BUILD_DIR}/doc
   - cd ${TRAVIS_BUILD_DIR}/doc
   - make html
   - cp -r _build/html .
