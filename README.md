@@ -7,10 +7,10 @@ for more information on ctree see [ctree on github](http://github.com/ucb-sejits
 [![Build Status](https://travis-ci.org/ucb-sejits/stencil_code.svg?branch=master)](https://travis-ci.org/ucb-sejits/stencil_code)
 [![Coverage Status](https://coveralls.io/repos/ucb-sejits/stencil_code/badge.png?branch=master)](https://coveralls.io/r/ucb-sejits/stencil_code?branch=master)
 
-Example usage
+Examples
 =============
-[Simple](#simple)
-[Bilateral Filter](#bilateralfilter)
+* [Simple](#simple)  
+* [Bilateral Filter](#bilateralfilter)
 
 <a name='simple'/>
 ### A simple kernel
