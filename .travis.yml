@@ -53,3 +53,6 @@ after_success:
   # publish coverage report
   - source deactivate
   - coveralls
+
+notifications:
+  slack: ucb-sejits:cPZxBunxagWZ763mcsIXOV0W
