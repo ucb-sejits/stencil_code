@@ -9,24 +9,39 @@ env:
 
 before_install:
 
+  - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.2-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.2-Linux-x86_64.sh -O miniconda.sh; fi
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b
+  - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then export PATH=/home/travis/miniconda/bin:$PATH; else export PATH=/home/travis/miniconda3/bin:$PATH; fi
+  - conda update --yes conda
+  # Setup environment
+  - conda create -n travisci --yes python=${TRAVIS_PYTHON_VERSION:0:3} llvm numpy setuptools nose pygments Sphinx
+  - source activate travisci
   - sudo apt-get update -qq
-  - sudo apt-get install -qq llvm-$LLVM_VERSION fglrx=2:8.960-0ubuntu1 opencl-headers
+  - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers
 
 install:
   - pip install numpy Sphinx coveralls coverage nose pygments
 
   # install llvmpy
-  - git clone git://github.com/llvmpy/llvmpy.git ${HOME}/llvmpy
-  - cd ${HOME}/llvmpy
-  - LLVM_CONFIG_PATH=/usr/bin/llvm-config-$LLVM_VERSION python setup.py install
+  - git clone -b llvm-3.4 git://github.com/llvmpy/llvmpy.git ${TRAVIS_BUILD_DIR}/llvmpy
+  - cd ${TRAVIS_BUILD_DIR}/llvmpy
+  - python setup.py install
+
+  # install pycl
+  - git clone git://github.com/ucb-sejits/pycl.git ${TRAVIS_BUILD_DIR}/pycl
+  - cd ${TRAVIS_BUILD_DIR}/pycl
+  - python setup.py install
 
   # install opentuner
-  - git clone https://github.com/mbdriscoll/opentuner.git ${HOME}/opentuner
-  - cd ${HOME}/opentuner
+  - git clone https://github.com/mbdriscoll/opentuner.git ${TRAVIS_BUILD_DIR}/opentuner
+  - cd ${TRAVIS_BUILD_DIR}/opentuner
   - sudo apt-get install `cat debian-packages-deps | tr '\n' ' '`
+  - "if [[ \"x$PYTHON_VERSION\" -eq \"x(2.7)\" ]]; then pip install -r python-packages; fi"
+  - export PYTHONPATH=`pwd`:$PYTHONPATH
 
-  - git clone git://github.com/ucb-sejits/ctree.git ${HOME}/ctree
-  - cd ${HOME}/ctree
+  - git clone git://github.com/ucb-sejits/ctree.git ${TRAVIS_BUILD_DIR}/ctree
+  - cd ${TRAVIS_BUILD_DIR}/ctree
   - python setup.py install
   - cd ${TRAVIS_BUILD_DIR}
 
@@ -36,4 +51,5 @@ script:
 
 after_success:
   # publish coverage report
+  - source deactivate
   - coveralls
