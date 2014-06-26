@@ -11,6 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+  stencil_code
+
 
 
 Indices and tables
