@@ -5,3 +5,4 @@ omit =
     */opentuner/opentuner/*
     */test/*
     */docs/*
+    */dependencies/*

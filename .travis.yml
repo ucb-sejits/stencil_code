@@ -26,25 +26,27 @@ before_install:
 install:
   - pip install numpy Sphinx coveralls coverage nose pygments
 
+
+  - mkdir dependencies
   # install llvmpy
-  - git clone -b llvm-3.4 git://github.com/llvmpy/llvmpy.git ${TRAVIS_BUILD_DIR}/llvmpy
-  - cd ${TRAVIS_BUILD_DIR}/llvmpy
+  - git clone -b llvm-3.4 git://github.com/llvmpy/llvmpy.git ${TRAVIS_BUILD_DIR}/dependencies/llvmpy
+  - cd ${TRAVIS_BUILD_DIR}/dependencies/llvmpy
   - python setup.py install
 
   # install pycl
-  - git clone git://github.com/ucb-sejits/pycl.git ${TRAVIS_BUILD_DIR}/pycl
-  - cd ${TRAVIS_BUILD_DIR}/pycl
+  - git clone git://github.com/ucb-sejits/pycl.git ${TRAVIS_BUILD_DIR}/dependencies/pycl
+  - cd ${TRAVIS_BUILD_DIR}/dependencies/pycl
   - python setup.py install
 
   # install opentuner
-  - git clone https://github.com/mbdriscoll/opentuner.git ${TRAVIS_BUILD_DIR}/opentuner
-  - cd ${TRAVIS_BUILD_DIR}/opentuner
+  - git clone https://github.com/mbdriscoll/opentuner.git ${TRAVIS_BUILD_DIR}/dependencies/opentuner
+  - cd ${TRAVIS_BUILD_DIR}/dependencies/opentuner
   - sudo apt-get install `cat debian-packages-deps | tr '\n' ' '`
   - "if [[ \"x$PYTHON_VERSION\" -eq \"x(2.7)\" ]]; then pip install -r python-packages; fi"
   - export PYTHONPATH=`pwd`:$PYTHONPATH
 
-  - git clone git://github.com/ucb-sejits/ctree.git ${TRAVIS_BUILD_DIR}/ctree
-  - cd ${TRAVIS_BUILD_DIR}/ctree
+  - git clone git://github.com/ucb-sejits/ctree.git ${TRAVIS_BUILD_DIR}/dependencies/ctree
+  - cd ${TRAVIS_BUILD_DIR}/dependencies/ctree
   - python setup.py install
   - cd ${TRAVIS_BUILD_DIR}
 
