@@ -11,6 +11,22 @@ Subpackages
 Submodules
 ----------
 
+stencil_code.optimizer module
+-----------------------------
+
+.. automodule:: stencil_code.optimizer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+stencil_code.python_frontend module
+-----------------------------------
+
+.. automodule:: stencil_code.python_frontend
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 stencil_code.stencil_grid module
 --------------------------------
 
@@ -31,22 +47,6 @@ stencil_code.stencil_model module
 ---------------------------------
 
 .. automodule:: stencil_code.stencil_model
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-stencil_code.stencil_optimizer module
--------------------------------------
-
-.. automodule:: stencil_code.stencil_optimizer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-stencil_code.stencil_python_frontend module
--------------------------------------------
-
-.. automodule:: stencil_code.stencil_python_frontend
     :members:
     :undoc-members:
     :show-inheritance:
