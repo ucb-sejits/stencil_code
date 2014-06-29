@@ -289,6 +289,6 @@ class Mock(object):
         else:
             return Mock()
 
-MOCK_MODULES = ['llvm']
+MOCK_MODULES = ['llvm', 'llvm.core']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
