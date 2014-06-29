@@ -29,8 +29,8 @@ from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
 from backend.ocl import StencilOclTransformer
 from backend.c import StencilCTransformer
-from stencil_python_frontend import PythonToStencilModel
-import stencil_optimizer as optimizer
+from python_frontend import PythonToStencilModel
+import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
 from pycl import (
     clCreateProgramWithSource, clCreateContextFromType, clCreateCommandQueue,

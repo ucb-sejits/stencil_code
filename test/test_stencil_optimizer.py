@@ -1,6 +1,6 @@
 import unittest
 
-from stencil_code.stencil_optimizer import *
+from stencil_code.optimizer import *
 from ctree.c.nodes import *
 from ctypes import c_int
 
