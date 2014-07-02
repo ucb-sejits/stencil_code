@@ -7,6 +7,17 @@ for more information on ctree see [ctree on github](http://github.com/ucb-sejits
 [![Build Status](https://travis-ci.org/ucb-sejits/stencil_code.svg?branch=master)](https://travis-ci.org/ucb-sejits/stencil_code)
 [![Coverage Status](https://coveralls.io/repos/ucb-sejits/stencil_code/badge.png?branch=master)](https://coveralls.io/r/ucb-sejits/stencil_code?branch=master)
 
+Benchmarks Results
+==================
+Here are the results running our specializer against numpy's solutions for doing 
+a laplacian filter on a 2048x2048 array.  Find the code in `benchmarks/laplacian.py`.
+```
+Numpy convolve avg: 0.0537172
+Numpy laplace avg: 0.110466
+Specialized with compile time avg: 0.0377154
+Specialized time avg without compile 0.0352788
+```
+
 Examples
 =============
 * [Simple](#simple)  
