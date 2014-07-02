@@ -6,6 +6,9 @@ class StencilModelNode(ast.AST):
     def _to_dot(self):  # pragma: no cover
         return StencilModelDotGen.visit(self)
 
+    def label(self):
+        return r"%s" % ""
+
 
 class InteriorPointsLoop(StencilModelNode):
     _fields = ['target', 'body']

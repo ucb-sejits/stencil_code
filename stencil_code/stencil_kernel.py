@@ -32,12 +32,14 @@ from backend.c import StencilCTransformer
 from python_frontend import PythonToStencilModel
 import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
+import pycl as cl
 from pycl import (
     clCreateProgramWithSource, clCreateContextFromType, clCreateCommandQueue,
     buffer_from_ndarray, buffer_to_ndarray, cl_mem, localmem,
     clEnqueueNDRangeKernel
 )
 import numpy as np
+import ast
 
 
 # logging.basicConfig(level=20)
@@ -91,8 +93,9 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         Creates a context and queue that can be reused across calls to this
         function.
         """
-        self.context = clCreateContextFromType()
-        self.queue = clCreateCommandQueue(self.context)
+        gpus = cl.clGetDeviceIDs(device_type=cl.cl_device_type.CL_DEVICE_TYPE_GPU)
+        self.context = cl.clCreateContext([gpus[1]])
+        self.queue = cl.clCreateCommandQueue(self.context)
 
     def finalize(self, kernel, global_size):
         """finalize
@@ -116,17 +119,20 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         """
         self.kernel.argtypes = tuple(cl_mem for _ in args[:-1]) + (localmem, )
         bufs = []
+        events = []
         for index, arg in enumerate(args[:-1]):
             buf, evt = buffer_from_ndarray(self.queue, arg, blocking=False)
-            evt.wait()
+            # evt.wait()
+            events.append(evt)
             bufs.append(buf)
             self.kernel.setarg(index, buf, sizeof(cl_mem))
-        local = 64
+        cl.clWaitForEvents(*events)
+        local = 32
         localmem_size = sizeof(c_float) * (local + 2) * (local + 2)
         self.kernel.setarg(
             len(args) - 1, localmem(localmem_size), localmem_size
         )
-        evt = clEnqueueNDRangeKernel(self.queue, self.kernel, self.global_size)
+        evt = clEnqueueNDRangeKernel(self.queue, self.kernel, self.global_size, (local, local))
         evt.wait()
         buf, evt = buffer_to_ndarray(self.queue, bufs[-1], args[-2])
         evt.wait()
@@ -347,24 +353,26 @@ class StencilKernel(object):
         args.append(byref(duration))
         self.specialized(*args)
         self.specialized.report(time=duration)
-        print("Took %.3fs" % duration.value)
+        #print("Took %.3fs" % duration.value)
 
-    def semantic_transform(self, args):
-        tree = PythonToStencilModel().visit(get_ast(self.model))
-        # return tree.files[0].body[0]
-        tree = StencilOclTransformer(
-            args[0:-1], args[-1], self
-        ).visit(tree)
-        # param_types = []
-        # for arg in args:
-        #    param_types.append(NdPointer(arg.data.dtype, arg.data.ndim, arg.data.shape))
-        # kernel_sig = FuncType(Void(), param_types)
-        # entry_point = tree.find(FunctionDecl, name="stencil_kernel")
-        # entry_point.set_typesig(kernel_sig)
-        return tree
+    def get_semantic_node(self, *args):
+        class StencilCall(ast.AST):
+            _fields = ['function_decl']
 
-    def backend_transform(self, model, args, backend):
-        return StencilCTransformer(args[0:-1], args[-1], self).visit(model)
+            def __init__(self, function_decl, input_grids, output_grid, kernel):
+                self.function_decl = function_decl
+                self.input_grids = input_grids
+                self.output_grid = output_grid
+                self.kernel = kernel
+
+            def label(self):
+                return ""
+
+            def backend_transform(self):
+                return StencilOclTransformer(self.input_grids, self.output_grid, self.kernel).visit(self.function_decl)
+
+        proj = PythonToStencilModel().visit(get_ast(self.model))
+        return StencilCall(proj, args[:-1], args[-1], self)
 
     def distance(self, x, y):
         """

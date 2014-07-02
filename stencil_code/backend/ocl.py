@@ -183,7 +183,6 @@ class StencilOclTransformer(StencilBackend):
                 )
             )
         )
-
         body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
             body.append(Assign(SymbolRef('local_id%d' % d, ct.c_int()),
