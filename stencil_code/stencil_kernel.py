@@ -95,7 +95,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         function.
         """
         devices = cl.clGetDeviceIDs()
-        self.context = cl.clCreateContext([devices[-1]])
+        self.device = devices[-1]
+        self.context = cl.clCreateContext([self.device])
         self.queue = cl.clCreateCommandQueue(self.context)
 
     def finalize(self, kernel, global_size, ghost_depth):
@@ -129,7 +130,10 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             bufs.append(buf)
             self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
-        local = 32
+        if self.device.type == cl.cl_device_type.CL_DEVICE_TYPE_GPU:
+            local = 32
+        else:
+            local = 1
         localmem_size = reduce(operator.mul, (local + (self.ghost_depth * 2) for _ in range(args[0].ndim)), sizeof(c_float))
         self.kernel.setarg(
             len(args) - 1, localmem(localmem_size), localmem_size
