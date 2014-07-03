@@ -18,13 +18,13 @@ following specs.
 
 ### benchmarks/convolve.py
 ```
-Numpy convolve avg: 0.0357077
-Specialized C with compile time avg: 0.1274197
-Specialized C time avg without compile 0.0125766
-Specialized OpenMP with compile time avg: 0.1360185
-Specialized OpenMP time avg without compile 0.0123128
-Specialized OpenCL with compile time avg: 0.0423939
-Specialized OpenCL time avg without compile 0.0093015
+Numpy convolve avg: 0.0370276
+Specialized C with compile time avg: 0.1326465
+Specialized C time avg without compile 0.0130333
+Specialized OpenMP with compile time avg: 0.1278614
+Specialized OpenMP time avg without compile 0.0125139
+Specialized OpenCL with compile time avg: 0.0293867
+Specialized OpenCL time avg without compile 0.0084686
 ```
 
 Examples
