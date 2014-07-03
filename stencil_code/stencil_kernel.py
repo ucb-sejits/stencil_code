@@ -94,8 +94,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         Creates a context and queue that can be reused across calls to this
         function.
         """
-        gpus = cl.clGetDeviceIDs(device_type=cl.cl_device_type.CL_DEVICE_TYPE_GPU)
-        self.context = cl.clCreateContext([gpus[1]])
+        devices = cl.clGetDeviceIDs()
+        self.context = cl.clCreateContext([devices[-1]])
         self.queue = cl.clCreateCommandQueue(self.context)
 
     def finalize(self, kernel, global_size, ghost_depth):

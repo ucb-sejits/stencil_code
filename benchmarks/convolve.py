@@ -14,10 +14,6 @@ class Timer:
     def __exit__(self, *args):
         self.interval = time.clock() - self.start
 
-width = 2**10 + 4
-height = width
-
-image = np.random.rand(width, height)
 # print("Print numpy image: ", image)
 stencil = np.array(
     [
@@ -37,113 +33,100 @@ class Kernel(StencilKernel):
             for y in in_grid.neighbors(x, 1):
                 out_grid[x] += in_grid[y]
 
-in_grid = StencilGrid([width, height])
-for i in range(width):
-    for j in range(height):
-        in_grid[(i, j)] = image[(i, j)]
-
-in_grid.neighbor_definition[1] = [
-    (-2, 2), (-1, 2), (0, 2), (1, 2), (2, 2),
-    (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
-    (-2, 0), (-1, 0), (1, 0), (2, 0),
-    (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1),
-    (-2, -2), (-1, -2), (0, -2), (1, -2), (2, -2)
-]
-in_grid.ghost_depth = 2
-
-# print("StencilGrid in_grid:", in_grid)
 x = []
 iterations = 10
-total1 = 0.0
-results1 = []
-for _ in range(iterations):
-    with Timer() as t:
-        out_image = convolve(image, stencil, mode='constant', cval=0.0)
-    total1 += t.interval
-    results1.append(t.interval)
-    x.append(width)
-print("Numpy convolve avg: {0}".format(total1/iterations))
+results = [[] for _ in range(7)]
+totals = [0.0 for _ in range(7)]
 
-out_grid = StencilGrid([width, height])
+for width in (2**x + 4 for x in range(10, 13)):
+    height = width
 
-out_grid.ghost_depth = 2
-total2 = 0.0
+    image = np.random.rand(width, height)
 
-results2 = []
-for _ in range(iterations):
-    with Timer() as t:
-        Kernel(backend='c').kernel(in_grid, out_grid)
-    total2 += t.interval
-    results2.append(t.interval)
-print("Specialized C with compile time avg: {0}".format(total2/iterations))
+    in_grid = StencilGrid([width, height])
+    for i in range(width):
+        for j in range(height):
+            in_grid[(i, j)] = image[(i, j)]
 
-np.testing.assert_array_almost_equal(out_grid[2:-2, 2:-2], out_image[2:-2, 2:-2], decimal=3)
+    in_grid.neighbor_definition[1] = [
+        (-2, 2), (-1, 2), (0, 2), (1, 2), (2, 2),
+        (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 1),
+        (-2, 0), (-1, 0), (1, 0), (2, 0),
+        (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1),
+        (-2, -2), (-1, -2), (0, -2), (1, -2), (2, -2)
+    ]
+    in_grid.ghost_depth = 2
+    out_grid = StencilGrid([width, height])
+    out_grid.ghost_depth = 2
 
-kernel = Kernel(backend='c')
-kernel.kernel(in_grid, out_grid)
-total3 = 0.0
-results3 = []
-for _ in range(iterations):
-    with Timer() as t:
-        kernel.kernel(in_grid, out_grid)
-    total3 += t.interval
-    results3.append(t.interval)
-print("Specialized C time avg without compile {0}".format(total3/iterations))
+    # print("StencilGrid in_grid:", in_grid)
 
-results4 = []
-total4 = 0.0
-for _ in range(iterations):
-    with Timer() as t:
-        Kernel(backend='omp').kernel(in_grid, out_grid)
-    total4 += t.interval
-    results4.append(t.interval)
-print("Specialized OpenMP with compile time avg: {0}".format(total4/iterations))
+    c_kernel = Kernel(backend='c')
+    c_kernel.kernel(in_grid, out_grid)
 
-np.testing.assert_array_almost_equal(out_grid[2:-2, 2:-2], out_image[2:-2, 2:-2], decimal=3)
+    omp_kernel = Kernel(backend='omp')
+    omp_kernel.kernel(in_grid, out_grid)
 
-kernel = Kernel(backend='omp')
-kernel.kernel(in_grid, out_grid)
-total5 = 0.0
-results5 = []
-for _ in range(iterations):
-    with Timer() as t:
-        kernel.kernel(in_grid, out_grid)
-    total5 += t.interval
-    results5.append(t.interval)
-print("Specialized OpenMP time avg without compile {0}".format(total5/iterations))
+    ocl_kernel = Kernel(backend='ocl')
+    ocl_kernel.kernel(in_grid, out_grid)
 
-results6 = []
-total6 = 0.0
-for _ in range(iterations):
-    with Timer() as t:
-        Kernel(backend='ocl').kernel(in_grid, out_grid)
-    total6 += t.interval
-    results6.append(t.interval)
-print("Specialized OpenCL with compile time avg: {0}".format(total6/iterations))
+    for _ in range(iterations):
+        with Timer() as t0:
+            out_image = convolve(image, stencil, mode='constant', cval=0.0)
+        totals[0] += t0.interval
+        results[0].append(t0.interval)
+        x.append(width)
 
-np.testing.assert_array_almost_equal(out_grid[2:-2, 2:-2], out_image[2:-2, 2:-2], decimal=3)
+        with Timer() as t1:
+            Kernel(backend='c').kernel(in_grid, out_grid)
+        totals[1] += t1.interval
+        results[1].append(t1.interval)
 
-kernel = Kernel(backend='ocl')
-kernel.kernel(in_grid, out_grid)
-total7 = 0.0
-results7 = []
-for _ in range(iterations):
-    with Timer() as t:
-        kernel.kernel(in_grid, out_grid)
-    total7 += t.interval
-    results7.append(t.interval)
-print("Specialized OpenCL time avg without compile {0}".format(total7/iterations))
+        with Timer() as t2:
+            c_kernel.kernel(in_grid, out_grid)
+        totals[2] += t2.interval
+        results[2].append(t2.interval)
+
+        with Timer() as t3:
+            Kernel(backend='omp').kernel(in_grid, out_grid)
+        totals[3] += t3.interval
+        results[3].append(t3.interval)
+
+        with Timer() as t4:
+            omp_kernel.kernel(in_grid, out_grid)
+        totals[4] += t4.interval
+        results[4].append(t4.interval)
+
+        with Timer() as t5:
+            Kernel(backend='ocl').kernel(in_grid, out_grid)
+        totals[5] += t5.interval
+        results[5].append(t5.interval)
+
+        with Timer() as t6:
+            ocl_kernel.kernel(in_grid, out_grid)
+        totals[6] += t6.interval
+        results[6].append(t6.interval)
+
+    print("---------- Results for dim {0}x{1} ----------".format(width, height))
+    print("Numpy convolve avg: {0}".format(totals[0]/iterations))
+    print("Specialized C with compile time avg: {0}".format(totals[1]/iterations))
+    print("Specialized C time avg without compile {0}".format(totals[2]/iterations))
+    print("Specialized OpenMP with compile time avg: {0}".format(totals[3]/iterations))
+    print("Specialized OpenMP time avg without compile {0}".format(totals[4]/iterations))
+    print("Specialized OpenCL with compile time avg: {0}".format(totals[5]/iterations))
+    print("Specialized OpenCL time avg without compile {0}".format(totals[6]/iterations))
+    print("---------------------------------------------")
 
 colors = ['b', 'c', 'y', 'm', 'r']
 import matplotlib.pyplot as plt
 
-r1 = plt.scatter(x, results1, marker='x', color=colors[0])
-r2 = plt.scatter(x, results2, marker='x', color=colors[1])
-r3 = plt.scatter(x, results3, marker='x', color=colors[2])
-r4 = plt.scatter(x, results4, marker='x', color=colors[3])
-r5 = plt.scatter(x, results5, marker='x', color=colors[4])
-r6 = plt.scatter(x, results6, marker='o', color=colors[0])
-r7 = plt.scatter(x, results7, marker='o', color=colors[1])
+r1 = plt.scatter(x, results[0], marker='x', color=colors[0])
+r2 = plt.scatter(x, results[1], marker='x', color=colors[1])
+r3 = plt.scatter(x, results[2], marker='x', color=colors[2])
+r4 = plt.scatter(x, results[3], marker='x', color=colors[3])
+r5 = plt.scatter(x, results[4], marker='x', color=colors[4])
+r6 = plt.scatter(x, results[5], marker='o', color=colors[0])
+r7 = plt.scatter(x, results[6], marker='o', color=colors[1])
 
 plt.legend((r1, r2, r3, r4, r5, r6, r7),
            ('Numpy convolve', 'C with compile', 'C without compile', 'OpenMP with compile', 'OpenMp withouth compile', 'OpenCL with compile', 'OpenCL without compile'),
