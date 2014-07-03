@@ -38,7 +38,7 @@ iterations = 10
 results = [[] for _ in range(7)]
 totals = [0.0 for _ in range(7)]
 
-for width in (2**x + 4 for x in range(10, 13)):
+for width in (2**x + 4 for x in range(10, 14)):
     height = width
 
     image = np.random.rand(width, height)

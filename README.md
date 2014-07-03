@@ -27,6 +27,8 @@ Specialized OpenCL with compile time avg: 0.0293867
 Specialized OpenCL time avg without compile 0.0084686
 ```
 
+![results_graph](https://raw.github.com/ucb-sejits/stencil_code/master/benchmarks/convolve_results.png)
+
 Examples
 =============
 * [Simple](#simple)  
