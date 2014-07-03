@@ -9,13 +9,22 @@ for more information on ctree see [ctree on github](http://github.com/ucb-sejits
 
 Benchmarks Results
 ==================
-Here are the results running our specializer against numpy's solutions for doing 
-a laplacian filter on a 2048x2048 array.  Find the code in `benchmarks/laplacian.py`.
+Check out the benchmarks folders for some performance tests you can run 
+on our own machine.  Here are the results on a MacBookPro 10,1 with the 
+following specs.
+* Processor  2.7 GHz Intel Core i7
+* Memory  16 GB 1600 MHz DDR3
+* Graphics  NVIDIA GeForce GT 650M 1024 MB
+
+### benchmarks/convolve.py
 ```
-Numpy convolve avg: 0.0537172
-Numpy laplace avg: 0.110466
-Specialized with compile time avg: 0.0377154
-Specialized time avg without compile 0.0352788
+Numpy convolve avg: 0.0357077
+Specialized C with compile time avg: 0.1274197
+Specialized C time avg without compile 0.0125766
+Specialized OpenMP with compile time avg: 0.1360185
+Specialized OpenMP time avg without compile 0.0123128
+Specialized OpenCL with compile time avg: 0.0423939
+Specialized OpenCL time avg without compile 0.0093015
 ```
 
 Examples
