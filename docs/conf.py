@@ -104,7 +104,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinxdoc'
+html_theme = 'default'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -278,7 +278,6 @@ class Mock(object):
     def __call__(self, *args, **kwargs):
         return Mock()
 
-    @classmethod
     def __getattr__(cls, name):
         if name in ('__file__', '__path__'):
             return '/dev/null'
