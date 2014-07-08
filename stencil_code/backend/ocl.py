@@ -3,6 +3,7 @@ from copy import deepcopy
 from ctree.c.nodes import *
 from ctree.ocl.macros import *
 from ctree.cpp.nodes import *
+from ctree.templates.nodes import StringTemplate
 from ..stencil_model import *
 from stencil_backend import StencilBackend
 import numpy as np
@@ -96,36 +97,111 @@ class StencilOclTransformer(StencilBackend):
 
     def gen_global_index(self):
         dim = len(self.output_grid.shape)
-        index = SymbolRef("id%d" % (dim - 1))
+        index = Add(get_global_id(dim - 1), Constant(self.ghost_depth))
         for d in reversed(range(dim - 1)):
             index = Add(
                 Mul(
                     index,
                     Constant(self.output_grid.shape[d])
                 ),
-                SymbolRef("id%d" % d)
+                Add(get_global_id(d), Constant(self.ghost_depth))
             )
         return index
+
+    def load_shared_memory_block(self, target, padding):
+        dim = len(self.output_grid.shape)
+        body = []
+        thread_id = get_local_id(0)
+        num_threads = get_local_size(0)
+        block_size = Add(get_local_size(0), padding)
+        for d in range(1, dim):
+            thread_id = Add(
+                    Mul(get_local_id(d), get_local_size(d - 1)),
+                    thread_id
+                )
+            num_threads = Mul(get_local_size(d), num_threads)
+            block_size = Mul(
+                Add(get_local_size(d), padding),
+                block_size
+            )
+
+        body.append(Assign(SymbolRef("thread_id", ct.c_int()), thread_id))
+        body.append(Assign(SymbolRef("block_size", ct.c_int()), block_size))
+        body.append(Assign(SymbolRef("num_threads", ct.c_int()), num_threads))
+        base = None
+        for i in reversed(range(0, dim - 1)):
+            if base is not None:
+                base = Mul(Add(get_local_size(i), Constant(self.ghost_depth *
+                    2)), base)
+            else:
+                base = Add(get_local_size(i), Constant(self.ghost_depth *
+                    2))
+        local_indices = [
+                    Assign(
+                        SymbolRef("i_%d" % (dim - 1), ct.c_int()),
+                        Div(SymbolRef('tid'), base)
+                        ),
+                    Assign(
+                        SymbolRef("r_%d" % (dim - 1), ct.c_int()),
+                        Mod(SymbolRef('tid'), base)
+                        )
+                ]
+        for d in reversed(range(0, dim - 1)):
+            base = None
+            for i in reversed(range(0, d - 1)):
+                if base is not None:
+                    base = Mul(Add(get_local_size(i), padding), base)
+                else:
+                    base = Add(get_local_size(i), padding)
+            if base is not None:
+                local_indices.append(
+                    Assign(
+                        SymbolRef("i_%d" % d, ct.c_int()),
+                        Div(SymbolRef('r_%d' % (d + 1)), base)
+                        )
+                    )
+                local_indices.append(
+                    Assign(
+                        SymbolRef("r_%d" % d, ct.c_int()),
+                        Mod(SymbolRef('r_%d' % (d + 1)), base)
+                        )
+                    )
+            else:
+                local_indices.append(
+                    Assign(
+                        SymbolRef("i_%d" % d, ct.c_int()),
+                        SymbolRef('r_%d' % (d + 1))
+                        )
+                    )
+        body.append(
+            For(
+                Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
+                Lt(SymbolRef('tid'), SymbolRef('block_size')),
+                AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
+                local_indices + [Assign(
+                 ArrayRef(
+                    target,
+                    SymbolRef('tid')
+                ),
+                ArrayRef(
+                    SymbolRef(self.input_names[0]),
+                    self.global_array_macro(
+                        [Add(
+                            SymbolRef("i_%d" % d),
+                            Mul(FunctionCall(SymbolRef('get_group_id'),[Constant(d)]), get_local_size(d))
+                        ) for d in range(0, dim)]
+                    )
+                )
+                )]
+            )
+        )
+        return body
 
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
         body = []
 
-        global_idx = SymbolRef('global_index')
-        self.output_index = global_idx
-        for d in range(dim):
-            body.append(
-                Assign(
-                    SymbolRef('id%d' % d, ct.c_int()),
-                    Add(get_global_id(d), self.ghost_depth)
-                )
-            )
-        body.append(Assign(SymbolRef('global_index', ct.c_int()),
-                    self.gen_global_index()))
-
-        local_index = [Add(get_local_id(index), Constant(self.ghost_depth)) for
-                       index in range(dim)]
         body.append(
             CppDefine("local_array_macro",["d%d" % i for i in range(dim)],
             self.gen_local_macro())
@@ -134,55 +210,13 @@ class StencilOclTransformer(StencilBackend):
             CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
             self.gen_global_macro())
         )
-        local_size_total = get_local_size(0)
-        curr_node = For(Assign(SymbolRef('d%d' % (dim - 1), ct.c_int()),
-                               get_local_id(dim - 1)),
-                        Lt(
-                            SymbolRef('d%d' % (dim - 1)),
-                            Add(get_local_size(dim - 1),
-                                Constant(self.ghost_depth * 2)
-                            )
-                        ),
-                        AddAssign(
-                            SymbolRef('d%d' % (dim - 1)), get_local_size(dim - 1)
-                        ),
-                        []
-            )
-        body.append(curr_node)
-        for d in reversed(range(0, dim - 1)):
-            curr_node.body.append(
-                For(
-                    Assign(SymbolRef('d%d' % d, ct.c_int()), get_local_id(d)),
-                    Lt(
-                        SymbolRef('d%d' % d),
-                        Add(
-                            get_local_size(d), Constant(self.ghost_depth * 2)
-                        )
-                    ),
-                    AddAssign(SymbolRef('d%d' %d), get_local_size(d)),
-                    []
-                )
-            )
-            curr_node = curr_node.body[0]
 
-        curr_node.body.append(Assign(
-                 ArrayRef(
-                    SymbolRef('block'),
-                    self.local_array_macro(
-                        [SymbolRef("d%d" % d) for d in range(0, dim)]
-                    )
-                ),
-                ArrayRef(
-                    SymbolRef(self.input_names[0]),
-                    self.global_array_macro(
-                        [Add(
-                            SymbolRef("d%d" % d),
-                            Mul(FunctionCall(SymbolRef('get_group_id'),[Constant(d)]), get_local_size(d))
-                        ) for d in range(0, dim)]
-                    )
-                )
-            )
-        )
+        global_idx = SymbolRef('global_index')
+        self.output_index = global_idx
+        body.append(Assign(SymbolRef('global_index', ct.c_int()),
+                    self.gen_global_index()))
+
+        body.extend(self.load_shared_memory_block(SymbolRef('block'), Constant(self.ghost_depth * 2)))
         body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
             body.append(Assign(SymbolRef('local_id%d' % d, ct.c_int()),

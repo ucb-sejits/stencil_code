@@ -24,6 +24,7 @@ from collections import namedtuple
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl, For
 from ctree.ocl.nodes import OclFile
+from ctree.dotgen import DotGenVisitor
 import ctree.np
 from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
@@ -259,6 +260,7 @@ class SpecializedStencil(LazySpecializedFunction):
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
             fn = OclStencilFunction()
+            print(kernel.codegen())
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
             stencil_kernel_ptr = program['stencil_kernel']
@@ -375,6 +377,14 @@ class StencilKernel(object):
 
             def label(self):
                 return ""
+
+            def to_dot(self):
+                return "digraph mytree {\n%s}" % self._to_dot()
+
+            def _to_dot(self):
+                from ctree.dotgen import DotGenVisitor
+
+                return DotGenVisitor().visit(self)
 
             def backend_transform(self):
                 return StencilOclTransformer(self.input_grids, self.output_grid, self.kernel).visit(self.function_decl)

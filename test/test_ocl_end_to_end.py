@@ -9,7 +9,7 @@ height = 50
 stdev_d = 3
 stdev_s = 70
 radius = 1
-width = 2*8 + radius * 2
+width = 64 + radius * 2
 
 
 class TestOclEndToEnd(unittest.TestCase):
@@ -81,8 +81,8 @@ class TestOclEndToEnd(unittest.TestCase):
 
 
     def test_bilateral_filter(self):
-        width = 50
-        height = 50
+        width = 70
+        height = 70
         stdev_d = 3
         stdev_s = 70
         # radius = stdev_d * 3

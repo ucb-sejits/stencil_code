@@ -8,16 +8,14 @@ import time
 height = 50
 stdev_d = 3
 stdev_s = 70
-radius = 9
-width = 2**12 + radius*2
+radius = 1
+width = 64 + radius*2
 
 
 class Kernel(StencilKernel):
     def kernel(self, in_grid, out_grid):
         for x in out_grid.interior_points():
             for y in in_grid.neighbors(x, 1):
-                out_grid[x] += in_grid[y]
-                out_grid[x] += in_grid[y]
                 out_grid[x] += in_grid[y]
 
 kernel = Kernel()
@@ -33,9 +31,9 @@ for x in range(0, width):
     for y in range(0, width):
         in_grid.data[(x, y)] = 1.0
 
-for x in range(-radius, radius+1):
-    for y in range(-radius, radius+1):
-        in_grid.neighbor_definition[1].append((x, y))
+# for x in range(-radius, radius+1):
+#     for y in range(-radius, radius+1):
+#         in_grid.neighbor_definition[1].append((x, y))
 
 
 class Timer:
@@ -47,8 +45,9 @@ class Timer:
         self.end = time.clock()
         self.interval = self.end - self.start
 
-with Timer() as ocl_t:
-    Kernel(backend='ocl').kernel(in_grid, out_grid1)
+# with Timer() as ocl_t:
+Kernel(backend='ocl').kernel(in_grid, out_grid1)
+exit()
 
 with Timer() as omp_t:
     Kernel().kernel(in_grid, out_grid2)
