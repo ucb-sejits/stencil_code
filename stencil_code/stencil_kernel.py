@@ -28,7 +28,7 @@ from ctree.dotgen import DotGenVisitor
 import ctree.np
 from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
-from backend.ocl import StencilOclTransformer
+from backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from backend.c import StencilCTransformer
 from python_frontend import PythonToStencilModel
 import optimizer as optimizer
@@ -260,7 +260,7 @@ class SpecializedStencil(LazySpecializedFunction):
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
             fn = OclStencilFunction()
-            print(kernel.codegen())
+            # print(kernel.codegen())
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
             stencil_kernel_ptr = program['stencil_kernel']
@@ -365,11 +365,13 @@ class StencilKernel(object):
         self.specialized.report(time=duration)
         #print("Took %.3fs" % duration.value)
 
-    def get_semantic_node(self, *args):
+    def get_semantic_node(self, arg_names, *args):
         class StencilCall(ast.AST):
-            _fields = ['function_decl']
+            _fields = ['params', 'body']
 
             def __init__(self, function_decl, input_grids, output_grid, kernel):
+                self.params = function_decl.params
+                self.body = function_decl.defn
                 self.function_decl = function_decl
                 self.input_grids = input_grids
                 self.output_grid = output_grid
@@ -386,11 +388,24 @@ class StencilKernel(object):
 
                 return DotGenVisitor().visit(self)
 
-            def backend_transform(self):
-                return StencilOclTransformer(self.input_grids, self.output_grid, self.kernel).visit(self.function_decl)
+            def add_undef(self):
+                self.function_decl.defn[0].add_undef()
 
-        proj = PythonToStencilModel().visit(get_ast(self.model))
-        return StencilCall(proj, args[:-1], args[-1], self)
+            def remove_types_from_decl(self):
+                self.function_decl.defn[1].remove_types_from_decl()
+
+            def backend_transform(self, block_padding, local_input):
+                return StencilOclTransformer(self.input_grids, self.output_grid,
+                        self.kernel, block_padding).visit(self.function_decl)
+
+            def backend_semantic_transform(self, fusion_padding):
+                self.function_decl = StencilOclSemanticTransformer(self.input_grids,
+                        self.output_grid, self.kernel, fusion_padding).visit(self.function_decl)
+                self.body = self.function_decl.defn
+                self.params = self.function_decl.params
+
+        func_decl = PythonToStencilModel(arg_names).visit(get_ast(self.model)).files[0].body[0]
+        return StencilCall(func_decl, args[:-1], args[-1], self)
 
     def distance(self, x, y):
         """

@@ -6,10 +6,23 @@ from stencil_model import*
 
 
 class PythonToStencilModel(PyBasicConversions):
+    def __init__(self, arg_names=None):
+        super(PythonToStencilModel, self).__init__()
+        self.arg_names = arg_names
+        self.arg_name_map = {}
+
     # Strip self paramater from kernel
     def visit_FunctionDef(self, node):
         if node.name == 'kernel':
             node.args.args = node.args.args[1:]
+        if self.arg_names is not None:
+            for index, arg in enumerate(node.args.args):
+                new_name = self.arg_names[index]
+                self.arg_name_map[arg.id] = new_name
+                arg.id = new_name
+        else:
+            for index, arg in enumerate(node.args.args):
+                self.arg_name_map[arg.id] = arg.id
         return super(PythonToStencilModel, self).visit_FunctionDef(node)
 
     def visit_For(self, node):
@@ -22,7 +35,7 @@ class PythonToStencilModel(PyBasicConversions):
             elif node.iter.func.attr is 'neighbors':
                 return NeighborPointsLoop(
                     neighbor_id=node.iter.args[1].n,
-                    grid_name=node.iter.func.value.id,
+                    grid_name=self.arg_name_map[node.iter.func.value.id],
                     neighbor_target=node.target.id,
                     body=node.body
                 )
@@ -39,7 +52,7 @@ class PythonToStencilModel(PyBasicConversions):
         value = self.visit(node.value)
         slice = self.visit(node.slice)
         return GridElement(
-            grid_name=value.name,
+            grid_name=self.arg_name_map[value.name],
             target=slice.value
         )
 

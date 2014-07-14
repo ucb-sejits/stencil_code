@@ -1,0 +1,35 @@
+digraph mytree {
+n4674483792 [label="Module\n"];
+n4674483792 -> n4674483536 [label="body[0]"];
+n4674483536 [label="FunctionDef\nname: fuse"];
+n4674483536 -> n4674483856 [label="args"];
+n4674483856 [label="arguments\n"];
+n4674483856 -> n4674483920 [label="args[0]"];
+n4674483920 [label="Name\nid: self"];
+n4674483920 -> n4562964304 [label="ctx"];
+n4562964304 [label="Param\n"];
+n4674483536 -> n4674483984 [label="body[0]"];
+n4674483984 [label="Expr\n" style=filled fillcolor=green];
+n4674483984 -> n4674484048 [label="value"];
+n4674484048 [label="Call\n" style=filled fillcolor=green];
+n4674484048 -> n4674484112 [label="func"];
+n4674484112 [label="Attribute\n" style=filled fillcolor=green];
+n4674484112 -> n4674484176 [label="value"];
+n4674484176 [label="Name\nid: stencil_kernel" style=filled fillcolor=green];
+n4674484048 -> n4674484240 [label="args[0]"];
+n4674484240 [label="Name\nid: a" style=filled fillcolor=green];
+n4674484048 -> n4674484304 [label="args[1]"];
+n4674484304 [label="Name\nid: b" style=filled fillcolor=green];
+n4674483536 -> n4674484368 [label="body[1]"];
+n4674484368 [label="Expr\n" style=filled fillcolor=yellow];
+n4674484368 -> n4674484432 [label="value"];
+n4674484432 [label="Call\n" style=filled fillcolor=yellow];
+n4674484432 -> n4674484496 [label="func"];
+n4674484496 [label="Attribute\n" style=filled fillcolor=yellow];
+n4674484496 -> n4674484560 [label="value"];
+n4674484560 [label="Name\nid: stencil_kernel" style=filled fillcolor=yellow];
+n4674484432 -> n4674484624 [label="args[0]"];
+n4674484624 [label="Name\nid: b" style=filled fillcolor=yellow];
+n4674484432 -> n4674484688 [label="args[1]"];
+n4674484688 [label="Name\nid: c" style=filled fillcolor=yellow];
+}
