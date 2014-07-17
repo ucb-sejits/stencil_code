@@ -8,14 +8,14 @@ class StencilGrid(object):
     stencil kernel.
     """
 
-    def __init__(self, shape):
+    def __init__(self, shape, dtype=numpy.float32):
         """__init__
 
         :param shape: the shape of the StencilGrid, e.g. `(1024, 1024)`
         :type shape: int or sequence of ints
         """
         self.dim = len(shape)
-        self.data = numpy.zeros(shape, dtype=numpy.float32)
+        self.data = numpy.zeros(shape, dtype=dtype)
         self.shape = shape
         self.ghost_depth = 1
         self.grid_variables = []

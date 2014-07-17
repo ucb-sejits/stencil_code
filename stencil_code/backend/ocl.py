@@ -353,19 +353,31 @@ class StencilOclTransformer(StencilBackend):
             else:
                 base = Add(get_local_size(i), Constant(self.ghost_depth *
                     2))
-        local_indices = [
-                    Assign(
-                        SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
-                        Div(SymbolRef('tid'), base)
-                        ),
-                    Assign(
-                        SymbolRef("r_%d" % (dim - 1), ct.c_int()),
-                        Mod(SymbolRef('tid'), base)
-                        )
-                ]
+        if base is not None:
+            local_indices = [
+                        Assign(
+                            SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
+                            Div(SymbolRef('tid'), base)
+                            ),
+                        Assign(
+                            SymbolRef("r_%d" % (dim - 1), ct.c_int()),
+                            Mod(SymbolRef('tid'), base)
+                            )
+                    ]
+        else:
+            local_indices = [
+                Assign(
+                    SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
+                    SymbolRef('tid')
+                ),
+                Assign(
+                    SymbolRef("r_%d" % (dim - 1), ct.c_int()),
+                    SymbolRef('tid')
+                )
+            ]
+        base = None
         for d in reversed(range(0, dim - 1)):
-            base = None
-            for i in reversed(range(0, d - 1)):
+            for i in reversed(range(0, d)):
                 if base is not None:
                     base = Mul(Add(get_local_size(i), padding), base)
                 else:

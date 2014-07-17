@@ -132,7 +132,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         if self.device.type == cl.cl_device_type.CL_DEVICE_TYPE_GPU:
-            local = 32
+            local = 8
         else:
             local = 1
         localmem_size = reduce(operator.mul, (local + (self.ghost_depth * 2) for _ in range(args[0].ndim)), sizeof(c_float))
@@ -260,7 +260,7 @@ class SpecializedStencil(LazySpecializedFunction):
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
             fn = OclStencilFunction()
-            # print(kernel.codegen())
+            print(kernel.codegen())
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
             stencil_kernel_ptr = program['stencil_kernel']
