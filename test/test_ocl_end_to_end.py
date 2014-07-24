@@ -32,8 +32,8 @@ class TestOclEndToEnd(unittest.TestCase):
 
     def _check(self, test_kernel):
         in_grid, out_grid1, out_grid2 = self.grids
-        test_kernel(backend='ocl', testing=True).kernel(in_grid, out_grid1)
-        test_kernel(pure_python=True).kernel(in_grid, out_grid2)
+        out_grid1 = test_kernel(backend='ocl', testing=True).kernel(in_grid)
+        out_grid2 = test_kernel(pure_python=True).kernel(in_grid)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data,
                                                  out_grid2.data,
@@ -125,10 +125,9 @@ class TestOclEndToEnd(unittest.TestCase):
         gaussian1 = gaussian(stdev_d, radius * 2)
         gaussian2 = gaussian(stdev_s, 256)
 
-        Kernel(backend='ocl', testing=True).kernel(in_grid, gaussian1,
-                                                   gaussian2,
-                                                   out_grid1)
-        Kernel(pure_python=True).kernel(in_grid, gaussian1, gaussian2, out_grid2)
+        out_grid1 = Kernel(backend='ocl', testing=True).kernel(in_grid, gaussian1,
+                                                   gaussian2)
+        out_grid2 = Kernel(pure_python=True).kernel(in_grid, gaussian1, gaussian2)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
         except:

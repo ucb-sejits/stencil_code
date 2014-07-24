@@ -34,8 +34,8 @@ class TestCEndToEnd(unittest.TestCase):
 
     def _check(self, test_kernel):
         in_grid, out_grid1, out_grid2 = self.grids
-        test_kernel(backend='c', testing=True).kernel(in_grid, out_grid1)
-        test_kernel(pure_python=True).kernel(in_grid, out_grid2)
+        outgrid1 = test_kernel(backend='c', testing=True).kernel(in_grid)
+        outgrid2 = test_kernel(pure_python=True).kernel(in_grid)
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
         except:
@@ -85,10 +85,6 @@ class TestCEndToEnd(unittest.TestCase):
         stdev_s = 70
         # radius = stdev_d * 3
         radius = 3
-        out_grid1 = StencilGrid([width, height])
-        out_grid1.ghost_depth = radius
-        out_grid2 = StencilGrid([width, height])
-        out_grid2.ghost_depth = radius
         in_grid = StencilGrid([width, height])
         in_grid.ghost_depth = radius
 
@@ -123,10 +119,12 @@ class TestCEndToEnd(unittest.TestCase):
         gaussian1 = gaussian(stdev_d, radius * 2)
         gaussian2 = gaussian(stdev_s, 256)
 
-        Kernel(backend='c', testing=True).kernel(in_grid, gaussian1,
-                                                 gaussian2,
-                                       out_grid1)
-        Kernel(pure_python=True).kernel(in_grid, gaussian1, gaussian2, out_grid2)
+        out_grid1 = Kernel(backend='c', testing=True).kernel(
+            in_grid, gaussian1, gaussian2
+        )
+        out_grid2 = Kernel(pure_python=True).kernel(
+            in_grid, gaussian1, gaussian2
+        )
         try:
             np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
         except:
@@ -159,9 +157,10 @@ class TestCEndToEnd(unittest.TestCase):
             input_grid[x] = random.randint(0, nx * ny * nz)
 
         laplacian = LaplacianKernel(alpha, beta)
-        laplacian.kernel(input_grid, output_grid1)
-        LaplacianKernel(alpha, beta, pure_python=True).kernel(input_grid,
-                                                              output_grid2)
+        output_grid1 = laplacian.kernel(input_grid)
+        output_grid2 = LaplacianKernel(
+            alpha, beta, pure_python=True
+        ).kernel(input_grid)
         try:
             np.testing.assert_array_almost_equal(output_grid1.data,
                                                  output_grid2.data)
