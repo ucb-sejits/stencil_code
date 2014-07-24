@@ -46,11 +46,10 @@ class Kernel(StencilKernel):
 kernel = Kernel()
 width = 1024
 in_grid = StencilGrid([width])
-out_grid = StencilGrid([width])
 for x in in_grid.interior_points():
     in_grid[x] = 1.0
 
-kernel.kernel(in_grid, out_grid)
+out_grid = kernel.kernel(in_grid)
 ```
 
 <a name='bilateralfilter'/>
@@ -83,8 +82,6 @@ def gaussian(stdev, length):
 kernel = Kernel()
 
 # Instantiate StencilGrids
-out_grid = StencilGrid([width, height])
-out_grid.ghost_depth = radius
 in_grid = StencilGrid([width, height])
 in_grid.ghost_depth = radius
 
@@ -102,5 +99,5 @@ for x in range(0, width):
 gaussian1 = gaussian(stdev_d, radius*2)
 gaussian2 = gaussian(stdev_s, 256)
 
-kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+out_grid = kernel.kernel(in_grid, gaussian1, gaussian2)
 ```
