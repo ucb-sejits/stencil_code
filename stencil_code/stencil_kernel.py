@@ -24,8 +24,8 @@ from collections import namedtuple
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
-import ctree.np
-from ctree.frontend import get_ast
+# import ctree.np
+# from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
 from backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from backend.c import StencilCTransformer
