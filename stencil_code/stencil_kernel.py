@@ -77,12 +77,7 @@ class StencilFunction(ConcreteSpecializedFunction):
         """
         # TODO: provide stronger type checking to give users better error
         # messages.
-        # TODO: return a new StencilGrid instead of having the users pass in one
-        new_args = (args[:-1] + (self.output.data,) + (args[-1],))
-        self._c_function(
-            *new_args
-        )
-        return self.output
+        self._c_function(*args)
 
 
 class OclStencilFunction(ConcreteSpecializedFunction):
@@ -124,11 +119,11 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         :param *args:
         """
         self.kernel.argtypes = tuple(
-            cl_mem for _ in args[:-1] + (self.output_grid,)
+            cl_mem for _ in args[:-1]
         ) + (localmem, )
         bufs = []
         events = []
-        for index, arg in enumerate(args[:-1] + (self.output_grid.data, )):
+        for index, arg in enumerate(args[:-1]):
             buf, evt = buffer_from_ndarray(self.queue, arg, blocking=False)
             # evt.wait()
             events.append(evt)
@@ -145,7 +140,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             sizeof(c_float)
         )
         self.kernel.setarg(
-            len(args), localmem(localmem_size), localmem_size
+            len(args) - 1, localmem(localmem_size), localmem_size
         )
         evt = clEnqueueNDRangeKernel(
             self.queue, self.kernel, self.global_size,
@@ -153,7 +148,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         )
         evt.wait()
         buf, evt = buffer_to_ndarray(
-            self.queue, bufs[-1], self.output_grid.data
+            self.queue, bufs[-1], args[-2]
         )
         evt.wait()
         return buf
@@ -199,7 +194,7 @@ class SpecializedStencil(LazySpecializedFunction):
         """
         return tuple(
             StencilArgConfig(len(arg), arg.dtype, arg.ndim, arg.shape)
-            for arg in args[:-1] + (self.output_grid.data,)
+            for arg in args[:-1]
         )
 
     # def get_tuning_driver(self):
@@ -378,6 +373,7 @@ class StencilKernel(object):
 
         duration = c_float()
         args = [arg.data for arg in args]
+        args.append(output_grid.data)
         args.append(byref(duration))
         self.specialized(*args)
         self.specialized.report(time=duration)
