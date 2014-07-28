@@ -151,10 +151,14 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             self.queue, bufs[-1], args[-2]
         )
         evt.wait()
-        for buffers in bufs:
-            del buffers
+        for mem in bufs:
+            del mem
 
         return buf
+
+    def __del__(self):
+        del self.context
+        del self.queue
 
 
 StencilArgConfig = namedtuple(
