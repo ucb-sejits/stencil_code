@@ -22,9 +22,8 @@ import math
 from collections import namedtuple
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
-from ctree.c.nodes import FunctionDecl, For
+from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
-from ctree.dotgen import DotGenVisitor
 import ctree.np
 from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
@@ -32,20 +31,16 @@ from backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from backend.c import StencilCTransformer
 from stencil_grid import StencilGrid
 from python_frontend import PythonToStencilModel
-import optimizer as optimizer
+# import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
 import pycl as cl
 from pycl import (
-    clCreateProgramWithSource, clCreateContextFromType, clCreateCommandQueue,
-    buffer_from_ndarray, buffer_to_ndarray, cl_mem, localmem,
-    clEnqueueNDRangeKernel
+    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem,
+    localmem, clEnqueueNDRangeKernel
 )
 import numpy as np
 import ast
 import operator
-
-
-# logging.basicConfig(level=20)
 
 
 class StencilFunction(ConcreteSpecializedFunction):
@@ -128,7 +123,9 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
-        self.kernel.argtypes = tuple(cl_mem for _ in args[:-1] + (self.output_grid,)) + (localmem, )
+        self.kernel.argtypes = tuple(
+            cl_mem for _ in args[:-1] + (self.output_grid,)
+        ) + (localmem, )
         bufs = []
         events = []
         for index, arg in enumerate(args[:-1] + (self.output_grid.data, )):
@@ -142,13 +139,22 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             local = 8
         else:
             local = 1
-        localmem_size = reduce(operator.mul, (local + (self.ghost_depth * 2) for _ in range(args[0].ndim)), sizeof(c_float))
+        localmem_size = reduce(
+            operator.mul,
+            (local + (self.ghost_depth * 2) for _ in range(args[0].ndim)),
+            sizeof(c_float)
+        )
         self.kernel.setarg(
             len(args), localmem(localmem_size), localmem_size
         )
-        evt = clEnqueueNDRangeKernel(self.queue, self.kernel, self.global_size, tuple(local for _ in range(args[0].ndim)))
+        evt = clEnqueueNDRangeKernel(
+            self.queue, self.kernel, self.global_size,
+            tuple(local for _ in range(args[0].ndim))
+        )
         evt.wait()
-        buf, evt = buffer_to_ndarray(self.queue, bufs[-1], self.output_grid.data)
+        buf, evt = buffer_to_ndarray(
+            self.queue, bufs[-1], self.output_grid.data
+        )
         evt.wait()
         return buf
 
@@ -202,7 +208,6 @@ class SpecializedStencil(LazySpecializedFunction):
     #     Initializes a brute force tuning driver that explores the space of
     #     loop unrolling factors as well as cache blocking factors for each
     #     dimension of our input StencilGrids.
-
 
     #     :return: A BruteForceTuning driver instance
     #     """
@@ -274,7 +279,10 @@ class SpecializedStencil(LazySpecializedFunction):
                 dim - 2 * self.input_grids[0].ghost_depth
                 for dim in arg_cfg[0].shape
             )
-            return fn.finalize(stencil_kernel_ptr, global_size, self.input_grids[0].ghost_depth, self.output_grid)
+            return fn.finalize(
+                stencil_kernel_ptr, global_size,
+                self.input_grids[0].ghost_depth, self.output_grid
+            )
         else:
             if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
                     >= unroll_factor:
@@ -371,9 +379,9 @@ class StencilKernel(object):
         duration = c_float()
         args = [arg.data for arg in args]
         args.append(byref(duration))
-        result = self.specialized(*args)
+        self.specialized(*args)
         self.specialized.report(time=duration)
-        #print("Took %.3fs" % duration.value)
+        # print("Took %.3fs" % duration.value)
         return output_grid
 
     def get_semantic_node(self, arg_names, *args):
@@ -406,16 +414,22 @@ class StencilKernel(object):
                 self.function_decl.defn[1].remove_types_from_decl()
 
             def backend_transform(self, block_padding, local_input):
-                return StencilOclTransformer(self.input_grids, self.output_grid,
-                        self.kernel, block_padding).visit(self.function_decl)
+                return StencilOclTransformer(
+                    self.input_grids, self.output_grid, self.kernel,
+                    block_padding
+                ).visit(self.function_decl)
 
             def backend_semantic_transform(self, fusion_padding):
-                self.function_decl = StencilOclSemanticTransformer(self.input_grids,
-                        self.output_grid, self.kernel, fusion_padding).visit(self.function_decl)
+                self.function_decl = StencilOclSemanticTransformer(
+                    self.input_grids, self.output_grid, self.kernel,
+                    fusion_padding
+                ).visit(self.function_decl)
                 self.body = self.function_decl.defn
                 self.params = self.function_decl.params
 
-        func_decl = PythonToStencilModel(arg_names).visit(get_ast(self.model)).files[0].body[0]
+        func_decl = PythonToStencilModel(arg_names).visit(
+            get_ast(self.model)
+        ).files[0].body[0]
         return StencilCall(func_decl, args[:-1], args[-1], self)
 
     def distance(self, x, y):
