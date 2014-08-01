@@ -8,7 +8,7 @@ class StencilGrid(object):
     stencil kernel.
     """
 
-    def __init__(self, shape, dtype=numpy.float32, data=None):
+    def __init__(self, shape, dtype=numpy.float32, data=None, neighbors=None):
         """__init__
 
         :param shape: the shape of the StencilGrid, e.g. `(1024, 1024)`
@@ -19,6 +19,7 @@ class StencilGrid(object):
             self.data = data
         else:
             self.data = numpy.zeros(shape, dtype=dtype)
+
         self.shape = shape
         self.ghost_depth = 1
         self.grid_variables = []
@@ -27,8 +28,11 @@ class StencilGrid(object):
         self.set_grid_variables()
         self.set_interior()
         # add default neighbor definition
-        self.neighbor_definition = []
-        self.set_default_neighbor_definitions()
+        if neighbors is not None:
+            # TODO: Check validity of neighbor defn
+            self.neighbor_definition = neighbors
+        else:
+            self.set_default_neighbor_definitions()
         self.corner_points = None
         self.edge_points = None
         self.make_corner_points_iterator()
