@@ -6,6 +6,12 @@ from ctypes import c_int, POINTER, c_float, c_double
 
 
 class StencilOmpTransformer(StencilBackend):  #pragma: no cover
+    def visit_CFile(self, node):
+        node.config_target = 'omp'
+        # Assumes only one node in body, TODO: Can this be done?
+        node.body = self.visit(node.body[0])
+        return node
+
     def visit_FunctionDecl(self, node):
         super(StencilOmpTransformer, self).visit_FunctionDecl(node)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
