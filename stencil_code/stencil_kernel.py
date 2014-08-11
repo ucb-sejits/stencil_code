@@ -80,9 +80,14 @@ class StencilFunction(ConcreteSpecializedFunction):
         # TODO: provide stronger type checking to give users better error
         # messages.
         duration = c_float()
-        args += (self.output, byref(duration))
+        if self.output is not None:
+            output = self.output
+            self.output = None
+        else:
+            output = np.zeros_like(args[0])
+        args += (output, byref(duration))
         self._c_function(*args)
-        return self.output
+        return output
 
 
 class OclStencilFunction(ConcreteSpecializedFunction):
@@ -123,12 +128,17 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
+        if self.output is not None:
+            output = self.output
+            self.output = None
+        else:
+            output = np.zeros_like(args[0])
         self.kernel.argtypes = tuple(
-            cl_mem for _ in args + (self.output, )
+            cl_mem for _ in args + (output, )
         ) + (localmem, )
         bufs = []
         events = []
-        for index, arg in enumerate(args + (self.output, )):
+        for index, arg in enumerate(args + (output, )):
             buf, evt = buffer_from_ndarray(self.queue, arg, blocking=False)
             # evt.wait()
             events.append(evt)
@@ -152,7 +162,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         )
         evt.wait()
         buf, evt = buffer_to_ndarray(
-            self.queue, bufs[-1], self.output
+            self.queue, bufs[-1], output
         )
         evt.wait()
         for mem in bufs:
@@ -318,7 +328,7 @@ class SpecializedStencil(LazySpecializedFunction):
                 dim - 2 * self.kernel.ghost_depth
                 for dim in arg_cfg[0].shape
             )
-            return fn.finalize(
+            finalized = fn.finalize(
                 stencil_kernel_ptr, global_size,
                 self.kernel.ghost_depth, self.output
             )
@@ -326,8 +336,10 @@ class SpecializedStencil(LazySpecializedFunction):
             param_types.append(POINTER(c_float))
             kernel_sig = CFUNCTYPE(c_void_p, *param_types)
             fn = StencilFunction()
-            return fn.finalize(tree, "stencil_kernel", kernel_sig,
-                               self.output)
+            finalized = fn.finalize(tree, "stencil_kernel", kernel_sig,
+                                    self.output)
+        self.output = None
+        return finalized
 
     def generate_output(self, args):
         if self.output is not None:
