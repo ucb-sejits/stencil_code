@@ -476,7 +476,7 @@ class StencilOclTransformer(StencilBackend):
                     # index = self.gen_array_macro(grid_name, pt)
                     index = self.local_array_macro(pt)
                     return ArrayRef(SymbolRef('block'), index)
-            elif grid_name == self.neighbor_grid_name:
+            else:
                 pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
                               self.var_list, self.offset_list))
                 #index = self.gen_array_macro(grid_name, pt)
@@ -486,4 +486,6 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        return node
+        print(self.input_dict)
+        raise Exception(
+            "Unsupported GridElement encountered: {0}".format(grid_name))

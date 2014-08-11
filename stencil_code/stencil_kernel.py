@@ -25,11 +25,12 @@ from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
+ctree.np  # Make PEP8 happy
 from ctree.frontend import get_ast
 from backend.omp import StencilOmpTransformer
 from backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from backend.c import StencilCTransformer
-from stencil_grid import StencilGrid
+# from stencil_grid import StencilGrid
 from python_frontend import PythonToStencilModel
 # import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
@@ -41,6 +42,7 @@ from pycl import (
 import numpy as np
 import ast
 import operator
+import itertools
 
 
 class StencilFunction(ConcreteSpecializedFunction):
@@ -243,7 +245,6 @@ class SpecializedStencil(LazySpecializedFunction):
             param_types.append(param_types[0])
         else:
             param_types.append(POINTER(c_float))
-        kernel_sig = CFUNCTYPE(c_void_p, *param_types)
 
         # block_factors = [2**tune_cfg['block_factor_%s' % d] for d in
         #                  range(len(self.input_grids[0].shape) - 1)]
@@ -273,18 +274,7 @@ class SpecializedStencil(LazySpecializedFunction):
         if self.backend == StencilOclTransformer:
             entry_point.set_kernel()
             kernel = OclFile("kernel", [entry_point])
-            fn = OclStencilFunction()
-            program = clCreateProgramWithSource(fn.context,
-                                                kernel.codegen()).build()
-            stencil_kernel_ptr = program['stencil_kernel']
-            global_size = tuple(
-                dim - 2 * self.input_grids[0].ghost_depth
-                for dim in arg_cfg[0].shape
-            )
-            return fn.finalize(
-                stencil_kernel_ptr, global_size,
-                self.input_grids[0].ghost_depth, self.output_grid
-            )
+            return kernel
         else:
             if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
                     >= unroll_factor:
@@ -301,8 +291,35 @@ class SpecializedStencil(LazySpecializedFunction):
         # print(ast.dump(tree))
         # TODO: This should be done in the visitors
         tree.files[0].config_target = 'omp'
-        fn = StencilFunction()
-        return fn.finalize(tree, "stencil_kernel", kernel_sig, self.output_grid)
+        return tree
+
+    def finalize(self, tree, program_config):
+        arg_cfg, tune_cfg = program_config
+        param_types = [
+            np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
+            for arg in arg_cfg
+        ]
+
+        if self.backend == StencilOclTransformer:
+            param_types.append(param_types[0])
+            fn = OclStencilFunction()
+            program = clCreateProgramWithSource(fn.context,
+                                                tree.codegen()).build()
+            stencil_kernel_ptr = program['stencil_kernel']
+            global_size = tuple(
+                dim - 2 * self.kernel.ghost_depth
+                for dim in arg_cfg[0].shape
+            )
+            return fn.finalize(
+                stencil_kernel_ptr, global_size,
+                self.kernel.ghost_depth, self.output_grid
+            )
+        else:
+            param_types.append(POINTER(c_float))
+            kernel_sig = CFUNCTYPE(c_void_p, *param_types)
+            fn = StencilFunction()
+            return fn.finalize(tree, "stencil_kernel", kernel_sig,
+                               self.output_grid)
 
 
 class StencilKernel(object):
@@ -351,7 +368,10 @@ class StencilKernel(object):
         self.kernel = self.shadow_kernel
 
         self.specialized_sizes = None
-        self.constants = {}
+
+    @property
+    def constants(self):
+        return {}
 
     def shadow_kernel(self, *args):
         """
@@ -365,8 +385,9 @@ class StencilKernel(object):
         :param args: The arguments to our original kernel method.
         :return: Undefined
         """
-        output_grid = StencilGrid(args[0].shape)
-        output_grid.ghost_depth = args[0].ghost_depth
+        output_grid = np.zeros_like(args[0])
+        # output_grid = StencilGrid(args[0].shape)
+        # output_grid.ghost_depth = self.ghost_depth
         if self.pure_python:
             self.pure_python_kernel(*(args + (output_grid,)))
             return output_grid
@@ -379,13 +400,19 @@ class StencilKernel(object):
             self.specialized_sizes = [arg.shape for arg in args]
 
         duration = c_float()
-        args = [arg.data for arg in args]
-        args.append(output_grid.data)
-        args.append(byref(duration))
+        # args = [arg.data for arg in args]
+        args += (output_grid, byref(duration))
         self.specialized(*args)
         self.specialized.report(time=duration)
         # print("Took %.3fs" % duration.value)
         return output_grid
+
+    def interior_points(self, x):
+        dims = (range(self.ghost_depth, dim - self.ghost_depth)
+                    for dim in x.shape)
+        for item in itertools.product(*dims):
+            yield tuple(item)
+
 
     def get_semantic_node(self, arg_names, *args):
         class StencilCall(ast.AST):

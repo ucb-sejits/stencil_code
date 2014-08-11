@@ -35,7 +35,6 @@ class PythonToStencilModel(PyBasicConversions):
             elif node.iter.func.attr is 'neighbors':
                 return NeighborPointsLoop(
                     neighbor_id=node.iter.args[1].n,
-                    grid_name=self.arg_name_map[node.iter.func.value.id],
                     neighbor_target=node.target.id,
                     body=node.body
                 )
