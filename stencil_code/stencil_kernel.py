@@ -115,7 +115,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self.kernel = kernel
         self.global_size = global_size
         self.ghost_depth = ghost_depth
-        self.output_grid = output_grid
+        self.output = output_grid
         return self
 
     def __call__(self, *args):
@@ -124,11 +124,11 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         :param *args:
         """
         self.kernel.argtypes = tuple(
-            cl_mem for _ in args[:-1]
+            cl_mem for _ in args + (self.output, )
         ) + (localmem, )
         bufs = []
         events = []
-        for index, arg in enumerate(args[:-1]):
+        for index, arg in enumerate(args + (self.output, )):
             buf, evt = buffer_from_ndarray(self.queue, arg, blocking=False)
             # evt.wait()
             events.append(evt)
@@ -144,16 +144,15 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             (local + (self.ghost_depth * 2) for _ in range(args[0].ndim)),
             sizeof(c_float)
         )
-        self.kernel.setarg(
-            len(args) - 1, localmem(localmem_size), localmem_size
-        )
+        self.kernel.setarg(len(args) + 1,
+                           localmem(localmem_size), localmem_size)
         evt = clEnqueueNDRangeKernel(
             self.queue, self.kernel, self.global_size,
             tuple(local for _ in range(args[0].ndim))
         )
         evt.wait()
         buf, evt = buffer_to_ndarray(
-            self.queue, bufs[-1], args[-2]
+            self.queue, bufs[-1], self.output
         )
         evt.wait()
         for mem in bufs:
