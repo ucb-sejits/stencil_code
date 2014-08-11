@@ -10,14 +10,14 @@ class StencilCTransformer(StencilBackend):
         super(StencilCTransformer, self).visit_FunctionDecl(node)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
             defname = "_%s_array_macro" % node.params[index].name
-            params = ','.join(["_d"+str(x) for x in range(arg.dim)])
+            params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
             params = "(%s)" % params
-            calc = "((_d%d)" % (arg.dim - 1)
-            for x in range(arg.dim - 1):
-                dim = str(int(arg.data.strides[x]/arg.data.itemsize))
-                calc += "+((_d%s) * %s)" % (str(x), dim)
+            calc = "((_d%d)" % (arg.ndim - 1)
+            for x in range(arg.ndim - 1):
+                ndim = str(int(arg.strides[x]/arg.itemsize))
+                calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
-            params = ["_d"+str(x) for x in range(arg.dim)]
+            params = ["_d"+str(x) for x in range(arg.ndim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
@@ -87,7 +87,8 @@ class StencilCTransformer(StencilBackend):
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
-            elif grid_name == self.neighbor_grid_name:
+            # elif grid_name == self.neighbor_grid_name:
+            else:
                 pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)
