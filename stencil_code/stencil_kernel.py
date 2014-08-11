@@ -79,7 +79,10 @@ class StencilFunction(ConcreteSpecializedFunction):
         """
         # TODO: provide stronger type checking to give users better error
         # messages.
+        duration = c_float()
+        args += (self.output, byref(duration))
         self._c_function(*args)
+        return self.output
 
 
 class OclStencilFunction(ConcreteSpecializedFunction):
@@ -169,7 +172,12 @@ StencilArgConfig = namedtuple(
 
 
 class SpecializedStencil(LazySpecializedFunction):
-    def __init__(self, func, input_grids, output_grid, kernel, testing=False):
+    backend_dict = {"c": StencilCTransformer,
+                    "omp": StencilOmpTransformer,
+                    "ocl": StencilOclTransformer,
+                    "opencl": StencilOclTransformer}
+
+    def __init__(self, kernel, backend, testing=False):
         """
         Initializes an instance of a SpecializedStencil. This function
         inherits from ctree's LazySpecializedFunction. When the specialized
@@ -187,11 +195,10 @@ class SpecializedStencil(LazySpecializedFunction):
         :param testing: Optional - whether or not we are in testing mode
         """
         self.testing = testing
-        self.input_grids = input_grids
-        self.output_grid = output_grid
         self.kernel = kernel
-        self.backend = kernel.backend
-        super(SpecializedStencil, self).__init__(get_ast(func))
+        self.backend = self.backend_dict[backend]
+        self.output = None
+        super(SpecializedStencil, self).__init__(get_ast(kernel.kernel))
 
     def args_to_subconfig(self, args):
         """
@@ -201,9 +208,10 @@ class SpecializedStencil(LazySpecializedFunction):
         :param args: StencilGrid instances being passed as params.
         :return: Tuple of information about the StencilGrids
         """
+        self.args = args
         return tuple(
             StencilArgConfig(len(arg), arg.dtype, arg.ndim, arg.shape)
-            for arg in args[:-1]
+            for arg in args
         )
 
     # def get_tuning_driver(self):
@@ -236,9 +244,10 @@ class SpecializedStencil(LazySpecializedFunction):
         :return: A ctree Project node, and our entry point type signature.
         """
         arg_cfg, tune_cfg = program_config
+        output = self.generate_output(self.args)
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
-            for arg in arg_cfg
+            for arg in arg_cfg + (output,)
         ]
 
         if self.backend == StencilOclTransformer:
@@ -252,8 +261,8 @@ class SpecializedStencil(LazySpecializedFunction):
         unroll_factor = 0
 
         for transformer in [PythonToStencilModel(),
-                            self.backend(self.input_grids,
-                                         self.output_grid,
+                            self.backend(self.args,
+                                         output,
                                          self.kernel
                                          )]:
             tree = transformer.visit(tree)
@@ -276,7 +285,7 @@ class SpecializedStencil(LazySpecializedFunction):
             kernel = OclFile("kernel", [entry_point])
             return kernel
         else:
-            if self.input_grids[0].shape[len(self.input_grids[0].shape) - 1] \
+            if self.args[0].shape[len(self.args[0].shape) - 1] \
                     >= unroll_factor:
                 # FIXME: Lack of parent pointers breaks current loop unrolling
                 # first_For = tree.find(For)
@@ -297,7 +306,7 @@ class SpecializedStencil(LazySpecializedFunction):
         arg_cfg, tune_cfg = program_config
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
-            for arg in arg_cfg
+            for arg in arg_cfg + (self.output, )
         ]
 
         if self.backend == StencilOclTransformer:
@@ -312,23 +321,37 @@ class SpecializedStencil(LazySpecializedFunction):
             )
             return fn.finalize(
                 stencil_kernel_ptr, global_size,
-                self.kernel.ghost_depth, self.output_grid
+                self.kernel.ghost_depth, self.output
             )
         else:
             param_types.append(POINTER(c_float))
             kernel_sig = CFUNCTYPE(c_void_p, *param_types)
             fn = StencilFunction()
             return fn.finalize(tree, "stencil_kernel", kernel_sig,
-                               self.output_grid)
+                               self.output)
 
+    def generate_output(self, args):
+        if self.output is not None:
+            return self.output
+        self.output = np.zeros_like(args[0])
+        return self.output
 
 class StencilKernel(object):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
-                    "opencl": StencilOclTransformer}
+                    "opencl": StencilOclTransformer,
+                    "python": None}
 
-    def __init__(self, backend="c", pure_python=False, testing=False):
+    def __new__(cls, backend="c", testing=False):
+        if backend == 'python':
+            cls.__call__ = cls.pure_python
+            return super(StencilKernel, cls).__new__(cls, backend, testing)
+        elif backend in ['c', 'omp', 'ocl']:
+            new = super(StencilKernel, cls).__new__(cls, backend, testing)
+            return SpecializedStencil(new, backend, testing)
+
+    def __init__(self, backend="c", testing=False):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -358,16 +381,21 @@ class StencilKernel(object):
 
         self.model = self.kernel
 
-        self.pure_python = pure_python
-        self.pure_python_kernel = self.kernel
+        # self.pure_python = pure_python
+        # self.pure_python_kernel = self.kernel
         self.should_unroll = True
         self.should_cacheblock = False
         self.block_size = 1
 
         # replace kernel with shadow version
-        self.kernel = self.shadow_kernel
+        # self.kernel = self.shadow_kernel
 
         self.specialized_sizes = None
+
+    def pure_python(self, *args):
+        output = np.zeros_like(args[0])
+        self.kernel(*(args + (output,)))
+        return output
 
     @property
     def constants(self):
