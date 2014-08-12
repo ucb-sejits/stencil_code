@@ -24,7 +24,7 @@ before_install:
   - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers
 
 install:
-  - pip install numpy Sphinx coveralls coverage nose pygments hindemith
+  - pip install numpy Sphinx coveralls coverage nose pygments
 
 
   - mkdir dependencies
@@ -36,6 +36,11 @@ install:
   # install pycl
   - git clone git://github.com/ucb-sejits/pycl.git ${TRAVIS_BUILD_DIR}/dependencies/pycl
   - cd ${TRAVIS_BUILD_DIR}/dependencies/pycl
+  - python setup.py install
+
+  # install hindemith
+  - git clone git://github.com/ucb-sejits/hindemith.git ${TRAVIS_BUILD_DIR}/dependencies/hindemith
+  - cd ${TRAVIS_BUILD_DIR}/dependencies/hindemith
   - python setup.py install
 
   # install opentuner
