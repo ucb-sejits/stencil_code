@@ -11,7 +11,7 @@ Installation
 ============
 
 ```
-pip install stencil_code
+pip install stencil_code --pre
 ```
 
 Benchmarks Results
