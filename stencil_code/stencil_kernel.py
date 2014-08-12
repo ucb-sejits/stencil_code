@@ -44,6 +44,8 @@ import ast
 import operator
 import itertools
 
+from hindemith.fusion.core import Fusable
+
 
 class StencilFunction(ConcreteSpecializedFunction):
     """StencilFunction
@@ -180,7 +182,7 @@ StencilArgConfig = namedtuple(
 )
 
 
-class SpecializedStencil(LazySpecializedFunction):
+class SpecializedStencil(LazySpecializedFunction, Fusable):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
