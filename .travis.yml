@@ -39,7 +39,7 @@ install:
   - python setup.py install
 
   # install hindemith
-  - pip install -e git://github.com/ucb-sejits/hindemith.git#egg=hindemith
+  - pip install hindemith --pre
 
   # install opentuner
   - git clone https://github.com/mbdriscoll/opentuner.git ${TRAVIS_BUILD_DIR}/dependencies/opentuner
