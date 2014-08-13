@@ -42,15 +42,11 @@ from .python_frontend import PythonToStencilModel
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
 import pycl as cl
 from pycl import (
-    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem,
-    localmem, clEnqueueNDRangeKernel
+    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
 )
 import numpy as np
 import ast
-import operator
 import itertools
-
-from functools import reduce
 
 from hindemith.fusion.core import Fusable
 
@@ -156,24 +152,11 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         cl.clWaitForEvents(*events)
         self._c_function(self.queue, self.kernel,
                          *bufs)
-        # localmem_size = reduce(
-        #     operator.mul,
-        #     (local + (self.ghost_depth * 2) for _ in range(args[0].ndim)),
-        #     sizeof(c_float)
-        # )
-        # self.kernel.setarg(len(args) + 1,
-        #                    localmem(localmem_size), localmem_size)
-        # evt = clEnqueueNDRangeKernel(
-        #     self.queue, self.kernel, self.global_size,
-        #     tuple(local for _ in range(args[0].ndim))
-        # )
-        # evt.wait()
+
         buf, evt = buffer_to_ndarray(
             self.queue, bufs[-1], output
         )
         evt.wait()
-        # for mem in bufs:
-        #     del mem
 
         return buf
 
@@ -344,7 +327,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
                 #ifdef __APPLE__
                 #include <OpenCL/opencl.h>
                 #else
-                #include <CL/CL.h>
+                #include <CL/cl.h>
                 #endif
                 """),
                 FunctionDecl(None, "stencil_control",
