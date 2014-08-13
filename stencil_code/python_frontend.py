@@ -2,7 +2,7 @@
 import ast
 
 from ctree.transformations import PyBasicConversions
-from stencil_model import*
+from .stencil_model import*
 
 
 class PythonToStencilModel(PyBasicConversions):

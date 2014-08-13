@@ -4,7 +4,6 @@ from ctree.c.nodes import *
 from ctypes import c_int
 from ctree.visitors import NodeTransformer
 from ..stencil_model import *
-from ..stencil_grid import *
 
 
 class StencilBackend(NodeTransformer):

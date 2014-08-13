@@ -27,11 +27,10 @@ from ctree.ocl.nodes import OclFile
 import ctree.np
 ctree.np  # Make PEP8 happy
 from ctree.frontend import get_ast
-from backend.omp import StencilOmpTransformer
-from backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
-from backend.c import StencilCTransformer
-# from stencil_grid import StencilGrid
-from python_frontend import PythonToStencilModel
+from .backend.omp import StencilOmpTransformer
+from .backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
+from .backend.c import StencilCTransformer
+from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
 import pycl as cl
