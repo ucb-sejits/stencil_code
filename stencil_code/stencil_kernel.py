@@ -43,6 +43,8 @@ import ast
 import operator
 import itertools
 
+from functools import reduce
+
 from hindemith.fusion.core import Fusable
 
 
@@ -402,9 +404,9 @@ class StencilKernel(object):
     def __new__(cls, backend="c", testing=False):
         if backend == 'python':
             cls.__call__ = cls.pure_python
-            return cls(backend, testing)
+            return super(StencilKernel, cls).__new__(cls)
         elif backend in ['c', 'omp', 'ocl']:
-            new = cls(StencilKernel, cls).__new__(cls, backend, testing)
+            new = super(StencilKernel, cls).__new__(cls)
             return SpecializedStencil(new, backend, testing)
 
     def __init__(self, backend="c", testing=False):
