@@ -56,11 +56,11 @@ class StencilFunction(ConcreteSpecializedFunction):
     def finalize(self, tree, entry_name, entry_type, output):
         """finalize
 
-        :param tree: A project node containing any files to be compiled for this
-                     specialized function.
+        :param tree: A project node containing any files to be compiled for
+                     this specialized function.
         :type tree: Project
-        :param entry_name: The name of the function that will be the entry point
-                           to the compiled project.
+        :param entry_name: The name of the function that will be the entry
+                           point to the compiled project.
         :type entry_name: str
         :param entry_type: The type signature of the function described by
                            `entry_name`.
@@ -73,9 +73,9 @@ class StencilFunction(ConcreteSpecializedFunction):
     def __call__(self, *args):
         """__call__
 
-        :param *args: Arguments to be passed to our C function, the types should
-                      match the types specified by the `entry_type` that was
-                      passed to :attr: `finalize`.
+        :param *args: Arguments to be passed to our C function, the types
+                      should match the types specified by the `entry_type`
+                      that was passed to :attr: `finalize`.
 
         """
         # TODO: provide stronger type checking to give users better error
@@ -348,6 +348,50 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         self.output = np.zeros_like(args[0])
         return self.output
 
+
+class StencilCall(ast.AST):
+    _fields = ['params', 'body']
+
+    def __init__(self, function_decl, input_grids, output_grid, kernel):
+        self.params = function_decl.params
+        self.body = function_decl.defn
+        self.function_decl = function_decl
+        self.input_grids = input_grids
+        self.output_grid = output_grid
+        self.kernel = kernel
+
+    def label(self):
+        return ""
+
+    def to_dot(self):
+        return "digraph mytree {\n%s}" % self._to_dot()
+
+    def _to_dot(self):
+        from ctree.dotgen import DotGenVisitor
+
+        return DotGenVisitor().visit(self)
+
+    def add_undef(self):
+        self.function_decl.defn[0].add_undef()
+
+    def remove_types_from_decl(self):
+        self.function_decl.defn[1].remove_types_from_decl()
+
+    def backend_transform(self, block_padding, local_input):
+        return StencilOclTransformer(
+            self.input_grids, self.output_grid, self.kernel,
+            block_padding
+        ).visit(self.function_decl)
+
+    def backend_semantic_transform(self, fusion_padding):
+        self.function_decl = StencilOclSemanticTransformer(
+            self.input_grids, self.output_grid, self.kernel,
+            fusion_padding
+        ).visit(self.function_decl)
+        self.body = self.function_decl.defn
+        self.params = self.function_decl.params
+
+
 class StencilKernel(object):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
@@ -358,9 +402,9 @@ class StencilKernel(object):
     def __new__(cls, backend="c", testing=False):
         if backend == 'python':
             cls.__call__ = cls.pure_python
-            return super(StencilKernel, cls).__new__(cls, backend, testing)
+            return cls(backend, testing)
         elif backend in ['c', 'omp', 'ocl']:
-            new = super(StencilKernel, cls).__new__(cls, backend, testing)
+            new = cls(StencilKernel, cls).__new__(cls, backend, testing)
             return SpecializedStencil(new, backend, testing)
 
     def __init__(self, backend="c", testing=False):
@@ -449,53 +493,11 @@ class StencilKernel(object):
 
     def interior_points(self, x):
         dims = (range(self.ghost_depth, dim - self.ghost_depth)
-                    for dim in x.shape)
+                for dim in x.shape)
         for item in itertools.product(*dims):
             yield tuple(item)
 
-
     def get_semantic_node(self, arg_names, *args):
-        class StencilCall(ast.AST):
-            _fields = ['params', 'body']
-
-            def __init__(self, function_decl, input_grids, output_grid, kernel):
-                self.params = function_decl.params
-                self.body = function_decl.defn
-                self.function_decl = function_decl
-                self.input_grids = input_grids
-                self.output_grid = output_grid
-                self.kernel = kernel
-
-            def label(self):
-                return ""
-
-            def to_dot(self):
-                return "digraph mytree {\n%s}" % self._to_dot()
-
-            def _to_dot(self):
-                from ctree.dotgen import DotGenVisitor
-
-                return DotGenVisitor().visit(self)
-
-            def add_undef(self):
-                self.function_decl.defn[0].add_undef()
-
-            def remove_types_from_decl(self):
-                self.function_decl.defn[1].remove_types_from_decl()
-
-            def backend_transform(self, block_padding, local_input):
-                return StencilOclTransformer(
-                    self.input_grids, self.output_grid, self.kernel,
-                    block_padding
-                ).visit(self.function_decl)
-
-            def backend_semantic_transform(self, fusion_padding):
-                self.function_decl = StencilOclSemanticTransformer(
-                    self.input_grids, self.output_grid, self.kernel,
-                    fusion_padding
-                ).visit(self.function_decl)
-                self.body = self.function_decl.defn
-                self.params = self.function_decl.params
 
         func_decl = PythonToStencilModel(arg_names).visit(
             get_ast(self.model)
