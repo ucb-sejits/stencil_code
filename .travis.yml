@@ -1,82 +1,58 @@
 language: python
-
 python:
-  - "2.7"
-  - "3.3"
-  - "3.4"
-
+- '2.7'
+- '3.3'
+- '3.4'
 env:
   global:
-    # encrypted OAuth token so Travis can commit docs back to Github
-    - secure: "QBB2KT4EFUdSkH9fjo5J/02zuZlD0FbVsKwYJgW6c4INp1UY/nx0nrsgjPSZQMD2HBztdfEZInugoVrOJwXBzWJ5Ioc19T9oYhnzaIF6oJRo1mTYDhragvdwiLfb0AyylGq7bgP4lgoMBtE1Oxauf0rKVEYiVeEhvHJup/di6A4="
+  - secure: QBB2KT4EFUdSkH9fjo5J/02zuZlD0FbVsKwYJgW6c4INp1UY/nx0nrsgjPSZQMD2HBztdfEZInugoVrOJwXBzWJ5Ioc19T9oYhnzaIF6oJRo1mTYDhragvdwiLfb0AyylGq7bgP4lgoMBtE1Oxauf0rKVEYiVeEhvHJup/di6A4=
   matrix:
-    - LLVM_VERSION=3.3
-
+  - LLVM_VERSION=3.3
 before_install:
-
-  - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.2-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.2-Linux-x86_64.sh -O miniconda.sh; fi
-  - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then export PATH=/home/travis/miniconda/bin:$PATH; else export PATH=/home/travis/miniconda3/bin:$PATH; fi
-  - conda update --yes conda
-  # Setup environment
-  - conda create -n travisci --yes python=${TRAVIS_PYTHON_VERSION:0:3} llvm numpy pip
-  - source activate travisci
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers
-
+- if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.2-Linux-x86_64.sh
+  -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.2-Linux-x86_64.sh
+  -O miniconda.sh; fi
+- chmod +x miniconda.sh
+- ./miniconda.sh -b
+- if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then export PATH=/home/travis/miniconda/bin:$PATH;
+  else export PATH=/home/travis/miniconda3/bin:$PATH; fi
+- conda update --yes conda
+- conda create -n travisci --yes python=${TRAVIS_PYTHON_VERSION:0:3} llvm numpy pip
+- source activate travisci
+- sudo apt-get update -qq
+- sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers
 install:
-  - pip install numpy Sphinx coveralls coverage nose pygments setuptools 
-
-
-  - mkdir dependencies
-  # install llvmpy
-  - git clone -b llvm-3.4 git://github.com/llvmpy/llvmpy.git ${TRAVIS_BUILD_DIR}/dependencies/llvmpy
-  - cd ${TRAVIS_BUILD_DIR}/dependencies/llvmpy
-  - python setup.py install
-
-  # install pycl
-  - git clone git://github.com/ucb-sejits/pycl.git ${TRAVIS_BUILD_DIR}/dependencies/pycl
-  - cd ${TRAVIS_BUILD_DIR}/dependencies/pycl
-  - python setup.py install
-
-  # install hindemith
-  - pip install hindemith --pre
-
-  # install opentuner
-  - git clone https://github.com/mbdriscoll/opentuner.git ${TRAVIS_BUILD_DIR}/dependencies/opentuner
-  - cd ${TRAVIS_BUILD_DIR}/dependencies/opentuner
-  - sudo apt-get install `cat debian-packages-deps | tr '\n' ' '`
-  - "if [[ \"x$PYTHON_VERSION\" -eq \"x(2.7)\" ]]; then pip install -r python-packages; fi"
-  - export PYTHONPATH=`pwd`:$PYTHONPATH
-
-  - git clone git://github.com/ucb-sejits/ctree.git ${TRAVIS_BUILD_DIR}/dependencies/ctree
-  - cd ${TRAVIS_BUILD_DIR}/dependencies/ctree
-  - python setup.py install
-  - cd ${TRAVIS_BUILD_DIR}
-
-
+- pip install numpy Sphinx coveralls coverage nose pygments setuptools
+- mkdir dependencies
+- git clone -b llvm-3.4 git://github.com/llvmpy/llvmpy.git ${TRAVIS_BUILD_DIR}/dependencies/llvmpy
+- cd ${TRAVIS_BUILD_DIR}/dependencies/llvmpy
+- python setup.py install
+- git clone git://github.com/ucb-sejits/pycl.git ${TRAVIS_BUILD_DIR}/dependencies/pycl
+- cd ${TRAVIS_BUILD_DIR}/dependencies/pycl
+- python setup.py install
+- pip install hindemith --pre
+- git clone https://github.com/mbdriscoll/opentuner.git ${TRAVIS_BUILD_DIR}/dependencies/opentuner
+- cd ${TRAVIS_BUILD_DIR}/dependencies/opentuner
+- sudo apt-get install `cat debian-packages-deps | tr '\n' ' '`
+- if [[ "x$PYTHON_VERSION" -eq "x(2.7)" ]]; then pip install -r python-packages; fi
+- export PYTHONPATH=`pwd`:$PYTHONPATH
+- git clone git://github.com/ucb-sejits/ctree.git ${TRAVIS_BUILD_DIR}/dependencies/ctree
+- cd ${TRAVIS_BUILD_DIR}/dependencies/ctree
+- python setup.py install
+- cd ${TRAVIS_BUILD_DIR}
 script:
-  - nosetests -a '!omp' --verbose --with-coverage --cover-package=stencil_code --cover-erase
-
+- nosetests -a '!omp' --verbose --with-coverage --cover-package=stencil_code --cover-erase
 after_success:
-  # publish coverage report
-  - source deactivate
-  - coveralls
-  # Tell read the docs to rebuild docs
-  - curl -X POST http://readthedocs.org/build/stencil-code
-  # - git clone -b gh-pages https://github.com/ucb-sejits/stencil_code.git ${TRAVIS_BUILD_DIR}/doc
-  # - make -C doc html
-  # - cd ${TRAVIS_BUILD_DIR}/doc
-  # - cp -r _build/html .
-  # - git config --global user.name 'Ctree Doc Bot'
-  # - git config --global user.email 'mbdriscoll+ctreeoauth@gmail.com'
-  # - git add -A .
-  # - git commit -m "Updating documentation from Travis Build ${TRAVIS_BUILD_ID}."
-  # # set up oauth for push
-  # - git config credential.helper "store --file=.git/credentials"
-  # - echo "https://${GH_TOKEN}:x-oauth-basic@github.com" > .git/credentials
-  # - git push origin gh-pages
-
+- source deactivate
+- coveralls
+- curl -X POST http://readthedocs.org/build/stencil-code
 notifications:
   slack: ucb-sejits:cPZxBunxagWZ763mcsIXOV0W
+deploy:
+  provider: pypi
+  user: leonardt
+  password:
+    secure: ajymBFsIIjbwVAIffxebyZMfTtzdIUeBdsbWpvSSaW9evnJDRt0wKVkPcPya9NT+RwJvqQzWz+mO80mhk4Jc0WzvGsNSbUIsiDOHCx5jsmVh9xLzdtc9Kf/LVEaSAILU+VmBs9YqENhxyxI7y11JMzHim+mXsagKblzVTbKZs1A=
+  on:
+    tags: true
+    repo: ucb-sejits/stencil_code
