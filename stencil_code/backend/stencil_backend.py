@@ -4,7 +4,6 @@ from ctree.c.nodes import *
 from ctypes import c_int
 from ctree.visitors import NodeTransformer
 from ..stencil_model import *
-from ..stencil_grid import *
 
 
 class StencilBackend(NodeTransformer):
@@ -30,6 +29,7 @@ class StencilBackend(NodeTransformer):
         # generate the proper array macros.
         # TODO: There may be a better way to do this? i.e. done at
         # initialization.
+        print(node.params)
         for index, arg in enumerate(node.params):
             if index < len(self.input_grids):
                 self.input_dict[arg.name] = self.input_grids[index]

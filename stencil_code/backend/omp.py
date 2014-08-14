@@ -1,7 +1,7 @@
 from ctree.omp.nodes import *
 from ctree.omp.macros import *
 from ctree.cpp.nodes import CppDefine
-from stencil_backend import *
+from .stencil_backend import *
 from ctypes import c_int, POINTER, c_float, c_double
 
 

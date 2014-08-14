@@ -2,7 +2,10 @@
 import ast
 
 from ctree.transformations import PyBasicConversions
-from stencil_model import*
+from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
+    MathFunction
+
+import sys
 
 
 class PythonToStencilModel(PyBasicConversions):
@@ -18,11 +21,17 @@ class PythonToStencilModel(PyBasicConversions):
         if self.arg_names is not None:
             for index, arg in enumerate(node.args.args):
                 new_name = self.arg_names[index]
-                self.arg_name_map[arg.id] = new_name
+                if sys.version_info >= (3, 0):
+                    self.arg_name_map[arg.arg] = new_name
+                else:
+                    self.arg_name_map[arg.id] = new_name
                 arg.id = new_name
         else:
             for index, arg in enumerate(node.args.args):
-                self.arg_name_map[arg.id] = arg.id
+                if sys.version_info >= (3, 0):
+                    self.arg_name_map[arg.arg] = arg.arg
+                else:
+                    self.arg_name_map[arg.id] = arg.id
         return super(PythonToStencilModel, self).visit_FunctionDef(node)
 
     def visit_For(self, node):
@@ -54,4 +63,3 @@ class PythonToStencilModel(PyBasicConversions):
             grid_name=self.arg_name_map[value.name],
             target=slice.value
         )
-

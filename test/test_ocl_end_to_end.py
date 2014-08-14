@@ -9,6 +9,7 @@ radius = 1
 width = 64 + radius * 2
 height = width
 
+
 class TestOclEndToEnd(unittest.TestCase):
     def setUp(self):
         self.in_grid = np.random.rand(width, width).astype(np.float32) * 1000
@@ -21,7 +22,7 @@ class TestOclEndToEnd(unittest.TestCase):
             np.testing.assert_array_almost_equal(out_grid1, out_grid2,
                                                  decimal=3)
         except AssertionError as e:
-            self.fail("Output grids not equal: %s" % e.message)
+            self.fail("Output grids not equal: %s" % e)
 
     def test_simple_ocl_kernel(self):
         self._check(SimpleKernel)
@@ -42,4 +43,4 @@ class TestOclEndToEnd(unittest.TestCase):
         try:
             np.testing.assert_array_almost_equal(out_grid1, out_grid2)
         except AssertionError as e:
-            self.fail("Output grids not equal: %s" % e.message)
+            self.fail("Output grids not equal: %s" % e)

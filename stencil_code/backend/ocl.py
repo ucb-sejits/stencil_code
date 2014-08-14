@@ -5,7 +5,7 @@ from ctree.ocl.macros import *
 from ctree.cpp.nodes import *
 from ctree.templates.nodes import StringTemplate
 from ..stencil_model import *
-from stencil_backend import StencilBackend
+from .stencil_backend import StencilBackend
 import numpy as np
 import ctypes as ct
 
@@ -486,6 +486,5 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        print(self.input_dict)
         raise Exception(
             "Unsupported GridElement encountered: {0}".format(grid_name))

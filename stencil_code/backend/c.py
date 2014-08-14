@@ -1,7 +1,7 @@
 __author__ = 'leonardtruong'
 from ctree.cpp.nodes import CppDefine
 from ctree.templates.nodes import StringTemplate
-from stencil_backend import *
+from .stencil_backend import *
 from ctypes import c_int, POINTER, c_float
 
 
