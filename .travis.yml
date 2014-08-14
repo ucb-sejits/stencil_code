@@ -55,4 +55,5 @@ deploy:
     secure: ajymBFsIIjbwVAIffxebyZMfTtzdIUeBdsbWpvSSaW9evnJDRt0wKVkPcPya9NT+RwJvqQzWz+mO80mhk4Jc0WzvGsNSbUIsiDOHCx5jsmVh9xLzdtc9Kf/LVEaSAILU+VmBs9YqENhxyxI7y11JMzHim+mXsagKblzVTbKZs1A=
   on:
     tags: true
+    all_branches: true
     repo: ucb-sejits/stencil_code
