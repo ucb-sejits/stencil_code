@@ -315,14 +315,15 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
                     NULL()
                 )
             )
-            defn.append(
+            defn.extend([
                 FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
                     SymbolRef('queue'), SymbolRef('kernel'),
                     Constant(self.kernel.dim), NULL(),
                     SymbolRef('global'), SymbolRef('local'),
                     Constant(0), NULL(), NULL()
-                ])
-            )
+                ]),
+                FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+            ])
             body = [
                 StringTemplate("""
                 #ifdef __APPLE__
