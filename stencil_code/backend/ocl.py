@@ -486,6 +486,5 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        print(self.input_dict)
         raise Exception(
             "Unsupported GridElement encountered: {0}".format(grid_name))
