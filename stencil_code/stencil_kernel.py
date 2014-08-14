@@ -23,7 +23,7 @@ from collections import namedtuple
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.nodes import Project
-from ctree.c.nodes import FunctionDecl, CFile, SymbolRef, ArrayDef, Assign, Ref, \
+from ctree.c.nodes import FunctionDecl, CFile, SymbolRef, ArrayDef, Ref, \
     Constant, FunctionCall
 from ctree.c.macros import NULL
 from ctree.ocl.nodes import OclFile
@@ -40,6 +40,7 @@ from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
+import ctypes as ct
 import pycl as cl
 from pycl import (
     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
@@ -290,15 +291,15 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
                           for d in range(len(arg_cfg) + 1))
             local_size = 1
             defn = [
-                Assign(
-                    SymbolRef('size_t global[%d]' % arg_cfg[0].ndim),
-                    ArrayDef([Constant(d - 2 * self.kernel.ghost_depth)
-                              for d in arg_cfg[0].shape])
+                ArrayDef(
+                    SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
+                    [Constant(d - 2 * self.kernel.ghost_depth)
+                     for d in arg_cfg[0].shape]
                 ),
-                Assign(
-                    SymbolRef('size_t local[%d]' % arg_cfg[0].ndim),
-                    ArrayDef([Constant(local_size) for _ in arg_cfg[0].shape])
-                ),
+                ArrayDef(
+                    SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
+                    [Constant(local_size) for _ in arg_cfg[0].shape]
+                )
             ]
             defn.extend(
                 clSetKernelArg(
