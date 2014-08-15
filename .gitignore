@@ -2,3 +2,7 @@
 .idea
 .ropeproject
 *.swp
+build
+MANIFEST
+dist
+*.egg-info

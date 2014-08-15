@@ -2,7 +2,9 @@ from distutils.core import setup
 
 setup(
     name='stencil_code',
-    version='0.95a',
+    description='A specializer built on the ASP SEJITS framework',
+    url='https://github.com/ucb-sejits/stencil_code/',
+    version='0.95a4',
 
     packages=[
         'stencil_code',

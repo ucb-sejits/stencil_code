@@ -1,5 +1,9 @@
-from examples.stencil_grid.stencil_kernel import *
-from examples.stencil_grid.stencil_grid import StencilGrid
+from stencil_code.stencil_kernel import *
+from stencil_code.stencil_grid import StencilGrid
+
+import logging
+
+logging.basicConfig(level=20)
 
 import sys
 import numpy
@@ -7,9 +11,9 @@ import math
 import time
 import random
 
-width = 1600
-height = 1600
-time_steps = 500
+width = 130
+height = 130
+time_steps = 18
 
 
 class Kernel(StencilKernel):
@@ -21,7 +25,7 @@ class Kernel(StencilKernel):
             for z in in_img.neighbors(x, 1):
                 out_img[x] -= 0.125 * 2.0 * in_img[z]
 
-kernel = Kernel()
+kernel = Kernel(backend='ocl')
 kernel.should_unroll = False
 out_grid = StencilGrid([time_steps, width, height])
 out_grid.ghost_depth = 1

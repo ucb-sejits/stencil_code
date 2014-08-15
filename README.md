@@ -7,6 +7,13 @@ for more information on ctree see [ctree on github](http://github.com/ucb-sejits
 [![Build Status](https://travis-ci.org/ucb-sejits/stencil_code.svg?branch=master)](https://travis-ci.org/ucb-sejits/stencil_code)
 [![Coverage Status](https://coveralls.io/repos/ucb-sejits/stencil_code/badge.png?branch=master)](https://coveralls.io/r/ucb-sejits/stencil_code?branch=master)
 
+Installation
+============
+
+```
+pip install stencil_code --pre
+```
+
 Benchmarks Results
 ==================
 Check out the benchmarks folders for some performance tests you can run 
@@ -37,25 +44,43 @@ Examples
 <a name='simple'/>
 ### A simple kernel
 ```python
-class Kernel(StencilKernel):
+import numpy
+from stencil_code.stencil_grid import StencilKernel
+
+class SimpleKernel(StencilKernel):
+    @property
+    def dim(self):
+        return 2
+
+    @property
+    def ghost_depth(self):
+        return 1
+
+    def neighbors(self, pt, defn=0):
+        if defn == 0:
+            for x in range(-radius, radius+1):
+                for y in range(-radius, radius+1):
+                    yield (pt[0] - x, pt[1] - y)
+
     def kernel(self, in_grid, out_grid):
-        for x in out_grid.interior_points():
-            for y in in_grid.neighbors(x, 1):
+        for x in self.interior_points(out_grid):
+            for y in self.neighbors(x, 0):
                 out_grid[x] += in_grid[y]
 
-kernel = Kernel()
-width = 1024
-in_grid = StencilGrid([width])
-out_grid = StencilGrid([width])
-for x in in_grid.interior_points():
-    in_grid[x] = 1.0
 
-kernel.kernel(in_grid, out_grid)
+kernel = SimpleKernel()
+width = 1024
+in_grid = numpy.rand(width).astype(numpy.float32) * 1000
+
+out_grid = kernel(in_grid)
 ```
 
 <a name='bilateralfilter'/>
 ### A bilateral filter
 ```python
+import numpy
+from stencil_code.stencil_kernel import StencilKernel
+
 width = int(sys.argv[2])
 height = int(sys.argv[3])
 image_in = open(sys.argv[1], 'rb')
@@ -63,11 +88,26 @@ stdev_d = 3
 stdev_s = 70
 radius = stdev_d * 3
 
-class Kernel(StencilKernel):
+class BilatKernel(StencilKernel):
+    @property
+    def dim(self):
+        return 2
+
+    @property
+    def ghost_depth(self):
+        return radius
+
+    def neighbors(self, pt, defn=0):
+        if defn == 1:
+            for x in range(-radius, radius+1):
+                for y in range(-radius, radius+1):
+                    yield (pt[0] - x, pt[1] - y)
+
     def kernel(self, in_img, filter_d, filter_s, out_img):
-        for x in out_img.interior_points():
-            for y in in_img.neighbors(x, 1):
-                out_img[x] += in_img[y] * filter_d[int(distance(x, y))] *\
+        for x in self.interior_points(out_img):
+            for y in self.neighbors(x, 1):
+                out_img[x] += in_img[y] * filter_d[
+                    int(distance(x, y))] * \
                     filter_s[abs(int(in_img[x] - in_img[y]))]
 
 
@@ -80,27 +120,14 @@ def gaussian(stdev, length):
     return result
 
 # Instantiate a kernel
-kernel = Kernel()
+kernel = BilatKernel()
 
-# Instantiate StencilGrids
-out_grid = StencilGrid([width, height])
-out_grid.ghost_depth = radius
-in_grid = StencilGrid([width, height])
-in_grid.ghost_depth = radius
-
-# Define a neighborhood
-for x in range(-radius, radius+1):
-    for y in range(-radius, radius+1):
-        in_grid.neighbor_definition[1].append((x, y))
-
-# Copy image data into in_grid
-for x in range(0, width):
-    for y in range(0, height):
-        in_grid.data[(x, y)] = pixels[y * width + x]
+# Get some input data
+in_grid = numpy.random(width, height).astype(numpy.float32) * 255
 
 # Create our filters
 gaussian1 = gaussian(stdev_d, radius*2)
 gaussian2 = gaussian(stdev_s, 256)
 
-kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+out_grid = kernel(in_grid, gaussian1, gaussian2)
 ```

@@ -1,23 +1,29 @@
 from ctree.omp.nodes import *
 from ctree.omp.macros import *
 from ctree.cpp.nodes import CppDefine
-from stencil_backend import *
+from .stencil_backend import *
 from ctypes import c_int, POINTER, c_float, c_double
 
 
 class StencilOmpTransformer(StencilBackend):  #pragma: no cover
+    def visit_CFile(self, node):
+        node.config_target = 'omp'
+        # Assumes only one node in body, TODO: Can this be done?
+        node.body = self.visit(node.body[0])
+        return node
+
     def visit_FunctionDecl(self, node):
         super(StencilOmpTransformer, self).visit_FunctionDecl(node)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
             defname = "_%s_array_macro" % node.params[index].name
-            params = ','.join(["_d"+str(x) for x in range(arg.dim)])
+            params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
             params = "(%s)" % params
-            calc = "((_d%d)" % (arg.dim - 1)
-            for x in range(arg.dim - 1):
-                dim = str(int(arg.data.strides[x]/arg.data.itemsize))
-                calc += "+((_d%s) * %s)" % (str(x), dim)
+            calc = "((_d%d)" % (arg.ndim - 1)
+            for x in range(arg.ndim - 1):
+                ndim = str(int(arg.strides[x]/arg.itemsize))
+                calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
-            params = ["_d"+str(x) for x in range(arg.dim)]
+            params = ["_d"+str(x) for x in range(arg.ndim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
@@ -89,7 +95,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
-            elif grid_name == self.neighbor_grid_name:
+            else:
                 pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)

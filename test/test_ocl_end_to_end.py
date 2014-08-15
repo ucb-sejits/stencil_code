@@ -1,135 +1,46 @@
-from stencil_code.stencil_kernel import StencilKernel
-from stencil_code.stencil_grid import StencilGrid
 import numpy as np
 import unittest
-import random
-import math
+from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
+    BilatKernel, gaussian1, gaussian2
 
-height = 50
 stdev_d = 3
 stdev_s = 70
 radius = 1
 width = 64 + radius * 2
+height = width
 
 
 class TestOclEndToEnd(unittest.TestCase):
     def setUp(self):
-        out_grid1 = StencilGrid([width, width])
-        out_grid1.ghost_depth = radius
-        out_grid2 = StencilGrid([width, width])
-        out_grid2.ghost_depth = radius
-        in_grid = StencilGrid([width, width])
-        in_grid.ghost_depth = radius
-
-        for x in range(0, width):
-            for y in range(0, width):
-                in_grid.data[(x, y)] = random.random() * random.randint(0, 1000)
-
-        for x in range(-radius, radius+1):
-            for y in range(-radius, radius+1):
-                in_grid.neighbor_definition[1].append((x, y))
-        self.grids = (in_grid, out_grid1, out_grid2)
+        self.in_grid = np.random.rand(width, width).astype(np.float32) * 1000
 
     def _check(self, test_kernel):
-        in_grid, out_grid1, out_grid2 = self.grids
-        test_kernel(backend='ocl', testing=True).kernel(in_grid, out_grid1)
-        test_kernel(pure_python=True).kernel(in_grid, out_grid2)
+        out_grid1 = test_kernel(backend='ocl',
+                                testing=True)(self.in_grid)
+        out_grid2 = test_kernel(backend='python')(self.in_grid)
         try:
-            np.testing.assert_array_almost_equal(out_grid1.data,
-                                                 out_grid2.data,
+            np.testing.assert_array_almost_equal(out_grid1, out_grid2,
                                                  decimal=3)
         except AssertionError as e:
-            self.fail("Output grids not equal: %s" % e.message)
+            self.fail("Output grids not equal: %s" % e)
 
     def test_simple_ocl_kernel(self):
-        class Kernel(StencilKernel):
-            def kernel(self, in_grid, out_grid):
-                for x in out_grid.interior_points():
-                    for y in in_grid.neighbors(x, 1):
-                        out_grid[x] += in_grid[y]
-        self._check(Kernel)
+        self._check(SimpleKernel)
 
     def test_2d_heat(self):
-        class Kernel(StencilKernel):
-            def kernel(self, in_img, out_img):
-                for x in out_img.interior_points():
-                    out_img[x] = in_img[x]
-                    for y in in_img.neighbors(x, 0):
-                        out_img[x] += 0.125 * in_img[y]
-                    for z in in_img.neighbors(x, 1):
-                        out_img[x] -= 0.125 * 2.0 * in_img[z]
-        self._check(Kernel)
+        self._check(TwoDHeatKernel)
 
     def test_laplacian(self):
-        alpha = 0.5
-        beta = 1.0
-
-        class LaplacianKernel(StencilKernel):
-            def __init__(self, backend='c', pure_python=False, testing=False):
-                super(LaplacianKernel, self).__init__(backend=backend,
-                                                      pure_python=pure_python,
-                                                      testing=testing)
-                self.constants = {'alpha': 0.5, 'beta': 1.0}
-
-            def kernel(self, in_grid, out_grid):
-                for x in in_grid.interior_points():
-                    out_grid[x] = alpha * in_grid[x]
-                    for y in in_grid.neighbors(x, 1):
-                        out_grid[x] += beta * in_grid[y]
-
         self._check(LaplacianKernel)
 
-
     def test_bilateral_filter(self):
-        width = 70
-        height = 70
-        stdev_d = 3
-        stdev_s = 70
-        # radius = stdev_d * 3
-        radius = 3
-        out_grid1 = StencilGrid([width, height])
-        out_grid1.ghost_depth = radius
-        out_grid2 = StencilGrid([width, height])
-        out_grid2.ghost_depth = radius
-        in_grid = StencilGrid([width, height])
-        in_grid.ghost_depth = radius
+        in_grid = np.random.rand(width, height).astype(np.float32) * 255
 
-        for x in range(0, width):
-            for y in range(0, height):
-                in_grid.data[(x, y)] = random.random() * random.randint(0, 255)
-
-        for x in range(-radius, radius + 1):
-            for y in range(-radius, radius + 1):
-                in_grid.neighbor_definition[1].append((x, y))
-
-        def gaussian(stdev, length):
-            result = StencilGrid([length])
-            scale = 1.0 / (stdev * math.sqrt(2.0 * math.pi))
-            divisor = -1.0 / (2.0 * stdev * stdev)
-            for x in range(length):
-                result[x] = scale * math.exp(float(x) * float(x) * divisor)
-            return result
-
-
-        def distance(x, y):
-            return math.sqrt(sum([(x[i] - y[i]) ** 2 for i in range(0, len(x))]))
-
-        class Kernel(StencilKernel):
-            def kernel(self, in_img, filter_d, filter_s, out_img):
-                for x in out_img.interior_points():
-                    for y in in_img.neighbors(x, 1):
-                        out_img[x] += in_img[y] * filter_d[
-                            int(distance(x, y))] * \
-                                      filter_s[abs(int(in_img[x] - in_img[y]))]
-
-        gaussian1 = gaussian(stdev_d, radius * 2)
-        gaussian2 = gaussian(stdev_s, 256)
-
-        Kernel(backend='ocl', testing=True).kernel(in_grid, gaussian1,
-                                                   gaussian2,
-                                                   out_grid1)
-        Kernel(pure_python=True).kernel(in_grid, gaussian1, gaussian2, out_grid2)
+        out_grid1 = BilatKernel(backend='ocl', testing=True)(
+            in_grid, gaussian1, gaussian2)
+        out_grid2 = BilatKernel(backend='python')(
+            in_grid, gaussian1, gaussian2)
         try:
-            np.testing.assert_array_almost_equal(out_grid1.data, out_grid2.data)
-        except:
-            self.fail("Output grids not equal")
+            np.testing.assert_array_almost_equal(out_grid1, out_grid2)
+        except AssertionError as e:
+            self.fail("Output grids not equal: %s" % e)

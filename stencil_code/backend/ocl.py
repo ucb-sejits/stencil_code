@@ -5,7 +5,7 @@ from ctree.ocl.macros import *
 from ctree.cpp.nodes import *
 from ctree.templates.nodes import StringTemplate
 from ..stencil_model import *
-from stencil_backend import StencilBackend
+from .stencil_backend import StencilBackend
 import numpy as np
 import ctypes as ct
 
@@ -353,19 +353,31 @@ class StencilOclTransformer(StencilBackend):
             else:
                 base = Add(get_local_size(i), Constant(self.ghost_depth *
                     2))
-        local_indices = [
-                    Assign(
-                        SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
-                        Div(SymbolRef('tid'), base)
-                        ),
-                    Assign(
-                        SymbolRef("r_%d" % (dim - 1), ct.c_int()),
-                        Mod(SymbolRef('tid'), base)
-                        )
-                ]
+        if base is not None:
+            local_indices = [
+                        Assign(
+                            SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
+                            Div(SymbolRef('tid'), base)
+                            ),
+                        Assign(
+                            SymbolRef("r_%d" % (dim - 1), ct.c_int()),
+                            Mod(SymbolRef('tid'), base)
+                            )
+                    ]
+        else:
+            local_indices = [
+                Assign(
+                    SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
+                    SymbolRef('tid')
+                ),
+                Assign(
+                    SymbolRef("r_%d" % (dim - 1), ct.c_int()),
+                    SymbolRef('tid')
+                )
+            ]
+        base = None
         for d in reversed(range(0, dim - 1)):
-            base = None
-            for i in reversed(range(0, d - 1)):
+            for i in reversed(range(0, d)):
                 if base is not None:
                     base = Mul(Add(get_local_size(i), padding), base)
                 else:
@@ -464,7 +476,7 @@ class StencilOclTransformer(StencilBackend):
                     # index = self.gen_array_macro(grid_name, pt)
                     index = self.local_array_macro(pt)
                     return ArrayRef(SymbolRef('block'), index)
-            elif grid_name == self.neighbor_grid_name:
+            else:
                 pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
                               self.var_list, self.offset_list))
                 #index = self.gen_array_macro(grid_name, pt)
@@ -474,4 +486,5 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        return node
+        raise Exception(
+            "Unsupported GridElement encountered: {0}".format(grid_name))

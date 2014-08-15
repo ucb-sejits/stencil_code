@@ -4,28 +4,14 @@ from ctree.c.nodes import *
 from ctypes import c_int
 from ctree.visitors import NodeTransformer
 from ..stencil_model import *
-from ..stencil_grid import *
 
 
 class StencilBackend(NodeTransformer):
     def __init__(self, input_grids=None, output_grid=None, kernel=None):
-        if not input_grids:  # pragma: no cover
-            width = 50
-            radius = 1
-            output_grid = StencilGrid([width, width])
-            output_grid.ghost_depth = radius
-            in_grid = StencilGrid([width, width])
-            in_grid.ghost_depth = radius
-
-            for x in range(0, width):
-                for y in range(0, width):
-                    in_grid.data[(x, y)] = 1.0
-
-            input_grids = (in_grid, )
-            kernel = {'constants': {'a': 3}, 'distance': None}
         self.input_grids = input_grids
         self.output_grid = output_grid
-        self.ghost_depth = output_grid.ghost_depth
+        self.kernel = kernel
+        self.ghost_depth = kernel.ghost_depth
         self.next_fresh_var = 0
         self.output_index = None
         self.neighbor_grid_name = None
@@ -43,6 +29,7 @@ class StencilBackend(NodeTransformer):
         # generate the proper array macros.
         # TODO: There may be a better way to do this? i.e. done at
         # initialization.
+        print(node.params)
         for index, arg in enumerate(node.params):
             if index < len(self.input_grids):
                 self.input_dict[arg.name] = self.input_grids[index]
@@ -61,13 +48,13 @@ class StencilBackend(NodeTransformer):
 
     def visit_NeighborPointsLoop(self, node):
         neighbors_id = node.neighbor_id
-        grid_name = node.grid_name
-        grid = self.input_dict[grid_name]
-        zero_point = tuple([0 for x in range(grid.dim)])
+        # grid_name = node.grid_name
+        # grid = self.input_dict[grid_name]
+        zero_point = tuple([0 for x in range(self.kernel.dim)])
         self.neighbor_target = node.neighbor_target
-        self.neighbor_grid_name = grid_name
+        # self.neighbor_grid_name = grid_name
         body = []
-        for x in grid.neighbors(zero_point, neighbors_id):
+        for x in self.kernel.neighbors(zero_point, neighbors_id):
             self.offset_list = list(x)
             for statement in node.body:
                 body.append(self.visit(deepcopy(statement)))
