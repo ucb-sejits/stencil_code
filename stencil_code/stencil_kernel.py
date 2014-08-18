@@ -20,6 +20,7 @@ is cached for future calls.
 import math
 
 from collections import namedtuple
+from numpy.numarray import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.nodes import Project
@@ -199,6 +200,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         self.backend = self.backend_dict[backend]
         self.output = None
         super(SpecializedStencil, self).__init__(get_ast(kernel.kernel))
+        Fusable.__init__(self)
 
     def args_to_subconfig(self, args):
         """
@@ -244,7 +246,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         :return: A ctree Project node, and our entry point type signature.
         """
         arg_cfg, tune_cfg = program_config
-        output = self.generate_output(self.args)
+        output = self.generate_output(program_config)
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
             for arg in arg_cfg + (output,)
@@ -260,11 +262,10 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         # unroll_factor = 2**tune_cfg['unroll_factor']
         unroll_factor = 0
 
-        for transformer in [PythonToStencilModel(),
-                            self.backend(self.args,
-                                         output,
-                                         self.kernel
-                                         )]:
+        for transformer in [
+            PythonToStencilModel(),
+            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg, fusable_nodes=self.fusable_nodes)
+        ]:
             tree = transformer.visit(tree)
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
@@ -281,64 +282,6 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         # entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
-            entry_point.set_kernel()
-            kernel = OclFile("kernel", [entry_point])
-            params = [
-                SymbolRef('queue', cl.cl_command_queue()),
-                SymbolRef('kernel', cl.cl_kernel())
-            ]
-            params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
-                          for d in range(len(arg_cfg) + 1))
-            local_size = 1
-            defn = [
-                ArrayDef(
-                    SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
-                    [Constant(d - 2 * self.kernel.ghost_depth)
-                     for d in arg_cfg[0].shape]
-                ),
-                ArrayDef(
-                    SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
-                    [Constant(local_size) for _ in arg_cfg[0].shape]
-                )
-            ]
-            defn.extend(
-                clSetKernelArg(
-                    SymbolRef('kernel'), Constant(d),
-                    FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
-                    Ref('buf%d' % d)
-                ) for d in range(len(arg_cfg) + 1)
-            )
-            defn.append(
-                clSetKernelArg(
-                    'kernel', len(arg_cfg) + 1,
-                    (1 + 2 * self.kernel.ghost_depth) * sizeof(cl.cl_float()),
-                    NULL()
-                )
-            )
-            defn.extend([
-                FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
-                    SymbolRef('queue'), SymbolRef('kernel'),
-                    Constant(self.kernel.dim), NULL(),
-                    SymbolRef('global'), SymbolRef('local'),
-                    Constant(0), NULL(), NULL()
-                ]),
-                FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-            ])
-            body = [
-                StringTemplate("""
-                #ifdef __APPLE__
-                #include <OpenCL/opencl.h>
-                #else
-                #include <CL/cl.h>
-                #endif
-                """),
-                FunctionDecl(None, "stencil_control",
-                             params=params,
-                             defn=defn)
-
-            ]
-            c_file = CFile('control', body)
-            tree = Project([c_file, kernel])
             entry_point = 'stencil_control'
             entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
             entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
@@ -388,10 +331,9 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         self.output = None
         return finalized
 
-    def generate_output(self, args):
-        if self.output is not None:
-            return self.output
-        self.output = np.zeros_like(args[0])
+    def generate_output(self, program_cfg):
+        arg_cfg, tune_cfg = program_cfg
+        self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
         return self.output
 
 

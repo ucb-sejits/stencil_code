@@ -3,11 +3,14 @@ from copy import deepcopy
 from ctree.c.nodes import *
 from ctree.ocl.macros import *
 from ctree.cpp.nodes import *
+from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
+from hindemith.fusion.core import KernelCall
 from ..stencil_model import *
 from .stencil_backend import StencilBackend
 import numpy as np
 import ctypes as ct
+import pycl as cl
 
 
 class StencilOclSemanticTransformer(StencilBackend):
@@ -222,12 +225,30 @@ class StencilOclSemanticTransformer(StencilBackend):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         return node
 
+
 class StencilOclTransformer(StencilBackend):
     def __init__(self, input_grids=None, output_grid=None, kernel=None,
-            block_padding=None):
+            block_padding=None, arg_cfg=None, fusable_nodes=None):
         super(StencilOclTransformer, self).__init__(input_grids, output_grid,
-                kernel)
+                kernel, arg_cfg, fusable_nodes)
         self.block_padding = block_padding
+
+    def visit_Project(self, node):
+        self.project = node
+        node.files[0] = self.visit(node.files[0])
+        return node
+
+    def visit_CFile(self, node):
+        node.body = list(map(self.visit, node.body))
+        node.body.insert(0, StringTemplate("""
+            #ifdef __APPLE__
+            #include <OpenCL/opencl.h>
+            #else
+            #include <CL/cl.h>
+            #endif
+            """)
+        )
+        return node
 
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
@@ -247,7 +268,58 @@ class StencilOclTransformer(StencilBackend):
         node.params.append(SymbolRef('block', ct.POINTER(ct.c_float)()))
         node.params[-1].set_local()
         node.defn = node.defn[0]
-        return node
+        self.project.files.append(OclFile('kernel', [node]))
+        local_size = 1
+        arg_cfg = self.arg_cfg
+        defn = [
+            ArrayDef(
+                SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
+                [Constant(d)
+                 for d in arg_cfg[0].shape]
+            ),
+            ArrayDef(
+                SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
+                [Constant(local_size) for _ in arg_cfg[0].shape]
+            )
+        ]
+        setargs = [clSetKernelArg(
+                SymbolRef('kernel'), Constant(d),
+                FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
+                Ref(SymbolRef('buf%d' % d))
+            ) for d in range(len(arg_cfg) + 1)
+        ]
+        setargs.append(
+            clSetKernelArg(
+                'kernel', len(arg_cfg) + 1,
+                (1 + 2 * self.kernel.ghost_depth) * ct.sizeof(cl.cl_float()),
+                NULL()
+            )
+        )
+        defn.extend(setargs)
+        enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
+            SymbolRef('queue'), SymbolRef('kernel'),
+            Constant(self.kernel.dim), NULL(),
+            SymbolRef('global'), SymbolRef('local'),
+            Constant(0), NULL(), NULL()
+        ])
+        finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        defn.extend((enqueue_call, finish_call))
+        params = [
+            SymbolRef('queue', cl.cl_command_queue()),
+            SymbolRef('kernel', cl.cl_kernel())
+        ]
+        params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
+                      for d in range(len(arg_cfg) + 1))
+
+        control = FunctionDecl(None, "stencil_control",
+                               params=params,
+                               defn=defn)
+
+        self.fusable_nodes.append(KernelCall(
+            control, node, arg_cfg[0].shape,
+            defn[0], tuple(local_size for _ in arg_cfg[0].shape), defn[1], enqueue_call, finish_call, setargs
+        ))
+        return control
 
     def global_array_macro(self, point):
         dim = len(self.output_grid.shape)
@@ -429,6 +501,12 @@ class StencilOclTransformer(StencilBackend):
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
+        cond = Lt(get_global_id(0), Constant(self.arg_cfg[0].shape[0] - self.ghost_depth))
+        for d in range(1, len(self.arg_cfg[0].shape)):
+            cond = And(
+                cond,
+                Lt(get_global_id(d), Constant(self.arg_cfg[0].shape[d] - self.ghost_depth))
+            )
         body = []
 
         body.append(
@@ -458,7 +536,7 @@ class StencilOclTransformer(StencilBackend):
                 body.extend(child)
             else:
                 body.append(child)
-        return body
+        return [If(cond, body)]
 
     # Handle array references
     def visit_GridElement(self, node):
