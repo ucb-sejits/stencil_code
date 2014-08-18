@@ -338,7 +338,12 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
 
             ]
             c_file = CFile('control', body)
-            return Project([c_file, kernel])
+            tree = Project([c_file, kernel])
+            entry_point = 'stencil_control'
+            entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
+            entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
+            entry_type = CFUNCTYPE(*entry_type)
+            return tree, entry_type, entry_point
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
                     >= unroll_factor:
@@ -355,35 +360,30 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         # print(ast.dump(tree))
         # TODO: This should be done in the visitors
         tree.files[0].config_target = 'omp'
-        return tree
-
-    def finalize(self, tree, program_config):
-        arg_cfg, tune_cfg = program_config
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
             for arg in arg_cfg + (self.output, )
         ]
+        entry_point = 'stencil_kernel'
+        param_types.append(POINTER(c_float))
+        entry_type = CFUNCTYPE(c_void_p, *param_types)
+        return tree, entry_type, entry_point
 
+    def finalize(self, tree, entry_type, entry_point):
         if self.backend == StencilOclTransformer:
-            param_types.append(param_types[0])
             fn = OclStencilFunction()
             kernel = tree.find(OclFile)
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
             stencil_kernel_ptr = program['stencil_kernel']
-            entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
-            entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
-            entry_type = CFUNCTYPE(*entry_type)
             finalized = fn.finalize(
-                tree, entry_type, 'stencil_control',
+                tree, entry_type, entry_point,
                 stencil_kernel_ptr,
                 self.output
             )
         else:
-            param_types.append(POINTER(c_float))
-            kernel_sig = CFUNCTYPE(c_void_p, *param_types)
             fn = StencilFunction()
-            finalized = fn.finalize(tree, "stencil_kernel", kernel_sig,
+            finalized = fn.finalize(tree, entry_point, entry_type,
                                     self.output)
         self.output = None
         return finalized
