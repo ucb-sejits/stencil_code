@@ -285,7 +285,7 @@ class StencilOclTransformer(StencilBackend):
         setargs = [clSetKernelArg(
                 SymbolRef('kernel'), Constant(d),
                 FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
-                Ref('buf%d' % d)
+                Ref(SymbolRef('buf%d' % d))
             ) for d in range(len(arg_cfg) + 1)
         ]
         setargs.append(
