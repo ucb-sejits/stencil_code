@@ -501,11 +501,11 @@ class StencilOclTransformer(StencilBackend):
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
-        cond = Lt(get_global_id(0), Constant(self.arg_cfg[0].shape[0] - self.ghost_depth))
+        cond = Lt(get_global_id(0), Constant(self.arg_cfg[0].shape[0] - self.ghost_depth * 2))
         for d in range(1, len(self.arg_cfg[0].shape)):
             cond = And(
                 cond,
-                Lt(get_global_id(d), Constant(self.arg_cfg[0].shape[d] - self.ghost_depth))
+                Lt(get_global_id(d), Constant(self.arg_cfg[0].shape[d] - self.ghost_depth * 2))
             )
         body = []
 
