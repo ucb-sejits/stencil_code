@@ -274,7 +274,7 @@ class StencilOclTransformer(StencilBackend):
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(d - 2 * self.kernel.ghost_depth)
+                [Constant(d)
                  for d in arg_cfg[0].shape]
             ),
             ArrayDef(
@@ -316,7 +316,7 @@ class StencilOclTransformer(StencilBackend):
                                defn=defn)
 
         self.fusable_nodes.append(KernelCall(
-            control, node, (d - self.ghost_depth * 2 for d in arg_cfg[0]),
+            control, node, arg_cfg[0].shape,
             defn[0], tuple(local_size for _ in arg_cfg[0].shape), defn[1], enqueue_call, finish_call, setargs
         ))
         return control
@@ -501,6 +501,12 @@ class StencilOclTransformer(StencilBackend):
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
+        cond = Lt(get_global_id(0), Constant(self.arg_cfg[0].shape[0] - self.ghost_depth))
+        for d in range(1, len(self.arg_cfg[0].shape)):
+            cond = And(
+                cond,
+                Lt(get_global_id(d), Constant(self.arg_cfg[0].shape[d] - self.ghost_depth))
+            )
         body = []
 
         body.append(
@@ -530,7 +536,7 @@ class StencilOclTransformer(StencilBackend):
                 body.extend(child)
             else:
                 body.append(child)
-        return body
+        return [If(cond, body)]
 
     # Handle array references
     def visit_GridElement(self, node):
