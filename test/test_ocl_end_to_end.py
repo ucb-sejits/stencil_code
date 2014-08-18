@@ -6,7 +6,7 @@ from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
 stdev_d = 3
 stdev_s = 70
 radius = 1
-width = 64 + radius * 2
+width = 64
 height = width
 
 

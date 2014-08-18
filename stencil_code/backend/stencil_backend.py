@@ -7,7 +7,7 @@ from ..stencil_model import *
 
 
 class StencilBackend(NodeTransformer):
-    def __init__(self, input_grids=None, output_grid=None, kernel=None):
+    def __init__(self, input_grids=None, output_grid=None, kernel=None, arg_cfg=None, fusable_nodes=None):
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.kernel = kernel
@@ -22,6 +22,8 @@ class StencilBackend(NodeTransformer):
         self.input_names = []
         self.constants = kernel.constants
         self.distance = kernel.distance
+        self.arg_cfg = arg_cfg
+        self.fusable_nodes = fusable_nodes
         super(StencilBackend, self).__init__()
 
     def visit_FunctionDecl(self, node):
@@ -29,7 +31,6 @@ class StencilBackend(NodeTransformer):
         # generate the proper array macros.
         # TODO: There may be a better way to do this? i.e. done at
         # initialization.
-        print(node.params)
         for index, arg in enumerate(node.params):
             if index < len(self.input_grids):
                 self.input_dict[arg.name] = self.input_grids[index]
