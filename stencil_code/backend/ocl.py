@@ -256,20 +256,17 @@ class StencilOclTransformer(StencilBackend):
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
         for index, param in enumerate(node.params[:-1]):
             # TODO: Transform numpy type to ctype
-            arg = self.input_grids[index]
             param.type = ct.POINTER(ct.c_float)()
             param.set_global()
             param.set_const()
         node.set_kernel()
         node.params[-1].set_global()
-        arg = self.output_grid
         node.params[-1].type = ct.POINTER(ct.c_float)()
-        # node.params.append(SymbolRef('block', np.ctypeslib.ndpointer(arg.data.dtype, arg.data.ndim, arg.data.shape)()))
         node.params.append(SymbolRef('block', ct.POINTER(ct.c_float)()))
         node.params[-1].set_local()
         node.defn = node.defn[0]
         self.project.files.append(OclFile('kernel', [node]))
-        local_size = 1
+        local_size = 2
         arg_cfg = self.arg_cfg
         defn = [
             ArrayDef(
@@ -283,11 +280,10 @@ class StencilOclTransformer(StencilBackend):
             )
         ]
         setargs = [clSetKernelArg(
-                SymbolRef('kernel'), Constant(d),
-                FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
-                Ref(SymbolRef('buf%d' % d))
-            ) for d in range(len(arg_cfg) + 1)
-        ]
+            SymbolRef('kernel'), Constant(d),
+            FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
+            Ref(SymbolRef('buf%d' % d))
+        ) for d in range(len(arg_cfg) + 1)]
         setargs.append(
             clSetKernelArg(
                 'kernel', len(arg_cfg) + 1,
