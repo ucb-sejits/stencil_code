@@ -575,7 +575,7 @@ class StencilOclTransformer(StencilBackend):
                     index = self.local_array_macro(pt)
                     return ArrayRef(SymbolRef('block'), index)
             else:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
+                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 # index = self.gen_array_macro(grid_name, pt)
                 index = self.local_array_macro(pt)
