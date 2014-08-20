@@ -19,7 +19,8 @@ class TestOclEndToEnd(unittest.TestCase):
                                 testing=True)(self.in_grid)
         out_grid2 = test_kernel(backend='python')(self.in_grid)
         try:
-            np.testing.assert_array_almost_equal(out_grid1, out_grid2,
+            np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1],
+                                                 out_grid2[1:-1, 1:-1],
                                                  decimal=3)
         except AssertionError as e:
             self.fail("Output grids not equal: %s" % e)
@@ -41,6 +42,7 @@ class TestOclEndToEnd(unittest.TestCase):
         out_grid2 = BilatKernel(backend='python')(
             in_grid, gaussian1, gaussian2)
         try:
-            np.testing.assert_array_almost_equal(out_grid1, out_grid2)
+            np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1],
+                                                 out_grid2[1:-1, 1:-1])
         except AssertionError as e:
             self.fail("Output grids not equal: %s" % e)

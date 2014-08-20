@@ -287,10 +287,18 @@ class StencilOclTransformer(StencilBackend):
             FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
             Ref(SymbolRef('buf%d' % d))
         ) for d in range(len(arg_cfg) + 1)]
+        from functools import reduce
+        import operator
+        local_mem_size = reduce(
+            operator.mul,
+            (local_size + 2 * self.kernel.ghost_depth
+             for _ in self.arg_cfg[0].shape),
+            ct.sizeof(cl.cl_float())
+        )
         setargs.append(
             clSetKernelArg(
                 'kernel', len(arg_cfg) + 1,
-                (1 + 2 * self.kernel.ghost_depth) * ct.sizeof(cl.cl_float()),
+                local_mem_size,
                 NULL()
             )
         )
@@ -477,15 +485,19 @@ class StencilOclTransformer(StencilBackend):
                     ArrayRef(
                         SymbolRef(self.input_names[0]),
                         self.global_array_macro(
-                            [FunctionCall(SymbolRef('clamp'),
-                                          [Cast(ct.c_int(), Sub(Add(
-                                SymbolRef("local_id%d" % d),
-                                Mul(FunctionCall(SymbolRef('get_group_id'),
-                                                 [Constant(d)]),
-                                    get_local_size(d))
-                            ), Constant(self.kernel.ghost_depth))),
-                                Constant(0), Constant(self.arg_cfg[0].shape[d])
-                            ]
+                            [FunctionCall(
+                                SymbolRef('clamp'),
+                                [Cast(ct.c_int(), Sub(Add(
+                                    SymbolRef("local_id%d" % d),
+                                    Mul(FunctionCall(
+                                        SymbolRef('get_group_id'),
+                                        [Constant(d)]),
+                                        get_local_size(d))
+                                ), Constant(self.kernel.ghost_depth))),
+                                    Constant(0), Constant(
+                                        self.arg_cfg[0].shape[d] -
+                                        self.kernel.ghost_depth)
+                                ]
                             ) for d in range(0, dim)]
                         )
                     )
@@ -544,7 +556,7 @@ class StencilOclTransformer(StencilBackend):
                 body.extend(child)
             else:
                 body.append(child)
-        return [If(cond, body)]
+        return body
 
     # Handle array references
     def visit_GridElement(self, node):
