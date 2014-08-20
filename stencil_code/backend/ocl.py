@@ -227,9 +227,10 @@ class StencilOclSemanticTransformer(StencilBackend):
 
 class StencilOclTransformer(StencilBackend):
     def __init__(self, input_grids=None, output_grid=None, kernel=None,
-                 block_padding=None, arg_cfg=None, fusable_nodes=None):
+                 block_padding=None, arg_cfg=None, fusable_nodes=None,
+                 testing=False):
         super(StencilOclTransformer, self).__init__(
-            input_grids, output_grid, kernel, arg_cfg, fusable_nodes)
+            input_grids, output_grid, kernel, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
 
     def visit_Project(self, node):
@@ -264,7 +265,10 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].set_local()
         node.defn = node.defn[0]
         self.project.files.append(OclFile('kernel', [node]))
-        local_size = 2
+        if self.testing:
+            local_size = 1
+        else:
+            local_size = 2
         arg_cfg = self.arg_cfg
         defn = [
             ArrayDef(
