@@ -23,13 +23,8 @@ from collections import namedtuple
 from numpy.numarray import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
-from ctree.nodes import Project
-from ctree.c.nodes import FunctionDecl, CFile, SymbolRef, ArrayDef, Ref, \
-    Constant, FunctionCall
-from ctree.c.macros import NULL
+from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
-from ctree.ocl.macros import clSetKernelArg
-from ctree.templates.nodes import StringTemplate
 import ctree.np
 ctree.np  # Make PEP8 happy
 import ctree.ocl
@@ -40,8 +35,7 @@ from .backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
-from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
-import ctypes as ct
+from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
 import pycl as cl
 from pycl import (
     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
@@ -264,7 +258,8 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
 
         for transformer in [
             PythonToStencilModel(),
-            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg, fusable_nodes=self.fusable_nodes)
+            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
+                         fusable_nodes=self.fusable_nodes)
         ]:
             tree = transformer.visit(tree)
         # first_For = tree.find(For)
@@ -286,6 +281,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
             entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
             entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
             entry_type = CFUNCTYPE(*entry_type)
+            print(tree)
             return tree, entry_type, entry_point
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
