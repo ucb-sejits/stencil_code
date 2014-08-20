@@ -1,14 +1,13 @@
-from copy import deepcopy
-
-from ctree.c.nodes import *
-from ctree.ocl.macros import *
-from ctree.cpp.nodes import *
+from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, Div, Mod, For, \
+    AddAssign, ArrayRef, FunctionCall, If, ArrayDef, Ref, FunctionDecl
+from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, clSetKernelArg, \
+    NULL
+from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 from hindemith.fusion.core import KernelCall
-from ..stencil_model import *
+from ..stencil_model import MathFunction
 from .stencil_backend import StencilBackend
-import numpy as np
 import ctypes as ct
 import pycl as cl
 
