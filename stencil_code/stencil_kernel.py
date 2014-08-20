@@ -282,8 +282,6 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
             entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
             entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
             entry_type = CFUNCTYPE(*entry_type)
-            print(tree.files[0])
-            print(tree.files[1])
             return tree, entry_type, entry_point
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
