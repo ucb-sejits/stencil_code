@@ -89,7 +89,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
             if target == self.kernel_target:
                 if grid_name is self.output_grid_name:
                     return ArrayRef(SymbolRef(self.output_grid_name),
-                                    self.output_index)
+                                    SymbolRef(self.output_index))
                 elif grid_name in self.input_dict:
                     # grid = self.input_dict[grid_name]
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
