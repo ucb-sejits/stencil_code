@@ -1,5 +1,5 @@
 from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, Div, Mod, For, \
-    AddAssign, ArrayRef, FunctionCall, If, ArrayDef, Ref, FunctionDecl, GtE, \
+    AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, FunctionDecl, GtE, \
     Sub, Cast
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, clSetKernelArg, \
     NULL, barrier, CLK_LOCAL_MEM_FENCE
@@ -233,6 +233,9 @@ class StencilOclTransformer(StencilBackend):
         super(StencilOclTransformer, self).__init__(
             input_grids, output_grid, kernel, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
+        self.stencil_op = []
+        self.load_mem_block = []
+        self.macro_defns = []
 
     def visit_Project(self, node):
         self.project = node
@@ -269,7 +272,7 @@ class StencilOclTransformer(StencilBackend):
         if self.testing:
             local_size = 1
         else:
-            local_size = 2
+            local_size = 8
         arg_cfg = self.arg_cfg
         defn = [
             ArrayDef(
@@ -325,7 +328,8 @@ class StencilOclTransformer(StencilBackend):
         self.fusable_nodes.append(KernelCall(
             control, node, arg_cfg[0].shape,
             defn[0], tuple(local_size for _ in arg_cfg[0].shape), defn[1],
-            enqueue_call, finish_call, setargs
+            enqueue_call, finish_call, setargs, self.load_mem_block,
+            self.stencil_op, self.macro_defns
         ))
         return control
 
@@ -385,11 +389,17 @@ class StencilOclTransformer(StencilBackend):
 
     def gen_local_macro(self):
         dim = len(self.output_grid.shape)
-        index = "d%d" % (dim - 1)
+        index = SymbolRef("d%d" % (dim - 1))
         for d in reversed(range(dim - 1)):
-            index = "(" + index + ") * (get_local_size(%d) + %d)" % (
-                d, 2 * self.ghost_depth)
-            index += " + d%d" % d
+            index = Add(
+                Mul(
+                    index,
+                    Add(get_local_size(d), Constant(2 * self.ghost_depth))
+                ), SymbolRef("d%d" % d)
+            )
+            index._force_parentheses = True
+            index.left._force_parentheses = True
+            index.left.left._force_parentheses = True
         return index
 
     def gen_global_index(self):
@@ -527,22 +537,22 @@ class StencilOclTransformer(StencilBackend):
             )
         body = []
 
-        body.append(
+        self.macro_defns = [
             CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
-                      self.gen_local_macro())
-        )
-        body.append(
+                      self.gen_local_macro()),
             CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
                       self.gen_global_macro())
-        )
+        ]
+        body.extend(self.macro_defns)
 
-        global_idx = SymbolRef('global_index')
+        global_idx = 'global_index'
         self.output_index = global_idx
         body.append(Assign(SymbolRef('global_index', ct.c_int()),
                     self.gen_global_index()))
 
-        body.extend(self.load_shared_memory_block(
-            SymbolRef('block'), Constant(self.ghost_depth * 2)))
+        self.load_mem_block = self.load_shared_memory_block(
+            SymbolRef('block'), Constant(self.ghost_depth * 2))
+        body.extend(self.load_mem_block)
         body.append(FunctionCall(SymbolRef("barrier"),
                                  [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
@@ -553,9 +563,10 @@ class StencilOclTransformer(StencilBackend):
 
         for child in map(self.visit, node.body):
             if isinstance(child, list):
-                body.extend(child)
+                self.stencil_op.extend(child)
             else:
-                body.append(child)
+                self.stencil_op.append(child)
+        body.extend(self.stencil_op)
         return body
 
     # Handle array references
@@ -575,7 +586,7 @@ class StencilOclTransformer(StencilBackend):
                     index = self.local_array_macro(pt)
                     return ArrayRef(SymbolRef('block'), index)
             else:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
+                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 # index = self.gen_array_macro(grid_name, pt)
                 index = self.local_array_macro(pt)

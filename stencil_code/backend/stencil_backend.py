@@ -73,14 +73,14 @@ class StencilBackend(NodeTransformer):
             if target == self.kernel_target:
                 if grid_name is self.output_grid_name:
                     return ArrayRef(SymbolRef(self.output_grid_name),
-                                    SymbolRef(self.output_index))
+                                    self.output_index)
                 elif grid_name in self.input_dict:
                     # grid = self.input_dict[grid_name]
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
             elif grid_name == self.neighbor_grid_name:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
+                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)
                 return ArrayRef(SymbolRef(grid_name), index)
