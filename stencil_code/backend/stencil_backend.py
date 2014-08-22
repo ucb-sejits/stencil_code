@@ -7,7 +7,8 @@ from ..stencil_model import *
 
 
 class StencilBackend(NodeTransformer):
-    def __init__(self, input_grids=None, output_grid=None, kernel=None):
+    def __init__(self, input_grids=None, output_grid=None, kernel=None, arg_cfg=None,
+                 fusable_nodes=None, testing=False):
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.kernel = kernel
@@ -22,6 +23,9 @@ class StencilBackend(NodeTransformer):
         self.input_names = []
         self.constants = kernel.constants
         self.distance = kernel.distance
+        self.arg_cfg = arg_cfg
+        self.fusable_nodes = fusable_nodes
+        self.testing = testing
         super(StencilBackend, self).__init__()
 
     def visit_FunctionDecl(self, node):
@@ -29,7 +33,6 @@ class StencilBackend(NodeTransformer):
         # generate the proper array macros.
         # TODO: There may be a better way to do this? i.e. done at
         # initialization.
-        print(node.params)
         for index, arg in enumerate(node.params):
             if index < len(self.input_grids):
                 self.input_dict[arg.name] = self.input_grids[index]
@@ -70,14 +73,14 @@ class StencilBackend(NodeTransformer):
             if target == self.kernel_target:
                 if grid_name is self.output_grid_name:
                     return ArrayRef(SymbolRef(self.output_grid_name),
-                                    SymbolRef(self.output_index))
+                                    self.output_index)
                 elif grid_name in self.input_dict:
                     # grid = self.input_dict[grid_name]
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
             elif grid_name == self.neighbor_grid_name:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), SymbolRef(y)),
+                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)
                 return ArrayRef(SymbolRef(grid_name), index)

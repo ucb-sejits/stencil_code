@@ -20,27 +20,22 @@ is cached for future calls.
 import math
 
 from collections import namedtuple
+from numpy.numarray import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
-from ctree.nodes import Project
-from ctree.c.nodes import FunctionDecl, CFile, SymbolRef, ArrayDef, Ref, \
-    Constant, FunctionCall
-from ctree.c.macros import NULL
+from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
-from ctree.ocl.macros import clSetKernelArg
-from ctree.templates.nodes import StringTemplate
 import ctree.np
 ctree.np  # Make PEP8 happy
 import ctree.ocl
-ctree.ocl  # Make PEP8 happy
+from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
 from .backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
-from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, sizeof
-import ctypes as ct
+from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
 import pycl as cl
 from pycl import (
     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
@@ -109,9 +104,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         function.
         """
         devices = cl.clGetDeviceIDs()
-        self.device = devices[-1]
-        self.context = cl.clCreateContext([self.device])
-        self.queue = cl.clCreateCommandQueue(self.context)
+        self.context, self.queue = get_context_and_queue_from_devices(
+            [devices[-1]])
 
     def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
         """finalize
@@ -199,6 +193,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         self.backend = self.backend_dict[backend]
         self.output = None
         super(SpecializedStencil, self).__init__(get_ast(kernel.kernel))
+        Fusable.__init__(self)
 
     def args_to_subconfig(self, args):
         """
@@ -244,7 +239,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         :return: A ctree Project node, and our entry point type signature.
         """
         arg_cfg, tune_cfg = program_config
-        output = self.generate_output(self.args)
+        output = self.generate_output(program_config)
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
             for arg in arg_cfg + (output,)
@@ -260,11 +255,12 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         # unroll_factor = 2**tune_cfg['unroll_factor']
         unroll_factor = 0
 
-        for transformer in [PythonToStencilModel(),
-                            self.backend(self.args,
-                                         output,
-                                         self.kernel
-                                         )]:
+        for transformer in [
+            PythonToStencilModel(),
+            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
+                         fusable_nodes=self.fusable_nodes,
+                         testing=self.testing)
+        ]:
             tree = transformer.visit(tree)
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
@@ -281,64 +277,11 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         # entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
-            entry_point.set_kernel()
-            kernel = OclFile("kernel", [entry_point])
-            params = [
-                SymbolRef('queue', cl.cl_command_queue()),
-                SymbolRef('kernel', cl.cl_kernel())
-            ]
-            params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
-                          for d in range(len(arg_cfg) + 1))
-            local_size = 1
-            defn = [
-                ArrayDef(
-                    SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
-                    [Constant(d - 2 * self.kernel.ghost_depth)
-                     for d in arg_cfg[0].shape]
-                ),
-                ArrayDef(
-                    SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
-                    [Constant(local_size) for _ in arg_cfg[0].shape]
-                )
-            ]
-            defn.extend(
-                clSetKernelArg(
-                    SymbolRef('kernel'), Constant(d),
-                    FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
-                    Ref('buf%d' % d)
-                ) for d in range(len(arg_cfg) + 1)
-            )
-            defn.append(
-                clSetKernelArg(
-                    'kernel', len(arg_cfg) + 1,
-                    (1 + 2 * self.kernel.ghost_depth) * sizeof(cl.cl_float()),
-                    NULL()
-                )
-            )
-            defn.extend([
-                FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
-                    SymbolRef('queue'), SymbolRef('kernel'),
-                    Constant(self.kernel.dim), NULL(),
-                    SymbolRef('global'), SymbolRef('local'),
-                    Constant(0), NULL(), NULL()
-                ]),
-                FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-            ])
-            body = [
-                StringTemplate("""
-                #ifdef __APPLE__
-                #include <OpenCL/opencl.h>
-                #else
-                #include <CL/cl.h>
-                #endif
-                """),
-                FunctionDecl(None, "stencil_control",
-                             params=params,
-                             defn=defn)
-
-            ]
-            c_file = CFile('control', body)
-            return Project([c_file, kernel])
+            entry_point = 'stencil_control'
+            entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
+            entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
+            entry_type = CFUNCTYPE(*entry_type)
+            return tree, entry_type, entry_point
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
                     >= unroll_factor:
@@ -355,43 +298,37 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         # print(ast.dump(tree))
         # TODO: This should be done in the visitors
         tree.files[0].config_target = 'omp'
-        return tree
-
-    def finalize(self, tree, program_config):
-        arg_cfg, tune_cfg = program_config
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
             for arg in arg_cfg + (self.output, )
         ]
+        entry_point = 'stencil_kernel'
+        param_types.append(POINTER(c_float))
+        entry_type = CFUNCTYPE(c_void_p, *param_types)
+        return tree, entry_type, entry_point
 
+    def finalize(self, tree, entry_type, entry_point):
         if self.backend == StencilOclTransformer:
-            param_types.append(param_types[0])
             fn = OclStencilFunction()
             kernel = tree.find(OclFile)
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
             stencil_kernel_ptr = program['stencil_kernel']
-            entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
-            entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
-            entry_type = CFUNCTYPE(*entry_type)
             finalized = fn.finalize(
-                tree, entry_type, 'stencil_control',
+                tree, entry_type, entry_point,
                 stencil_kernel_ptr,
                 self.output
             )
         else:
-            param_types.append(POINTER(c_float))
-            kernel_sig = CFUNCTYPE(c_void_p, *param_types)
             fn = StencilFunction()
-            finalized = fn.finalize(tree, "stencil_kernel", kernel_sig,
+            finalized = fn.finalize(tree, entry_point, entry_type,
                                     self.output)
         self.output = None
         return finalized
 
-    def generate_output(self, args):
-        if self.output is not None:
-            return self.output
-        self.output = np.zeros_like(args[0])
+    def generate_output(self, program_cfg):
+        arg_cfg, tune_cfg = program_cfg
+        self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
         return self.output
 
 
