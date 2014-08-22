@@ -28,7 +28,7 @@ from ctree.ocl.nodes import OclFile
 import ctree.np
 ctree.np  # Make PEP8 happy
 import ctree.ocl
-ctree.ocl  # Make PEP8 happy
+from ctree.ocl import get_context_from_device
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
 from .backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
@@ -105,7 +105,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         """
         devices = cl.clGetDeviceIDs()
         self.device = devices[-1]
-        self.context = cl.clCreateContext([self.device])
+        self.context = get_context_from_device(self.device)
         self.queue = cl.clCreateCommandQueue(self.context)
 
     def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
