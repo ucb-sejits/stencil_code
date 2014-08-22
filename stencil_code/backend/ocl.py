@@ -329,7 +329,7 @@ class StencilOclTransformer(StencilBackend):
             control, node, arg_cfg[0].shape,
             defn[0], tuple(local_size for _ in arg_cfg[0].shape), defn[1],
             enqueue_call, finish_call, setargs, self.load_mem_block,
-            self.stencil_op, self.macro_defns
+            self.stencil_op, self.macro_defns, self.kernel.ghost_depth
         ))
         return control
 
