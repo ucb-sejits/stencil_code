@@ -139,7 +139,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         bufs = []
         events = []
         for index, arg in enumerate(args + (output, )):
-            buf, evt = buffer_from_ndarray(self.queue, arg, blocking=False)
+            buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
             # evt.wait()
             events.append(evt)
             bufs.append(buf)

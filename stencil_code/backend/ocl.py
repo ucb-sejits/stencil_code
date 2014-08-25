@@ -272,7 +272,7 @@ class StencilOclTransformer(StencilBackend):
         if self.testing:
             local_size = 1
         else:
-            local_size = 8
+            local_size = 32
         arg_cfg = self.arg_cfg
         defn = [
             ArrayDef(
