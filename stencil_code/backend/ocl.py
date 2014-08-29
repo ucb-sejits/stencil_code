@@ -269,7 +269,6 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].set_local()
         node.defn = node.defn[0]
         self.project.files.append(OclFile('kernel', [node]))
-        print(node)
         arg_cfg = self.arg_cfg
         if self.testing:
             local_size = (1, 1, 1)
