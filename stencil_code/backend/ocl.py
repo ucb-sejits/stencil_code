@@ -10,7 +10,6 @@ from hindemith.fusion.core import KernelCall
 from ..stencil_model import MathFunction, OclNeighborLoop, MacroDefns, \
     LoadSharedMemBlock
 from .stencil_backend import StencilBackend
-from math import sqrt
 import ctypes as ct
 import pycl as cl
 
@@ -279,21 +278,47 @@ class StencilOclTransformer(StencilBackend):
                 devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_ITEM_SIZES)
             max_total = cl.clGetDeviceInfo(
                 devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_GROUP_SIZE)
+
             if len(arg_cfg[0].shape) == 3:
-                s = min(arg_cfg[1].shape[2] / 2, max_sizes[2])
-                max_total /= s
-                s2 = int(sqrt(max_total))
-                local_size = (
-                    min(s2, max_sizes[0], arg_cfg[0].shape[0] / 2),
-                    min(s2, max_sizes[1], arg_cfg[0].shape[1] / 2),
-                    s
-                )
+                x_len, y_len, z_len = 1, 1, 1
+                while True:
+                    if arg_cfg[0].shape[0] % 2 == 1:
+                        x_len = 1
+                    else:
+                        x_len = min(max_sizes[0], x_len * 2)
+                    if max_total - z_len * x_len * y_len <= 0:
+                        break
+                    if arg_cfg[0].shape[1] % 2 == 1:
+                        y_len = 1
+                    else:
+                        y_len = min(max_sizes[1], y_len * 2)
+                    if max_total - z_len * x_len * y_len <= 0:
+                        break
+                    if arg_cfg[0].shape[2] % 2 == 1:
+                        z_len = 1
+                    else:
+                        z_len = min(4, z_len * 2)
+                    if max_total - z_len * x_len * y_len <= 0:
+                        break
+
+                local_size = (x_len, y_len, z_len)
             elif len(arg_cfg[0].shape) == 2:
-                s = int(sqrt(max_total))
-                local_size = (
-                    min(s, max_sizes[0], arg_cfg[0].shape[0] / 2),
-                    min(s, max_sizes[1], arg_cfg[0].shape[1] / 2)
-                )
+                x_len, y_len = 1, 1
+                while True:
+                    if arg_cfg[0].shape[0] % 2 == 1:
+                        x_len = 1
+                    else:
+                        x_len = min(max_sizes[0], x_len * 2)
+                    if max_total - x_len * y_len <= 0:
+                        break
+                    if arg_cfg[0].shape[1] % 2 == 1:
+                        y_len = 1
+                    else:
+                        y_len = min(max_sizes[1], y_len * 2)
+                    if max_total - x_len * y_len <= 0:
+                        break
+
+                local_size = (x_len, y_len)
             else:
                 local_size = (min(
                     max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
