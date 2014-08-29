@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
-    BilatKernel, gaussian1, gaussian2
+    BilatKernel, gaussian1, gaussian2, Laplacian3DKernel
 
 stdev_d = 3
 stdev_s = 70
@@ -15,8 +15,7 @@ class TestOclEndToEnd(unittest.TestCase):
         self.in_grid = np.random.rand(width, width).astype(np.float32) * 1000
 
     def _check(self, test_kernel):
-        out_grid1 = test_kernel(backend='ocl',
-                                testing=True)(self.in_grid)
+        out_grid1 = test_kernel(backend='ocl')(self.in_grid)
         out_grid2 = test_kernel(backend='python')(self.in_grid)
         try:
             np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1],
@@ -35,14 +34,26 @@ class TestOclEndToEnd(unittest.TestCase):
         self._check(LaplacianKernel)
 
     def test_bilateral_filter(self):
-        in_grid = np.random.rand(width, height).astype(np.float32) * 255
+        in_grid = np.random.rand(128, 16).astype(np.float32) * 255
 
-        out_grid1 = BilatKernel(backend='ocl', testing=True)(
+        out_grid1 = BilatKernel(backend='ocl')(
             in_grid, gaussian1, gaussian2)
         out_grid2 = BilatKernel(backend='python')(
             in_grid, gaussian1, gaussian2)
         try:
             np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1],
                                                  out_grid2[1:-1, 1:-1])
+        except AssertionError as e:
+            self.fail("Output grids not equal: %s" % e)
+
+    def test_laplacian_3D(self):
+        in_grid = np.random.rand(64, 32, 16).astype(np.float32) * 100
+
+        out_grid1 = Laplacian3DKernel(backend='ocl')(in_grid)
+        out_grid2 = Laplacian3DKernel(backend='c')(in_grid)
+        try:
+            np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1, 1:-1],
+                                                 out_grid2[1:-1, 1:-1, 1:-1],
+                                                 decimal=3)
         except AssertionError as e:
             self.fail("Output grids not equal: %s" % e)
