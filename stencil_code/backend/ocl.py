@@ -270,9 +270,9 @@ class StencilOclTransformer(StencilBackend):
         node.defn = node.defn[0]
         self.project.files.append(OclFile('kernel', [node]))
         if self.testing:
-            local_size = 1
+            local_size = (1, 1, 1)
         else:
-            local_size = 32
+            local_size = (32, 32, 32)
         arg_cfg = self.arg_cfg
         defn = [
             ArrayDef(
@@ -282,7 +282,7 @@ class StencilOclTransformer(StencilBackend):
             ),
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(local_size) for _ in arg_cfg[0].shape]
+                [Constant(local_size[i]) for i in range(arg_cfg[0].ndim)]
             )
         ]
         setargs = [clSetKernelArg(
@@ -294,8 +294,8 @@ class StencilOclTransformer(StencilBackend):
         import operator
         local_mem_size = reduce(
             operator.mul,
-            (local_size + 2 * self.kernel.ghost_depth
-             for _ in self.arg_cfg[0].shape),
+            (local_size[i] + 2 * self.kernel.ghost_depth
+             for i in range(self.arg_cfg[0].ndim)),
             ct.sizeof(cl.cl_float())
         )
         setargs.append(
@@ -327,7 +327,7 @@ class StencilOclTransformer(StencilBackend):
 
         self.fusable_nodes.append(KernelCall(
             control, node, arg_cfg[0].shape,
-            defn[0], tuple(local_size for _ in arg_cfg[0].shape), defn[1],
+            defn[0], tuple(local_size[i] for i in range(arg_cfg[0].ndim)), defn[1],
             enqueue_call, finish_call, setargs, self.load_mem_block,
             self.stencil_op, self.macro_defns, self.kernel.ghost_depth
         ))
