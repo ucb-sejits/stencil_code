@@ -131,3 +131,30 @@ class BilatKernel(StencilKernel):
                 out_img[x] += in_img[y] * filter_d[
                     int(distance(x, y))] * \
                     filter_s[abs(int(in_img[x] - in_img[y]))]
+
+
+class Laplacian3DKernel(StencilKernel):
+    @property
+    def dim(self):
+        return 3
+
+    @property
+    def ghost_depth(self):
+        return 1
+
+    @property
+    def constants(self):
+        return {'alpha': 0.5, 'beta': 1.0}
+
+    def neighbors(self, pt, defn=0):
+        if defn == 1:
+            for x in range(-radius, radius+1):
+                for y in range(-radius, radius+1):
+                    for z in range(-radius, radius+1):
+                        yield (pt[0] - x, pt[1] - y, pt[2] - z)
+
+    def kernel(self, in_grid, out_grid):
+        for x in self.interior_points(in_grid):
+            out_grid[x] = alpha * in_grid[x]
+            for y in self.neighbors(x, 1):
+                out_grid[x] += beta * in_grid[y]

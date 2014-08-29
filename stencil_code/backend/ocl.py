@@ -297,8 +297,12 @@ class StencilOclTransformer(StencilBackend):
                     if arg_cfg[0].shape[2] % 2 == 1:
                         z_len = 1
                     else:
-                        z_len = min(4, z_len * 2)
+                        z_len = min(max_sizes[2], z_len * 2)
                     if max_total - z_len * x_len * y_len <= 0:
+                        break
+                    if x_len == arg_cfg[0].shape[0] or \
+                            y_len == arg_cfg[0].shape[1] or \
+                            z_len == arg_cfg[0].shape[2]:
                         break
 
                 local_size = (x_len, y_len, z_len)
@@ -317,11 +321,15 @@ class StencilOclTransformer(StencilBackend):
                         y_len = min(max_sizes[1], y_len * 2)
                     if max_total - x_len * y_len <= 0:
                         break
+                    if x_len == arg_cfg[0].shape[0] or \
+                            y_len == arg_cfg[0].shape[1]:
+                        break
 
                 local_size = (x_len, y_len)
             else:
                 local_size = (min(
                     max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
+        print(local_size)
 
         defn = [
             ArrayDef(
@@ -331,7 +339,7 @@ class StencilOclTransformer(StencilBackend):
             ),
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(local_size[i]) for i in range(arg_cfg[0].ndim)]
+                [Constant(s) for s in local_size]
             )
         ]
         setargs = [clSetKernelArg(
@@ -343,8 +351,8 @@ class StencilOclTransformer(StencilBackend):
         import operator
         local_mem_size = reduce(
             operator.mul,
-            (local_size[i] + 2 * self.kernel.ghost_depth
-             for i in range(self.arg_cfg[0].ndim)),
+            (s + 2 * self.kernel.ghost_depth
+             for s in local_size),
             ct.sizeof(cl.cl_float())
         )
         setargs.append(
@@ -397,11 +405,11 @@ class StencilOclTransformer(StencilBackend):
         return FunctionCall(SymbolRef("global_array_macro"), point)
 
     def gen_global_macro(self):
-        dim = len(self.output_grid.shape)
-        index = "d%d" % (dim - 1)
-        for d in reversed(range(dim - 1)):
-            index = "(" + index + ") * %d" % self.output_grid.shape[d]
-            index += " + d%d" % d
+        index = "(d%d)" % (self.output_grid.ndim - 1)
+        for x in reversed(range(self.output_grid.ndim - 1)):
+            ndim = str(int(self.output_grid.strides[x] /
+                           self.output_grid.itemsize))
+            index += "+((d%s) * %s)" % (str(x), ndim)
         return index
 
     def local_array_macro(self, point):
@@ -440,27 +448,31 @@ class StencilOclTransformer(StencilBackend):
         dim = len(self.output_grid.shape)
         index = SymbolRef("d%d" % (dim - 1))
         for d in reversed(range(dim - 1)):
+            base = Add(get_local_size(1), Constant(2 * self.ghost_depth))
+            for s in range(1, dim - d - 1):
+                base = Mul(
+                    base,
+                    Add(get_local_size(s + 1), Constant(2 * self.ghost_depth))
+                )
             index = Add(
-                Mul(
-                    index,
-                    Add(get_local_size(d), Constant(2 * self.ghost_depth))
-                ), SymbolRef("d%d" % d)
+                index, Mul(base, SymbolRef("d%d" % d))
             )
             index._force_parentheses = True
-            index.left._force_parentheses = True
-            index.left.left._force_parentheses = True
+            index.right.right._force_parentheses = True
         return index
 
     def gen_global_index(self):
-        dim = len(self.output_grid.shape)
+        dim = self.output_grid.ndim
         index = get_global_id(dim - 1)
         for d in reversed(range(dim - 1)):
+            stride = self.output_grid.strides[d] // \
+                self.output_grid.itemsize
             index = Add(
+                index,
                 Mul(
-                    index,
-                    Constant(self.output_grid.shape[d])
-                ),
-                get_global_id(d)
+                    get_global_id(d),
+                    Constant(stride)
+                )
             )
         return index
 
@@ -476,11 +488,11 @@ class StencilOclTransformer(StencilBackend):
         base = None
         for i in reversed(range(0, dim - 1)):
             if base is not None:
-                base = Mul(Add(get_local_size(i),
+                base = Mul(Add(get_local_size(i + 1),
                                Constant(self.ghost_depth * 2)),
                            base)
             else:
-                base = Add(get_local_size(i),
+                base = Add(get_local_size(i + 1),
                            Constant(self.ghost_depth * 2))
         if base is not None:
             local_indices = [
@@ -508,10 +520,10 @@ class StencilOclTransformer(StencilBackend):
         for d in reversed(range(0, dim - 1)):
             for i in reversed(range(0, d)):
                 if base is not None:
-                    base = Mul(Add(get_local_size(i), padding), base)
+                    base = Mul(Add(get_local_size(i + 1), padding), base)
                 else:
-                    base = Add(get_local_size(i), padding)
-            if base is not None:
+                    base = Add(get_local_size(i + 1), padding)
+            if base is not None and d != 0:
                 local_indices.append(
                     Assign(
                         SymbolRef("local_id%d" % d, ct.c_int()),
@@ -547,7 +559,7 @@ class StencilOclTransformer(StencilBackend):
                             [FunctionCall(
                                 SymbolRef('clamp'),
                                 [Cast(ct.c_int(), Sub(Add(
-                                    SymbolRef("local_id%d" % d),
+                                    SymbolRef("local_id%d" % (dim - d - 1)),
                                     Mul(FunctionCall(
                                         SymbolRef('get_group_id'),
                                         [Constant(d)]),
@@ -649,12 +661,16 @@ class StencilOclTransformer(StencilBackend):
 
 
 def gen_decls(dim, padding):
-    thread_id = get_local_id(0)
-    num_threads = get_local_size(0)
-    block_size = Add(get_local_size(0), padding)
-    for d in range(1, dim):
+    thread_id = get_local_id(dim - 1)
+    num_threads = get_local_size(dim - 1)
+    block_size = Add(get_local_size(dim - 1), padding)
+    for d in reversed(range(0, dim - 1)):
+        base = get_local_size(dim - 1)
+        for s in range(d, dim - 2):
+            base = Mul(get_local_size(s + 1), base)
+
         thread_id = Add(
-            Mul(get_local_id(d), get_local_size(d - 1)),
+            Mul(get_local_id(d), base),
             thread_id
         )
         num_threads = Mul(get_local_size(d), num_threads)
