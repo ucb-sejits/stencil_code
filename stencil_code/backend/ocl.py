@@ -10,6 +10,7 @@ from hindemith.fusion.core import KernelCall
 from ..stencil_model import MathFunction, OclNeighborLoop, MacroDefns, \
     LoadSharedMemBlock
 from .stencil_backend import StencilBackend
+from math import sqrt
 import ctypes as ct
 import pycl as cl
 
@@ -269,11 +270,34 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].set_local()
         node.defn = node.defn[0]
         self.project.files.append(OclFile('kernel', [node]))
+        arg_cfg = self.arg_cfg
         if self.testing:
             local_size = (1, 1, 1)
         else:
-            local_size = (32, 32, 32)
-        arg_cfg = self.arg_cfg
+            devices = cl.clGetDeviceIDs()
+            max_sizes = cl.clGetDeviceInfo(
+                devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_ITEM_SIZES)
+            max_total = cl.clGetDeviceInfo(
+                devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_GROUP_SIZE)
+            if len(arg_cfg[0].shape) == 3:
+                s = min(arg_cfg[1].shape[2] / 2, max_sizes[2])
+                max_total /= s
+                s2 = int(sqrt(max_total))
+                local_size = (
+                    min(s2, max_sizes[0], arg_cfg[0].shape[0] / 2),
+                    min(s2, max_sizes[1], arg_cfg[0].shape[1] / 2),
+                    s
+                )
+            elif len(arg_cfg[0].shape) == 2:
+                s = int(sqrt(max_total))
+                local_size = (
+                    min(s, max_sizes[0], arg_cfg[0].shape[0] / 2),
+                    min(s, max_sizes[1], arg_cfg[0].shape[1] / 2)
+                )
+            else:
+                local_size = (min(
+                    max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
+
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
@@ -327,8 +351,8 @@ class StencilOclTransformer(StencilBackend):
 
         self.fusable_nodes.append(KernelCall(
             control, node, arg_cfg[0].shape,
-            defn[0], tuple(local_size[i] for i in range(arg_cfg[0].ndim)), defn[1],
-            enqueue_call, finish_call, setargs, self.load_mem_block,
+            defn[0], tuple(local_size[i] for i in range(arg_cfg[0].ndim)),
+            defn[1], enqueue_call, finish_call, setargs, self.load_mem_block,
             self.stencil_op, self.macro_defns, self.kernel.ghost_depth
         ))
         return control
