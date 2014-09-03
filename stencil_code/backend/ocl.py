@@ -448,11 +448,11 @@ class StencilOclTransformer(StencilBackend):
         dim = len(self.output_grid.shape)
         index = SymbolRef("d%d" % (dim - 1))
         for d in reversed(range(dim - 1)):
-            base = Add(get_local_size(1), Constant(2 * self.ghost_depth))
-            for s in range(1, dim - d - 1):
+            base = Add(get_local_size(dim - 1), Constant(2 * self.ghost_depth))
+            for s in range(d + 1, dim - 1):
                 base = Mul(
                     base,
-                    Add(get_local_size(s + 1), Constant(2 * self.ghost_depth))
+                    Add(get_local_size(s), Constant(2 * self.ghost_depth))
                 )
             index = Add(
                 index, Mul(base, SymbolRef("d%d" % d))
@@ -516,13 +516,13 @@ class StencilOclTransformer(StencilBackend):
                     SymbolRef('tid')
                 )
             ]
-        base = None
         for d in reversed(range(0, dim - 1)):
-            for i in reversed(range(0, d)):
+            base = None
+            for i in reversed(range(d + 1, dim)):
                 if base is not None:
-                    base = Mul(Add(get_local_size(i + 1), padding), base)
+                    base = Mul(Add(get_local_size(i), padding), base)
                 else:
-                    base = Add(get_local_size(i + 1), padding)
+                    base = Add(get_local_size(i), padding)
             if base is not None and d != 0:
                 local_indices.append(
                     Assign(
