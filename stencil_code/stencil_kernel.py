@@ -480,6 +480,14 @@ class StencilKernel(object):
         for item in itertools.product(*dims):
             yield tuple(item)
 
+    def neighbors(self, point, neighbors_id):
+        try:
+            for neighbor in self.neighbor_definition[neighbors_id]:
+                yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
+        except IndexError:
+            # TODO: Make this a StencilException
+            raise Exception("Undefined neighbor")
+
     def get_semantic_node(self, arg_names, *args):
 
         func_decl = PythonToStencilModel(arg_names).visit(
