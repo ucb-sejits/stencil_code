@@ -351,8 +351,8 @@ class StencilOclTransformer(StencilBackend):
         import operator
         local_mem_size = reduce(
             operator.mul,
-            (s + 2 * self.kernel.ghost_depth
-             for s in local_size),
+            (size + 2 * self.kernel.ghost_depth[index]
+             for index, size in enumerate(local_size)),
             ct.sizeof(cl.cl_float())
         )
         setargs.append(
@@ -421,7 +421,7 @@ class StencilOclTransformer(StencilBackend):
                     index,
                     Add(
                         get_local_size(d),
-                        Constant(2 * self.ghost_depth)
+                        Constant(2 * self.ghost_depth[d])
                     ),
                 ),
                 point[d]
@@ -437,7 +437,7 @@ class StencilOclTransformer(StencilBackend):
                     index,
                     Add(
                         get_local_size(d),
-                        Constant(2 * self.ghost_depth)
+                        Constant(2 * self.ghost_depth[d])
                     ),
                 ),
                 point[d]
@@ -448,11 +448,12 @@ class StencilOclTransformer(StencilBackend):
         dim = len(self.output_grid.shape)
         index = SymbolRef("d%d" % (dim - 1))
         for d in reversed(range(dim - 1)):
-            base = Add(get_local_size(1), Constant(2 * self.ghost_depth))
-            for s in range(1, dim - d - 1):
+            base = Add(get_local_size(dim - 1),
+                       Constant(2 * self.ghost_depth[dim - 1]))
+            for s in range(d + 1, dim - 1):
                 base = Mul(
                     base,
-                    Add(get_local_size(s + 1), Constant(2 * self.ghost_depth))
+                    Add(get_local_size(s), Constant(2 * self.ghost_depth[s]))
                 )
             index = Add(
                 index, Mul(base, SymbolRef("d%d" % d))
@@ -489,11 +490,11 @@ class StencilOclTransformer(StencilBackend):
         for i in reversed(range(0, dim - 1)):
             if base is not None:
                 base = Mul(Add(get_local_size(i + 1),
-                               Constant(self.ghost_depth * 2)),
+                               Constant(self.ghost_depth[i + 1] * 2)),
                            base)
             else:
                 base = Add(get_local_size(i + 1),
-                           Constant(self.ghost_depth * 2))
+                           Constant(self.ghost_depth[i + 1] * 2))
         if base is not None:
             local_indices = [
                 Assign(
@@ -516,13 +517,13 @@ class StencilOclTransformer(StencilBackend):
                     SymbolRef('tid')
                 )
             ]
-        base = None
         for d in reversed(range(0, dim - 1)):
-            for i in reversed(range(0, d)):
+            base = None
+            for i in reversed(range(d + 1, dim)):
                 if base is not None:
-                    base = Mul(Add(get_local_size(i + 1), padding), base)
+                    base = Mul(Add(get_local_size(i), padding), base)
                 else:
-                    base = Add(get_local_size(i + 1), padding)
+                    base = Add(get_local_size(i), padding)
             if base is not None and d != 0:
                 local_indices.append(
                     Assign(
@@ -564,10 +565,10 @@ class StencilOclTransformer(StencilBackend):
                                         SymbolRef('get_group_id'),
                                         [Constant(d)]),
                                         get_local_size(d))
-                                ), Constant(self.kernel.ghost_depth))),
+                                ), Constant(self.kernel.ghost_depth[d]))),
                                     Constant(0), Constant(
                                         self.arg_cfg[0].shape[d] -
-                                        self.kernel.ghost_depth)
+                                        self.kernel.ghost_depth[d])
                                 ]
                             ) for d in range(0, dim)]
                         )
@@ -582,18 +583,18 @@ class StencilOclTransformer(StencilBackend):
         self.kernel_target = node.target
         cond = And(
             Lt(get_global_id(0),
-               Constant(self.arg_cfg[0].shape[0] - self.ghost_depth)),
+               Constant(self.arg_cfg[0].shape[0] - self.ghost_depth[0])),
             GtE(get_global_id(0),
-                Constant(self.ghost_depth))
+                Constant(self.ghost_depth[0]))
         )
         for d in range(1, len(self.arg_cfg[0].shape)):
             cond = And(
                 cond,
                 And(
                     Lt(get_global_id(d),
-                       Constant(self.arg_cfg[0].shape[d] - self.ghost_depth)),
+                       Constant(self.arg_cfg[0].shape[d] - self.ghost_depth[d])),
                     GtE(get_global_id(d),
-                        Constant(self.ghost_depth))
+                        Constant(self.ghost_depth[d]))
                 )
             )
         body = []
@@ -612,14 +613,14 @@ class StencilOclTransformer(StencilBackend):
                     self.gen_global_index()))
 
         self.load_mem_block = self.load_shared_memory_block(
-            SymbolRef('block'), Constant(self.ghost_depth * 2))
+            SymbolRef('block'), Constant(self.ghost_depth[0] * 2))
         body.extend(self.load_mem_block)
         body.append(FunctionCall(SymbolRef("barrier"),
                                  [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
         for d in range(0, dim):
             body.append(Assign(SymbolRef('local_id%d' % d, ct.c_int()),
                                Add(get_local_id(d),
-                                   Constant(self.ghost_depth))))
+                                   Constant(self.ghost_depth[d]))))
             self.var_list.append("local_id%d" % d)
 
         for child in map(self.visit, node.body):

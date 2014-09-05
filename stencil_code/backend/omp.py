@@ -49,11 +49,11 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
             self.var_list.append(target.name)
             for_loop = For(
                 Assign(SymbolRef(target.name, c_int()),
-                       Constant(self.ghost_depth)),
+                       Constant(self.ghost_depth[d])),
                 LtE(target,
                     Constant(
                         self.output_grid.shape[d] -
-                        self.ghost_depth - 1)
+                        self.ghost_depth[d] - 1)
                     ),
                 PostInc(target),
                 [])
