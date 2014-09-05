@@ -384,6 +384,15 @@ class StencilKernel(object):
                     "python": None}
 
     def __new__(cls, backend="c", testing=False):
+        cls.dim = len(cls.neighbor_definition[0][0])
+        ghost_depth = tuple(0 for _ in range(cls.dim))
+        for neighborhood in cls.neighbor_definition:
+            for neighbor in neighborhood:
+                ghost_depth = tuple(
+                    max(ghost_depth[i], abs(neighbor[i]))
+                    for i in range(cls.dim)
+                )
+        cls.ghost_depth = ghost_depth
         if backend == 'python':
             cls.__call__ = cls.pure_python
             return super(StencilKernel, cls).__new__(cls)
