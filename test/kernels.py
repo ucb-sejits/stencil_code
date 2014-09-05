@@ -41,7 +41,7 @@ class SimpleKernel(StencilKernel):
 
     @property
     def ghost_depth(self):
-        return 1
+        return (1, 1)
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
@@ -60,7 +60,7 @@ class TwoDHeatKernel(StencilKernel):
 
     @property
     def ghost_depth(self):
-        return 1
+        return (1, 1)
 
     @property
     def dim(self):
@@ -94,7 +94,7 @@ class LaplacianKernel(StencilKernel):
 
     @property
     def ghost_depth(self):
-        return 1
+        return (1, 1)
 
     @property
     def constants(self):
@@ -122,7 +122,7 @@ class BilatKernel(StencilKernel):
 
     @property
     def ghost_depth(self):
-        return radius
+        return (1, 1)
 
     def kernel(self, in_img, filter_d, filter_s, out_img):
         for x in self.interior_points(out_img):
@@ -150,7 +150,7 @@ class Laplacian3DKernel(StencilKernel):
 
     @property
     def ghost_depth(self):
-        return 1
+        return (1, 1, 1)
 
     @property
     def constants(self):

@@ -45,11 +45,11 @@ class StencilCTransformer(StencilBackend):
             self.var_list.append(target)
             for_loop = For(
                 Assign(SymbolRef(target, c_int()),
-                       Constant(self.ghost_depth)),
+                       Constant(self.ghost_depth[d])),
                 LtE(SymbolRef(target),
                     Constant(
                         self.output_grid.shape[d] -
-                        self.ghost_depth - 1)
+                        self.ghost_depth[d] - 1)
                     ),
                 PostInc(SymbolRef(target)),
                 [])

@@ -328,7 +328,8 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
 
     def generate_output(self, program_cfg):
         arg_cfg, tune_cfg = program_cfg
-        self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
+        if self.output is None:
+            self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
         return self.output
 
 
@@ -475,8 +476,8 @@ class StencilKernel(object):
         return output_grid
 
     def interior_points(self, x):
-        dims = (range(self.ghost_depth, dim - self.ghost_depth)
-                for dim in x.shape)
+        dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
+                for index, dim in enumerate(x.shape))
         for item in itertools.product(*dims):
             yield tuple(item)
 
