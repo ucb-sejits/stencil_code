@@ -1,8 +1,8 @@
-from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, Div, Mod, For, \
-    AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, FunctionDecl, GtE, \
-    Sub, Cast
-from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, clSetKernelArg, \
-    NULL, barrier, CLK_LOCAL_MEM_FENCE
+from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
+    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
+    FunctionDecl, GtE, Sub, Cast
+from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
+    clSetKernelArg, NULL, barrier, CLK_LOCAL_MEM_FENCE
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
@@ -521,7 +521,11 @@ class StencilOclTransformer(StencilBackend):
             base = None
             for i in reversed(range(d + 1, dim)):
                 if base is not None:
-                    base = Mul(Add(get_local_size(i), ghost_depth[i] * 2), base)
+                    base = Mul(
+                        Add(get_local_size(i),
+                            ghost_depth[i] * 2),
+                        base
+                    )
                 else:
                     base = Add(get_local_size(i), Constant(ghost_depth[i] * 2))
             if base is not None and d != 0:
@@ -664,7 +668,10 @@ class StencilOclTransformer(StencilBackend):
 def gen_decls(dim, ghost_depth):
     thread_id = get_local_id(dim - 1)
     num_threads = get_local_size(dim - 1)
-    block_size = Add(get_local_size(dim - 1), Constant(ghost_depth[dim - 1] * 2))
+    block_size = Add(
+        get_local_size(dim - 1),
+        Constant(ghost_depth[dim - 1] * 2)
+    )
     for d in reversed(range(0, dim - 1)):
         base = get_local_size(dim - 1)
         for s in range(d, dim - 2):
