@@ -329,7 +329,6 @@ class StencilOclTransformer(StencilBackend):
             else:
                 local_size = (min(
                     max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
-        print(local_size)
 
         defn = [
             ArrayDef(
