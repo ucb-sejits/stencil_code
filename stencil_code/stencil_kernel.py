@@ -324,6 +324,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
             finalized = fn.finalize(tree, entry_point, entry_type,
                                     self.output)
         self.output = None
+        self.fusable_nodes = []
         return finalized
 
     def generate_output(self, program_cfg):
