@@ -1,6 +1,6 @@
 __author__ = 'leonardtruong'
 
-from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
+from .kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
     BilatKernel, gaussian1, gaussian2
 import numpy as np
 import unittest

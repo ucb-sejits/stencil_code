@@ -1,8 +1,8 @@
-from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, Div, Mod, For, \
-    AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, FunctionDecl, GtE, \
-    Sub, Cast
-from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, clSetKernelArg, \
-    NULL, barrier, CLK_LOCAL_MEM_FENCE
+from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
+    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
+    FunctionDecl, GtE, Sub, Cast
+from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
+    clSetKernelArg, NULL, barrier, CLK_LOCAL_MEM_FENCE
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
@@ -329,7 +329,6 @@ class StencilOclTransformer(StencilBackend):
             else:
                 local_size = (min(
                     max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
-        print(local_size)
 
         defn = [
             ArrayDef(
@@ -477,10 +476,10 @@ class StencilOclTransformer(StencilBackend):
             )
         return index
 
-    def load_shared_memory_block(self, target, padding):
+    def load_shared_memory_block(self, target, ghost_depth):
         dim = len(self.output_grid.shape)
         body = []
-        thread_id, num_threads, block_size = gen_decls(dim, padding)
+        thread_id, num_threads, block_size = gen_decls(dim, ghost_depth)
 
         body.extend([Assign(SymbolRef("thread_id", ct.c_int()), thread_id),
                      Assign(SymbolRef("block_size", ct.c_int()), block_size),
@@ -521,9 +520,13 @@ class StencilOclTransformer(StencilBackend):
             base = None
             for i in reversed(range(d + 1, dim)):
                 if base is not None:
-                    base = Mul(Add(get_local_size(i), padding), base)
+                    base = Mul(
+                        Add(get_local_size(i),
+                            ghost_depth[i] * 2),
+                        base
+                    )
                 else:
-                    base = Add(get_local_size(i), padding)
+                    base = Add(get_local_size(i), Constant(ghost_depth[i] * 2))
             if base is not None and d != 0:
                 local_indices.append(
                     Assign(
@@ -613,7 +616,7 @@ class StencilOclTransformer(StencilBackend):
                     self.gen_global_index()))
 
         self.load_mem_block = self.load_shared_memory_block(
-            SymbolRef('block'), Constant(self.ghost_depth[0] * 2))
+            SymbolRef('block'), self.ghost_depth)
         body.extend(self.load_mem_block)
         body.append(FunctionCall(SymbolRef("barrier"),
                                  [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
@@ -661,10 +664,13 @@ class StencilOclTransformer(StencilBackend):
             "Unsupported GridElement encountered: {0}".format(grid_name))
 
 
-def gen_decls(dim, padding):
+def gen_decls(dim, ghost_depth):
     thread_id = get_local_id(dim - 1)
     num_threads = get_local_size(dim - 1)
-    block_size = Add(get_local_size(dim - 1), padding)
+    block_size = Add(
+        get_local_size(dim - 1),
+        Constant(ghost_depth[dim - 1] * 2)
+    )
     for d in reversed(range(0, dim - 1)):
         base = get_local_size(dim - 1)
         for s in range(d, dim - 2):
@@ -676,7 +682,7 @@ def gen_decls(dim, padding):
         )
         num_threads = Mul(get_local_size(d), num_threads)
         block_size = Mul(
-            Add(get_local_size(d), padding),
+            Add(get_local_size(d), Constant(ghost_depth[d] * 2)),
             block_size
         )
     return thread_id, num_threads, block_size

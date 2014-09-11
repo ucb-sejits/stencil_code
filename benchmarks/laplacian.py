@@ -3,16 +3,7 @@ from scipy.ndimage.filters import laplace
 import numpy as np
 from stencil_code.stencil_grid import StencilGrid
 from stencil_code.stencil_kernel import StencilKernel
-
-import time
-
-class Timer:
-    def __enter__(self):
-        self.start = time.clock()
-        return self
-
-    def __exit__(self, *args):
-        self.interval = time.clock() - self.start
+from ctree.util import Timer
 
 width = 2**11 + 2
 height = width

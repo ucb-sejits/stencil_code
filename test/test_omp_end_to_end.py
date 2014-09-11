@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 from nose.plugins.attrib import attr
-from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
+from .kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
     BilatKernel, gaussian1, gaussian2
 
 stdev_d = 3

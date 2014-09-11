@@ -27,21 +27,11 @@ def distance(x, y):
 
 
 class SimpleKernel(StencilKernel):
-    @property
-    def neighbor_definition(self):
-        return [[
-            (-1, 1),  (0, 1),  (1, 1),
-            (-1, 0),  (0, 0),  (1, 0),
-            (-1, -1), (-1, 0), (-1, 1)
-        ]]
-
-    @property
-    def dim(self):
-        return 2
-
-    @property
-    def ghost_depth(self):
-        return (1, 1)
+    neighbor_definition = [[
+        (-1, 1),  (0, 1),  (1, 1),
+        (-1, 0),  (0, 0),  (1, 0),
+        (-1, -1), (-1, 0), (-1, 1)
+    ]]
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
@@ -50,21 +40,11 @@ class SimpleKernel(StencilKernel):
 
 
 class TwoDHeatKernel(StencilKernel):
-    @property
-    def neighbor_definition(self):
-        return [[(0, 0)], [
-            (-1, 1),  (0, 1),  (1, 1),
-            (-1, 0),  (0, 0),  (1, 0),
-            (-1, -1), (-1, 0), (-1, 1)
-        ]]
-
-    @property
-    def ghost_depth(self):
-        return (1, 1)
-
-    @property
-    def dim(self):
-        return 2
+    neighbor_definition = [[(0, 0)], [
+        (-1, 1),  (0, 1),  (1, 1),
+        (-1, 0),  (0, 0),  (1, 0),
+        (-1, -1), (-1, 0), (-1, 1)
+    ]]
 
     def kernel(self, in_img, out_img):
         for x in self.interior_points(out_img):
@@ -80,21 +60,11 @@ beta = 1.0
 
 
 class LaplacianKernel(StencilKernel):
-    @property
-    def neighbor_definition(self):
-        return [[(0, 0)], [
-            (-1, 1),  (0, 1),  (1, 1),
-            (-1, 0),  (0, 0),  (1, 0),
-            (-1, -1), (-1, 0), (-1, 1)
-        ]]
-
-    @property
-    def dim(self):
-        return 2
-
-    @property
-    def ghost_depth(self):
-        return (1, 1)
+    neighbor_definition = [[(0, 0)], [
+        (-1, 1),  (0, 1),  (1, 1),
+        (-1, 0),  (0, 0),  (1, 0),
+        (-1, -1), (-1, 0), (-1, 1)
+    ]]
 
     @property
     def constants(self):
@@ -108,21 +78,11 @@ class LaplacianKernel(StencilKernel):
 
 
 class BilatKernel(StencilKernel):
-    @property
-    def neighbor_definition(self):
-        return [[
-            (-1, 1),  (0, 1),  (1, 1),
-            (-1, 0),  (0, 0),  (1, 0),
-            (-1, -1), (-1, 0), (-1, 1)
-        ]]
-
-    @property
-    def dim(self):
-        return 2
-
-    @property
-    def ghost_depth(self):
-        return (1, 1)
+    neighbor_definition = [[
+        (-1, 1),  (0, 1),  (1, 1),
+        (-1, 0),  (0, 0),  (1, 0),
+        (-1, -1), (-1, 0), (-1, 1)
+    ]]
 
     def kernel(self, in_img, filter_d, filter_s, out_img):
         for x in self.interior_points(out_img):
@@ -133,28 +93,15 @@ class BilatKernel(StencilKernel):
 
 
 class Laplacian3DKernel(StencilKernel):
-    @property
-    def neighbor_definition(self):
-        return [[
-            (-1, -1, -1), (-1, -1, 0), (-1, -1, 1),
-            (0, -1, -1), (0, -1, 0), (0, -1, 1),
-            (1, -1, -1), (1, -1, 0), (1, -1, 1),
-            (-1, 0, -1), (-1, 0, 0), (-1, 0, 1),
-            (-1, 1, -1), (-1, 1, 0), (-1, 1, 1),
-            (1, 1, -1), (1, 1, 0), (1, 1, 1)
-        ]]
-
-    @property
-    def dim(self):
-        return 3
-
-    @property
-    def ghost_depth(self):
-        return (1, 1, 1)
-
-    @property
-    def constants(self):
-        return {'alpha': 0.5, 'beta': 1.0}
+    neighbor_definition = [[
+        (-1, -1, -1), (-1, -1, 0), (-1, -1, 1),
+        (0, -1, -1), (0, -1, 0), (0, -1, 1),
+        (1, -1, -1), (1, -1, 0), (1, -1, 1),
+        (-1, 0, -1), (-1, 0, 0), (-1, 0, 1),
+        (-1, 1, -1), (-1, 1, 0), (-1, 1, 1),
+        (1, 1, -1), (1, 1, 0), (1, 1, 1)
+    ]]
+    constants = {'alpha': 0.5, 'beta': 1.0}
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(in_grid):

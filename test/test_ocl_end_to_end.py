@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
+from .kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
     BilatKernel, gaussian1, gaussian2, Laplacian3DKernel
 
 stdev_d = 3

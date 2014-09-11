@@ -4,7 +4,7 @@ setup(
     name='stencil_code',
     description='A specializer built on the ASP SEJITS framework',
     url='https://github.com/ucb-sejits/stencil_code/',
-    version='0.96a5',
+    version='0.96a6',
 
     packages=[
         'stencil_code',
