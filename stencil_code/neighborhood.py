@@ -105,10 +105,12 @@ class Neighborhood(object):
         if mid_point is None:
             mid_point = [x / 2 for x in matrix.shape]
         while not it.finished:
-            if it[0] != 0:
+            value = it[0]
+            index = it.multi_index
+            if value != 0:
                 relative_point = tuple([it.multi_index[d]-mid_point[d] for d in range(dim)])
                 neighbor_points.append(relative_point)
-                coefficients.append(it[0])
+                coefficients.append(matrix[index])
             it.iternext()
 
         halo = Neighborhood.compute_halo(neighbor_points)

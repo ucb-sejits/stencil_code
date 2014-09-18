@@ -1,6 +1,7 @@
 __author__ = 'chick'
 
 import unittest
+import numpy
 
 from stencil_code.neighborhood import Neighborhood
 
@@ -108,6 +109,14 @@ class TestNeighborhood(unittest.TestCase):
         self.assertEqual(h[1][1], 1, "halo in positive direction of dim 2 is 1")
 
         self._are_lists_equal(n, Neighborhood.moore_neighborhood(1, 2))
+
+        coff = numpy.array(coff)  # do this just so we can index with a tuple
+        for index, value in enumerate(n):
+            value = tuple([value[0] + 1, value[1] + 1])  # add one because indices have become offsets
+            self.assertEqual(c[index], coff[value])
+        self.assertItemsEqual(c, [1, 1, 4, 1, 4, 8, 2, 8, 16])
+
+
         coff = [
             [0, 1, 0],
             [1, 4, 8],
@@ -115,11 +124,15 @@ class TestNeighborhood(unittest.TestCase):
         ]
 
         n, c, h = Neighborhood.compute_from_indices(coff)
-        self.assertEqual(len(n), 5)
+        self.assertEqual(len(n), 5, "length is 5 because indices with coefficient zero are dropped")
         self.assertEqual(len(c), 5)
         self.assertEqual(h[0][0], 1, "halo in negative direction of dim 1 is 1")
         self.assertEqual(h[0][1], 1, "halo in negative direction of dim 1 is 1")
         self.assertEqual(h[1][0], 1, "halo in positive direction of dim 2 is 1")
         self.assertEqual(h[1][1], 1, "halo in positive direction of dim 2 is 1")
 
+        coff = numpy.array(coff)  # do this just so we can index with a tuple
+        for index, value in enumerate(n):
+            value = tuple([value[0] + 1, value[1] + 1])  # add one because indices have become offsets
+            self.assertEqual(c[index], coff[value])
         self._are_lists_equal(n, Neighborhood.von_neuman_neighborhood(1, 2))
