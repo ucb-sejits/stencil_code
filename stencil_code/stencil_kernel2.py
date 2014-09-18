@@ -18,36 +18,21 @@ is cached for future calls.
 """
 
 import math
+from benchmarks.stencil_numpy import numpy
 
-from collections import namedtuple
-import re
-from numpy.numarray import zeros
-
-from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
-from ctree.c.nodes import FunctionDecl
-from ctree.ocl.nodes import OclFile
 import ctree.np
-from pip._vendor import six
 
 ctree.np  # Make PEP8 happy
 import ctree.ocl
-from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
 from .backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
-# import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
-import pycl as cl
-from pycl import (
-    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
-)
 import numpy as np
-import ast
 import itertools
-
-from hindemith.fusion.core import Fusable
+from stencil_code.stencil_kernel import SpecializedStencil
 
 
 class StencilKernel2(object):
@@ -57,6 +42,7 @@ class StencilKernel2(object):
     kernel iteration implemenation
     allows
     neighborhood(s) specification
+    coefficient specification
     boundary handling specification
     """
     backend_dict = {"c": StencilCTransformer,
@@ -78,7 +64,8 @@ class StencilKernel2(object):
         self._backend = value
         self.handle_configuration_change()
 
-    def __init__(self, neighborhood_definition=None, backend="c", boundary_handling=None, testing=False):
+    def __init__(self, neighborhood_definition=None, coefficient_definition=None,
+                 backend="c", boundary_handling=None, testing=False):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -107,6 +94,8 @@ class StencilKernel2(object):
         self.backend = backend  # this will kick off necessary backend checking and handling
         self.boundary_handling = boundary_handling
         self.neighborhoods = []
+        self.coefficients = None
+        self.dim = 2
 
         self.testing = testing
 
@@ -152,6 +141,13 @@ class StencilKernel2(object):
                 add_neighborhood(list)
         else:
             raise "Invalid neighborhood specifier {}, must be a list".format()
+
+    def parse_coefficients(self, coefficient_specification):
+        coefficient_specification = numpy.array(coefficient_specification)
+        self.dim = len(coefficient_specification.shape)
+
+        neighbor_list = []
+
 
     def pure_python(self, *args):
         output = np.zeros_like(args[0])

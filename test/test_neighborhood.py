@@ -91,3 +91,35 @@ class TestNeighborhood(unittest.TestCase):
                 (1, 0, 1), (1, 1, -1), (1, 1, 0), (1, 1, 1)
             ]
         )
+
+    def test_compute_from_indices(self):
+        coff = [
+            [1, 1, 4],
+            [1, 4, 8],
+            [2, 8, 16],
+        ]
+
+        n, c, h = Neighborhood.compute_from_indices(coff)
+        self.assertEqual(len(n), 9)
+        self.assertEqual(len(c), 9)
+        self.assertEqual(h[0][0], 1, "halo in negative direction of dim 1 is 1")
+        self.assertEqual(h[0][1], 1, "halo in negative direction of dim 1 is 1")
+        self.assertEqual(h[1][0], 1, "halo in positive direction of dim 2 is 1")
+        self.assertEqual(h[1][1], 1, "halo in positive direction of dim 2 is 1")
+
+        self._are_lists_equal(n, Neighborhood.moore_neighborhood(1, 2))
+        coff = [
+            [0, 1, 0],
+            [1, 4, 8],
+            [0, 8, 0],
+        ]
+
+        n, c, h = Neighborhood.compute_from_indices(coff)
+        self.assertEqual(len(n), 5)
+        self.assertEqual(len(c), 5)
+        self.assertEqual(h[0][0], 1, "halo in negative direction of dim 1 is 1")
+        self.assertEqual(h[0][1], 1, "halo in negative direction of dim 1 is 1")
+        self.assertEqual(h[1][0], 1, "halo in positive direction of dim 2 is 1")
+        self.assertEqual(h[1][1], 1, "halo in positive direction of dim 2 is 1")
+
+        self._are_lists_equal(n, Neighborhood.von_neuman_neighborhood(1, 2))

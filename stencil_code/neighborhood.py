@@ -1,3 +1,6 @@
+from llvmpy._api.llvm import sys
+import numpy
+
 __author__ = 'chick'
 
 
@@ -61,3 +64,57 @@ class Neighborhood(object):
         if not include_origin:
             points.remove(Neighborhood.origin_of_dim(dim))
         return points
+
+    @staticmethod
+    def compute_halo(point_list):
+        """
+
+        :param point_list: list of point tuples, all of them better be same dimension
+        :param shape: a numpy style shape specification
+        :return: halo dimension tuple of tuple(negative_axis_magnitude,positive_axis_magnitude)
+        """
+        halo = None
+        if len(point_list) > 0:
+            dim = len(point_list[0])
+            halo = numpy.array([(0, 0) for x in range(dim)])
+
+            for point in point_list:
+                for d in range(dim):
+                    if halo[d][0] < abs(point[d]):
+                        halo[d][0] = abs(point[d])
+                    if halo[d][1] < abs(point[d]):
+                        halo[d][1] = abs(point[d])
+        return tuple(halo)
+
+    @staticmethod
+    def compute_from_indices(matrix, mid_point=None):
+        """
+        finds a neighborhood containing the indices of matrix where the value is not zero
+        also compute the halo min and max for for each dimension
+        :param matrix: an n-dimensional matrix of coefficients
+        :param mid_point: if defined, it represents the origin point of the matrix, if
+        not defined it is set to be the halfway point along each dimension of matrix
+        :return: (neighbor_point_list, coefficient_list, halo_min_and_max_vector)
+        neighbor_point_list and coefficient_list are ordered by the same index
+        """
+        matrix = numpy.array(matrix)  # we wrap to get shape etc
+        neighbor_points = []
+        coefficients = []
+        it = numpy.nditer(matrix, flags=['multi_index'])
+        dim = len(matrix.shape)
+        if mid_point is None:
+            mid_point = [x / 2 for x in matrix.shape]
+        while not it.finished:
+            if it[0] != 0:
+                relative_point = tuple([it.multi_index[d]-mid_point[d] for d in range(dim)])
+                neighbor_points.append(relative_point)
+                coefficients.append(it[0])
+            it.iternext()
+
+        halo = Neighborhood.compute_halo(neighbor_points)
+
+        return neighbor_points, coefficients, halo
+
+
+
+
