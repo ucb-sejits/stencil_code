@@ -67,10 +67,6 @@ class StencilKernel2(object):
 
     boundary_handling_methods = {'clamped', 'none', 'toroid'}
 
-    moore_regex = """^moore(\d*)$"""
-    von_neuman_regex = """von_neuman(\d*)"""
-
-
     @property
     def backend(self):
         return self._backend
@@ -206,7 +202,7 @@ class StencilKernel2(object):
         for item in itertools.product(*dims):
             yield tuple(item)
 
-    def neighbors(self, point, neighbors_id):
+    def neighbors(self, point, neighbors_id=0):
         try:
             for neighbor in self.neighbor_definition[neighbors_id]:
                 yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
