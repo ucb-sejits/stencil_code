@@ -3,6 +3,7 @@ from scipy.ndimage.filters import laplace
 import numpy as np
 from stencil_code.stencil_grid import StencilGrid
 from stencil_code.stencil_kernel import StencilKernel
+from stencil_code.stencil_kernel2 import StencilKernel2
 from ctree.util import Timer
 
 width = 2**11 + 2
@@ -12,12 +13,32 @@ image = np.random.rand(width, height)
 # print("Print numpy image: ", image)
 stencil = np.array([[0, 1, 0],[1, -4, 1], [0, 1, 0]])
 
+#
+# old
+#
 class Kernel(StencilKernel):
     def kernel(self, in_grid, out_grid):
         for x in in_grid.interior_points():
             out_grid[x] = -4 * in_grid[x]
             for y in in_grid.neighbors(x, 1):
                 out_grid[x] += in_grid[y]
+
+#
+# new
+#
+class LaplacianFilter(StencilKernel2):
+    def kernel(self, input):
+        output = np.empty_like(input)
+        for x in self.output_points(output):
+            for neighbor_point, coefficient_index in self.neighbor_coff(x):
+                output[x] += self.coefficients[coefficient_index] * input[neighbor_point]
+
+laplacian_coefficients = [
+    [0, 1, 0],
+    [1, -4, 1],
+    [0, 1, 0],
+]
+stencil = LaplacianFilter(coefficient_definition=laplacian_coefficients)
 
 in_grid = StencilGrid([width, height])
 for i in range(width):
