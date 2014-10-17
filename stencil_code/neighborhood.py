@@ -49,7 +49,7 @@ class Neighborhood(object):
         def within_legal_taxi_distance(p):
             return sum([abs(x) for x in list(p)]) <= radius
 
-        points = filter(within_legal_taxi_distance, Neighborhood.flatten(Neighborhood.neighborhood_generator(radius, dim)))
+        points = list(filter(within_legal_taxi_distance, Neighborhood.flatten(Neighborhood.neighborhood_generator(radius, dim))))
         if not include_origin:
             points.remove(Neighborhood.origin_of_dim(dim))
         return points
@@ -103,7 +103,7 @@ class Neighborhood(object):
         it = numpy.nditer(matrix, flags=['multi_index'])
         dim = len(matrix.shape)
         if mid_point is None:
-            mid_point = [x / 2 for x in matrix.shape]
+            mid_point = [x // 2 for x in matrix.shape]
         while not it.finished:
             value = it[0]
             index = it.multi_index

@@ -114,7 +114,7 @@ class TestNeighborhood(unittest.TestCase):
         for index, value in enumerate(n):
             value = tuple([value[0] + 1, value[1] + 1])  # add one because indices have become offsets
             self.assertEqual(c[index], coff[value])
-        self.assertItemsEqual(c, [1, 1, 4, 1, 4, 8, 2, 8, 16])
+        self._are_lists_equal(c, [1, 1, 4, 1, 4, 8, 2, 8, 16])
 
 
         coff = [
