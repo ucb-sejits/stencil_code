@@ -18,6 +18,8 @@ class SpecializedLaplacian27(StencilKernel):
             for n in source_data.neighbors(x, 2):
                 output_data[x] += factors[self.distance(x, n)] * source_data[n]
 
+    def inner_summation_kernel(self, neighbor_value, coefficient):
+        return neighbor_value * coefficient
 
 def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, IN, OUT):
     """

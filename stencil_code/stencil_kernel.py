@@ -20,7 +20,7 @@ is cached for future calls.
 import math
 
 from collections import namedtuple
-from numpy.numarray import zeros
+from numpy import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
