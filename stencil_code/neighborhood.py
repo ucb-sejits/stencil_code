@@ -1,5 +1,5 @@
-from llvmpy._api.llvm import sys
 import numpy
+import sys
 
 __author__ = 'chick'
 
