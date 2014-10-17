@@ -10,48 +10,40 @@ import numpy
 import math
 import time
 import random
+from ctree.util import Timer
 
-width = 130
-height = 130
-time_steps = 18
+width = 256
+height = 256
+time_steps = 16
 
 
 class Kernel(StencilKernel):
-    def kernel(self, in_img, out_img):
-        for x in out_img.interior_points():
-            out_img[x] = in_img[x]
-            for y in in_img.neighbors(x, 0):
-                out_img[x] += 0.125 * in_img[y]
-            for z in in_img.neighbors(x, 1):
-                out_img[x] -= 0.125 * 2.0 * in_img[z]
+    neighbor_definition = [
+        [(-1, 1, 0), (-1, -1, 0),
+         (-1, 0, 1), (-1, 0, -1)],
+        [(-1, 0, 0), (-1, 0, 0)]
+    ]
+    def kernel(self, in_grid, out_grid):
+        for x in self.interior_points(out_grid):
+            out_grid[x] = in_grid[x]
+            for y in self.neighbors(x, 0):
+                out_grid[x] += 0.125 * in_grid[y]
+            for z in self.neighbors(x, 1):
+                out_grid[x] -= 0.25 * in_grid[z]
 
 kernel = Kernel(backend='ocl')
-kernel.should_unroll = False
-out_grid = StencilGrid([time_steps, width, height])
-out_grid.ghost_depth = 1
-in_grid = StencilGrid([time_steps, width, height])
-in_grid.ghost_depth = 1
+py_kernel = Kernel(backend='python')
+in_grid = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
 
-base = 1024
-r = random.seed()
-for i in range(width):
-    for j in range(height):
-        in_grid.data[(0, i, j)] = random.randrange(1024) * 1.0
-
-in_grid.neighbor_definition[0] = [(-1, 1, 0), (-1, -1, 0),
-                                  (-1, 0, 1), (-1, 0, -1)]
-in_grid.neighbor_definition[1] = [(-1, 0, 0), (-1, 0, 0)]
-
-
-class Timer:
-    def __enter__(self):
-        self.start = time.clock()
-        return self
-
-    def __exit__(self, *args):
-        self.end = time.clock()
-        self.interval = self.end - self.start
 
 with Timer() as t:
-    kernel.kernel(in_grid, out_grid)
-print("Time: %.03fs" % t.interval)
+    a = kernel(in_grid)
+
+with Timer() as py_time:
+    b = py_kernel(in_grid)
+
+# Python mode doesn't clamp yet
+numpy.testing.assert_array_almost_equal(a[1:-1,1:-1,1:-1], b[1:-1,1:-1,1:-1])
+
+print("Specialized Time: %.03fs" % t.interval)
+print("Python Time: %.03fs" % py_time.interval)

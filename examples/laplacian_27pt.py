@@ -3,6 +3,8 @@ import sys
 from stencil_code.stencil_grid import StencilGrid
 from stencil_code.stencil_kernel import StencilKernel
 
+print("This example hasn't been update to the current API")
+exit(1)
 
 class SpecializedLaplacian27(StencilKernel):
 
