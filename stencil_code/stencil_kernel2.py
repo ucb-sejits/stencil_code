@@ -22,7 +22,7 @@ from benchmarks.stencil_numpy import numpy
 
 import ctree.np
 
-ctree.np  # Make PEP8 happy
+_ = ctree.np  # Make PEP8 happy, _ = here is deeply satisfying for PyCharm
 import ctree.ocl
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
@@ -37,12 +37,9 @@ from stencil_code.stencil_kernel import SpecializedStencil
 
 class StencilKernel2(object):
     """
-    Is an abstract stencil operator
-    requires
-    kernel iteration implemenation
-    allows
-    neighborhood(s) specification
-    coefficient specification
+    Is an abstract stencil operator requires
+    kernel iteration implementation allows
+    neighborhood(s) specification coefficient specification
     boundary handling specification
     """
     backend_dict = {"c": StencilCTransformer,

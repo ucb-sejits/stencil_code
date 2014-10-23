@@ -26,7 +26,7 @@ from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
-ctree.np  # Make PEP8 happy
+_ = ctree.np  # Make PEP8 happy, and pycharm
 import ctree.ocl
 from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
@@ -55,17 +55,19 @@ class StencilFunction(ConcreteSpecializedFunction):
     """
 
     def finalize(self, tree, entry_name, entry_type, output):
-        """finalize
+        """
 
         :param tree: A project node containing any files to be compiled for
                      this specialized function.
-        :type tree: Project
+        :type tree: Project node
         :param entry_name: The name of the function that will be the entry
                            point to the compiled project.
-        :type entry_name: str
+        :type: str
         :param entry_type: The type signature of the function described by
                            `entry_name`.
         :type entry_type: CFUNCTYPE
+        :param output: the stencil result buffer
+        :return:
         """
         self.output = output
         self._c_function = self._compile(entry_name, tree, entry_type)
