@@ -1,9 +1,8 @@
-from scipy.ndimage import convolve
+from __future__ import print_function
 import numpy as np
 from stencil_code.neighborhood import Neighborhood
-from stencil_code.stencil_kernel import StencilKernel
+# from stencil_code.stencil_kernel import StencilKernel
 
-# print("Print numpy image: ", image)
 stencil = np.array(
     [
         [1, 1, 1, 1, 1],
@@ -18,9 +17,6 @@ stencil = np.array(
 class ConvolutionFilter(object):
     def __init__(self, convolution_array):
         self.neighbors, self.coefficients, self.halo = Neighborhood.compute_from_indices(convolution_array)
-
-    def get_coefficients(self, grid, index):
-        return self.coefficients[index]
 
     @staticmethod
     def clamped_add_tuple(point1, point2, grid):
