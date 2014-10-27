@@ -18,5 +18,7 @@ setup(
     install_requires=[
         'ctree',
         'numpy',
+        'hindemith',
+        'pycl'
     ]
 )

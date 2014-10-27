@@ -36,6 +36,13 @@ class Neighborhood(object):
 
     @staticmethod
     def neighborhood_generator(r, d, l=list()):
+        """
+        Computes a d-dimensional cube for coordinates
+        :param r: the radius of the neighborhood,
+        :param d: the number of dimensions of the cube
+        :param l: internally used for construction of cube
+        :return: a numpy list of neighbor coordinates
+        """
         if d == 0:
             return tuple(l)
         return [Neighborhood.neighborhood_generator(r, d-1, l + [x]) for x in range(-r, r+1)]
@@ -89,7 +96,7 @@ class Neighborhood(object):
     @staticmethod
     def compute_from_indices(matrix, mid_point=None):
         """
-        finds a neighborhood containing the indices of matrix where the value is not zero
+        creates a neighborhood containing the indices of matrix where the value is not zero
         also compute the halo min and max for for each dimension
         :param matrix: an n-dimensional matrix of coefficients
         :param mid_point: if defined, it represents the origin point of the matrix, if

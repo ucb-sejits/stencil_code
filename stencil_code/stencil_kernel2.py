@@ -18,7 +18,6 @@ is cached for future calls.
 """
 
 import math
-from benchmarks.stencil_numpy import numpy
 
 import ctree.np
 
@@ -61,20 +60,16 @@ class StencilKernel2(object):
         self._backend = value
         self.handle_configuration_change()
 
-    OPENCL = 1
-    OPENMP = 2
-    BEST = 3
+    OPENCL = 'ocl'
+    OPENMP = 'omp'
+    BEST = 'best'
+    C = 'c'
 
     CLAMPED = 1
     WRAP=2
-    class CONSTANT(object):
-        def __init__(self, value):
-            self.value = value
-
-    s = StencilKernel2(boundary_handling_methods=StencilKernel2.CONSTANT(6.0))
 
     def __init__(self, neighborhood_definition=None, coefficient_definition=None,
-                 backend=StencilKernel2.BEST, boundary_handling=None, testing=False):
+                 backend='ocl', boundary_handling=None, testing=False):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -152,7 +147,7 @@ class StencilKernel2(object):
             raise "Invalid neighborhood specifier {}, must be a list".format()
 
     def parse_coefficients(self, coefficient_specification):
-        coefficient_specification = numpy.array(coefficient_specification)
+        coefficient_specification = np.array(coefficient_specification)
         self.dim = len(coefficient_specification.shape)
 
         neighbor_list = []
@@ -220,7 +215,7 @@ class StencilKernel2(object):
         func_decl = PythonToStencilModel(arg_names).visit(
             get_ast(self.model)
         ).files[0].body[0]
-        return StencilCall(func_decl, args[:-1], args[-1], self)
+        # TODO return StencilCall(func_decl, args[:-1], args[-1], self)
 
     def distance(self, x, y):
         """
