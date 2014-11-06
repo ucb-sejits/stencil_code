@@ -16,7 +16,7 @@ model to C++, and an external compiler tool is invoked to generate a
 binary which then efficiently completes executing the call. The binary
 is cached for future calls.
 """
-
+from __future__ import print_function
 import math
 
 from collections import namedtuple
@@ -47,7 +47,7 @@ import itertools
 from hindemith.fusion.core import Fusable
 
 
-class StencilFunction(ConcreteSpecializedFunction):
+class ConcreteStencil(ConcreteSpecializedFunction):
     """StencilFunction
 
     The standard concrete specialized function that is returned when using the
@@ -94,7 +94,7 @@ class StencilFunction(ConcreteSpecializedFunction):
         return output
 
 
-class OclStencilFunction(ConcreteSpecializedFunction):
+class OclStencilFunction2(ConcreteSpecializedFunction):
     """OclStencilFunction
 
     The ConcreteSpecializedFunction used by the OpenCL backend.  Allows us to
@@ -118,7 +118,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         :param global_size: The global work size for the kernel calculated in
                             transform.
         :type global_size: int or sequence of ints
-        :rtype: OclStencilFunction
+        :rtype: OclStencilFunction2
         """
         self.kernel = kernel
         self.output = output_grid
@@ -167,7 +167,7 @@ StencilArgConfig = namedtuple(
 )
 
 
-class SpecializedStencil(LazySpecializedFunction, Fusable):
+class SpecializedStencil2(LazySpecializedFunction, Fusable):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
@@ -194,7 +194,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         self.kernel = kernel
         self.backend = self.backend_dict[backend]
         self.output = None
-        super(SpecializedStencil, self).__init__(get_ast(kernel.kernel))
+        super(SpecializedStencil2, self).__init__(get_ast(kernel.kernel))
         Fusable.__init__(self)
 
     def args_to_subconfig(self, args):
@@ -311,7 +311,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
 
     def finalize(self, tree, entry_type, entry_point):
         if self.backend == StencilOclTransformer:
-            fn = OclStencilFunction()
+            fn = OclStencilFunction2()
             kernel = tree.find(OclFile)
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
@@ -322,7 +322,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
                 self.output
             )
         else:
-            fn = StencilFunction()
+            fn = ConcreteStencil()
             finalized = fn.finalize(tree, entry_point, entry_type,
                                     self.output)
         self.output = None
@@ -379,7 +379,7 @@ class StencilCall(ast.AST):
         self.params = self.function_decl.params
 
 
-class StencilKernel(object):
+class StencilKernel2(object):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
@@ -398,10 +398,10 @@ class StencilKernel(object):
         cls.ghost_depth = ghost_depth
         if backend == 'python':
             cls.__call__ = cls.pure_python
-            return super(StencilKernel, cls).__new__(cls)
+            return super(StencilKernel2, cls).__new__(cls)
         elif backend in ['c', 'omp', 'ocl']:
-            new = super(StencilKernel, cls).__new__(cls)
-            return SpecializedStencil(new, backend, testing)
+            new = super(StencilKernel2, cls).__new__(cls)
+            return SpecializedStencil2(new, backend, testing)
 
     def __init__(self, backend="c", testing=False):
         """
@@ -474,7 +474,7 @@ class StencilKernel(object):
 
         if not self.specialized_sizes or\
                 self.specialized_sizes != [y.shape for y in args]:
-            self.specialized = SpecializedStencil(
+            self.specialized = SpecializedStencil2(
                 self.model, args, output_grid, self, self.testing
             )
             self.specialized_sizes = [arg.shape for arg in args]
