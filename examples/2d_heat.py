@@ -1,15 +1,18 @@
+"""
+PDE heat flow simulation using a kernel.  Input is a 3d array where
+each plane (each value of the first index) is a 2d
+TODO: figure out if this works at all, seems like there is no guarantee
+that the time steps will be run in the correct order
+"""
+from __future__ import print_function
 from stencil_code.stencil_kernel import *
-from stencil_code.stencil_grid import StencilGrid
 
 import logging
 
 logging.basicConfig(level=20)
 
-import sys
 import numpy
-import math
-import time
-import random
+_ = numpy
 from ctree.util import Timer
 
 width = 256
@@ -23,6 +26,7 @@ class Kernel(StencilKernel):
          (-1, 0, 1), (-1, 0, -1)],
         [(-1, 0, 0), (-1, 0, 0)]
     ]
+
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
             out_grid[x] = in_grid[x]
@@ -33,17 +37,17 @@ class Kernel(StencilKernel):
 
 kernel = Kernel(backend='ocl')
 py_kernel = Kernel(backend='python')
-in_grid = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
+simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
 
 
 with Timer() as t:
-    a = kernel(in_grid)
+    a = kernel(simulation_space)
 
 with Timer() as py_time:
-    b = py_kernel(in_grid)
+    b = py_kernel(simulation_space)
 
 # Python mode doesn't clamp yet
-numpy.testing.assert_array_almost_equal(a[1:-1,1:-1,1:-1], b[1:-1,1:-1,1:-1])
+numpy.testing.assert_array_almost_equal(a[1:-1, 1:-1, 1:-1], b[1:-1, 1:-1, 1:-1])
 
 print("Specialized Time: %.03fs" % t.interval)
 print("Python Time: %.03fs" % py_time.interval)
