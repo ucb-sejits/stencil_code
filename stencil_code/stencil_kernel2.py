@@ -104,6 +104,7 @@ class OclStencilFunction2(ConcreteSpecializedFunction):
         Creates a context and queue that can be reused across calls to this
         function.
         """
+        # TODO: Need dependency injection to control ocl device selection
         devices = cl.clGetDeviceIDs()
         self.context, self.queue = get_context_and_queue_from_devices(
             [devices[-1]])
