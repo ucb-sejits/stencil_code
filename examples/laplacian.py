@@ -20,7 +20,7 @@ class LaplacianKernel(Stencil):
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(in_grid):
-            out_grid[x] = -4 * in_grid[x]
+            out_grid[x] = -6 * in_grid[x]
             for y in self.neighbors(x, 0):
                 out_grid[x] += in_grid[y]
 
@@ -37,9 +37,10 @@ print("Specialized time {:0.3f}s".format(s_t.interval))
 
 
 ## UNCOMMENT THIS TO RUN THE PYTHON VERSION, WARNING: VERY SLOW
+smaller_input_grid = input_grid[:64, :64, :nz]
 py = LaplacianKernel(backend='python')
 with Timer() as py_t:
-    b = py(input_grid)
-numpy.testing.assert_array_almost_equal(a, b)
+    b = py(smaller_input_grid)
+numpy.testing.assert_array_almost_equal(a[:62. :62, :nz], b[:62, :62, :nz])
 print("PASSED")
 print("Py time %0.3f", py_t)
