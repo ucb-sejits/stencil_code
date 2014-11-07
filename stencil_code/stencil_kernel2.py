@@ -389,6 +389,9 @@ class StencilKernel2(object):
     def set_neighbor_definition(new_neighbor_definition):
         StencilKernel2.neighbor_definition = new_neighbor_definition
 
+    def __call__(self, *args, **kwargs):
+        self.specializer(args, kwargs)
+
     def __init__(self, backend="c", neighborhood_definition=None, boundary_handling=None,):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
@@ -427,9 +430,9 @@ class StencilKernel2(object):
                 )
         self.ghost_depth = ghost_depth
         if backend == 'python':
-            self.__call__ = self.kernel
+            self.specializer = self.kernel
         elif backend in ['c', 'omp', 'ocl']:
-            self.__call__ =  SpecializedStencil2(self, backend, neighborhood_definition, boundary_handling)
+            self.specializer =  SpecializedStencil2(self, backend,)
         self.model = self.kernel
 
         self.should_unroll = True
