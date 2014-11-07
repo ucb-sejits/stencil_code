@@ -5,7 +5,7 @@ TODO: figure out if this works at all, seems like there is no guarantee
 that the time steps will be run in the correct order
 """
 from __future__ import print_function
-from stencil_code.stencil_kernel import *
+from stencil_code.stencil_kernel2 import StencilKernel2
 
 import logging
 
@@ -20,12 +20,12 @@ height = 256
 time_steps = 16
 
 
-class Kernel(StencilKernel):
-    neighbor_definition = [
+class Kernel(StencilKernel2):
+    StencilKernel2.set_neighbor_definition([
         [(-1, 1, 0), (-1, -1, 0),
          (-1, 0, 1), (-1, 0, -1)],
         [(-1, 0, 0), (-1, 0, 0)]
-    ]
+    ])
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):

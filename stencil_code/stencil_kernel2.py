@@ -47,7 +47,7 @@ import itertools
 from hindemith.fusion.core import Fusable
 
 
-class ConcreteStencil(ConcreteSpecializedFunction):
+class ConcreteStencil2(ConcreteSpecializedFunction):
     """StencilFunction
 
     The standard concrete specialized function that is returned when using the
@@ -173,7 +173,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
                     "ocl": StencilOclTransformer,
                     "opencl": StencilOclTransformer}
 
-    def __init__(self, kernel, backend, testing=False):
+    def __init__(self, stencil_kernel, backend, ):
         """
         Initializes an instance of a SpecializedStencil. This function
         inherits from ctree's LazySpecializedFunction. When the specialized
@@ -187,14 +187,12 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
         :param func: Stencil Kernel function to be specialized.
         :param input_grids: List of input grids passed as arguments to stencil.
         :param output_grid: Output grid passed to stencil.
-        :param kernel: The Kernel object containing the kernel function.
-        :param testing: Optional - whether or not we are in testing mode
+        :param stencil_kernel: The Kernel object containing the kernel function.
         """
-        self.testing = testing
-        self.kernel = kernel
+        self.kernel = stencil_kernel
         self.backend = self.backend_dict[backend]
         self.output = None
-        super(SpecializedStencil2, self).__init__(get_ast(kernel.kernel))
+        super(SpecializedStencil2, self).__init__(get_ast(stencil_kernel.kernel))
         Fusable.__init__(self)
 
     def args_to_subconfig(self, args):
@@ -260,8 +258,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
         for transformer in [
             PythonToStencilModel(),
             self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
-                         fusable_nodes=self.fusable_nodes,
-                         testing=self.testing)
+                         fusable_nodes=self.fusable_nodes,)
         ]:
             tree = transformer.visit(tree)
         # first_For = tree.find(For)
@@ -322,7 +319,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
                 self.output
             )
         else:
-            fn = ConcreteStencil()
+            fn = ConcreteStencil2()
             finalized = fn.finalize(tree, entry_point, entry_type,
                                     self.output)
         self.output = None
@@ -386,24 +383,13 @@ class StencilKernel2(object):
                     "opencl": StencilOclTransformer,
                     "python": None}
 
-    def __new__(cls, backend="c", testing=False):
-        cls.dim = len(cls.neighbor_definition[0][0])
-        ghost_depth = tuple(0 for _ in range(cls.dim))
-        for neighborhood in cls.neighbor_definition:
-            for neighbor in neighborhood:
-                ghost_depth = tuple(
-                    max(ghost_depth[i], abs(neighbor[i]))
-                    for i in range(cls.dim)
-                )
-        cls.ghost_depth = ghost_depth
-        if backend == 'python':
-            cls.__call__ = cls.pure_python
-            return super(StencilKernel2, cls).__new__(cls)
-        elif backend in ['c', 'omp', 'ocl']:
-            new = super(StencilKernel2, cls).__new__(cls)
-            return SpecializedStencil2(new, backend, testing)
+    neighbor_definition = None
 
-    def __init__(self, backend="c", testing=False):
+    @staticmethod
+    def set_neighbor_definition(new_neighbor_definition):
+        StencilKernel2.neighbor_definition = new_neighbor_definition
+
+    def __init__(self, backend="c", neighborhood_definition=None, boundary_handling=None,):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -414,10 +400,8 @@ class StencilKernel2(object):
 
         :param backend: Optional backend that should be used by ctree.
         Supported backends are c, omp (openmp), and ocl (opencl).
-        :param pure_python: Setting this will true will cause the python
-        version of the kernel to be preserved.  Any subsequent calls will be
-        run in python without any JIT specializiation.
-        :param testing: Used for testing.
+        :param neighborhood_definition: an iterable of neighborhoods neighborhoods are a list of points(tuples)
+        :param boundary_handling: one of skip, clamped, copy; default is clamped
         :raise Exception: If no kernel method is defined.
         """
 
@@ -429,12 +413,25 @@ class StencilKernel2(object):
             raise Exception("No kernel method defined.")
 
         self.backend = self.backend_dict[backend]
-        self.testing = testing
 
+        if not neighborhood_definition:
+            neighborhood_definition = StencilKernel2.neighbor_definition
+
+        self.dim = len(neighborhood_definition[0][0])
+        ghost_depth = tuple(0 for _ in range(self.dim))
+        for neighborhood in neighborhood_definition:
+            for neighbor in neighborhood:
+                ghost_depth = tuple(
+                    max(ghost_depth[i], abs(neighbor[i]))
+                    for i in range(self.dim)
+                )
+        self.ghost_depth = ghost_depth
+        if backend == 'python':
+            self.__call__ = self.kernel
+        elif backend in ['c', 'omp', 'ocl']:
+            self.__call__ =  SpecializedStencil2(self, backend, neighborhood_definition, boundary_handling)
         self.model = self.kernel
 
-        # self.pure_python = pure_python
-        # self.pure_python_kernel = self.kernel
         self.should_unroll = True
         self.should_cacheblock = False
         self.block_size = 1
