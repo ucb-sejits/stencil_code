@@ -5,7 +5,7 @@ TODO: figure out if this works at all, seems like there is no guarantee
 that the time steps will be run in the correct order
 """
 from __future__ import print_function
-from stencil_code.stencil_kernel2 import StencilKernel2
+from stencil_code.stencil_kernel2 import Stencil
 
 import logging
 
@@ -20,8 +20,8 @@ height = 256
 time_steps = 16
 
 
-class Kernel(StencilKernel2):
-    StencilKernel2.set_neighbor_definition([
+class Kernel(Stencil):
+    Stencil.set_neighbor_definition([
         [(-1, 1, 0), (-1, -1, 0),
          (-1, 0, 1), (-1, 0, -1)],
         [(-1, 0, 0), (-1, 0, 0)]
@@ -38,7 +38,6 @@ class Kernel(StencilKernel2):
 kernel = Kernel(backend='ocl')
 py_kernel = Kernel(backend='python')
 simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
-
 
 with Timer() as t:
     a = kernel(simulation_space)

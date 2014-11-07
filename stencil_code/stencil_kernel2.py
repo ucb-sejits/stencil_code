@@ -7,8 +7,7 @@ The main driver, intercepts the kernel() call and invokes the other components.
 Stencil kernel classes are subclassed from the StencilKernel class
 defined here. At initialization time, the text of the kernel() method
 is parsed into a Python AST, then converted into a StencilModel by
-stencil_python_front_end. The kernel() function is replaced by
-shadow_kernel(), which intercepts future calls to kernel().
+stencil_python_front_end.
 
 During each call to kernel(), stencil_unroll_neighbor_iter is called
 to unroll neighbor loops, stencil_convert is invoked to convert the
@@ -376,7 +375,7 @@ class StencilCall(ast.AST):
         self.params = self.function_decl.params
 
 
-class StencilKernel2(object):
+class Stencil(object):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
@@ -387,10 +386,10 @@ class StencilKernel2(object):
 
     @staticmethod
     def set_neighbor_definition(new_neighbor_definition):
-        StencilKernel2.neighbor_definition = new_neighbor_definition
+        Stencil.neighbor_definition = new_neighbor_definition
 
     def __call__(self, *args, **kwargs):
-        self.specializer(args, kwargs)
+        return self.specializer(*args, **kwargs)
 
     def __init__(self, backend="c", neighborhood_definition=None, boundary_handling=None,):
         """
@@ -398,7 +397,7 @@ class StencilKernel2(object):
         function.  This class should be sub-classed by the user, and should
         have a kernel method defined.  When initialized, an instance of
         StencilKernel will store the kernel method and replace it with a
-        shadow_kernel method, which when called will begin the JIT
+        lazy specialized class, which when called will begin the JIT
         specialization process using ctree's infrastructure.
 
         :param backend: Optional backend that should be used by ctree.
@@ -418,7 +417,7 @@ class StencilKernel2(object):
         self.backend = self.backend_dict[backend]
 
         if not neighborhood_definition:
-            neighborhood_definition = StencilKernel2.neighbor_definition
+            neighborhood_definition = Stencil.neighbor_definition
 
         self.dim = len(neighborhood_definition[0][0])
         ghost_depth = tuple(0 for _ in range(self.dim))
@@ -430,7 +429,7 @@ class StencilKernel2(object):
                 )
         self.ghost_depth = ghost_depth
         if backend == 'python':
-            self.specializer = self.kernel
+            self.specializer = self.python_kernel_wrapper
         elif backend in ['c', 'omp', 'ocl']:
             self.specializer =  SpecializedStencil2(self, backend,)
         self.model = self.kernel
@@ -439,12 +438,9 @@ class StencilKernel2(object):
         self.should_cacheblock = False
         self.block_size = 1
 
-        # replace kernel with shadow version
-        # self.kernel = self.shadow_kernel
-
         self.specialized_sizes = None
 
-    def pure_python(self, *args):
+    def python_kernel_wrapper(self, *args):
         output = np.zeros_like(args[0])
         self.kernel(*(args + (output,)))
         return output
@@ -452,40 +448,6 @@ class StencilKernel2(object):
     @property
     def constants(self):
         return {}
-
-    def shadow_kernel(self, *args):
-        """
-        This shadow_kernel method will replace the kernel method that is
-        defined in the sub-class of StencilKernel.  If in pure python mode,
-        it will execute the kernel in python.  Else, it first checks if we
-        have a cached version of the specialized function for the shapes of
-        the arguments.  If so, we make a call to that function with our new
-        arguments.  If not, we create a new SpecializedStencil with our
-        arguments and original kernel method and call it with our arguments.
-        :param args: The arguments to our original kernel method.
-        :return: Undefined
-        """
-        output_grid = np.zeros_like(args[0])
-        # output_grid = StencilGrid(args[0].shape)
-        # output_grid.ghost_depth = self.ghost_depth
-        if self.pure_python:
-            self.pure_python_kernel(*(args + (output_grid,)))
-            return output_grid
-
-        if not self.specialized_sizes or\
-                self.specialized_sizes != [y.shape for y in args]:
-            self.specialized = SpecializedStencil2(
-                self.model, args, output_grid, self, self.testing
-            )
-            self.specialized_sizes = [arg.shape for arg in args]
-
-        duration = c_float()
-        # args = [arg.data for arg in args]
-        args += (output_grid, byref(duration))
-        self.specialized(*args)
-        self.specialized.report(time=duration)
-        # print("Took %.3fs" % duration.value)
-        return output_grid
 
     def interior_points(self, x):
         dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])

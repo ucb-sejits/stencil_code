@@ -3,7 +3,7 @@ from scipy.ndimage.filters import laplace
 import numpy as np
 from stencil_code.stencil_grid import StencilGrid
 from stencil_code.stencil_kernel import StencilKernel
-from stencil_code.stencil_kernel2 import StencilKernel2
+from stencil_code.stencil_kernel2 import Stencil
 from ctree.util import Timer
 
 width = 2**11 + 2
@@ -26,7 +26,7 @@ class Kernel(StencilKernel):
 #
 # new
 #
-class LaplacianFilter(StencilKernel2):
+class LaplacianFilter(Stencil):
     def kernel(self, input):
         output = np.empty_like(input)
         for x in self.output_points(output):
