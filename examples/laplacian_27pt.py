@@ -5,9 +5,9 @@ from stencil_code.neighborhood import Neighborhood
 
 
 class SpecializedLaplacian27(Stencil):
-    Stencil.set_neighbor_definition(
-        Neighborhood.moore_neighborhood(radius=9, dim=3, include_origin=True)
-    )
+    Stencil.set_neighbor_definition([
+        Neighborhood.moore_neighborhood(radius=9, dim=3, include_origin=True),
+    ])
 
     def distance(self, x, y):
         """
@@ -20,7 +20,7 @@ class SpecializedLaplacian27(Stencil):
         using distance above as index into coefficient array, perform stencil
         """
         for x in source_data.interior_points():
-            for n in source_data.neighbors(x, 2):
+            for n in source_data.neighbors(x, 0):
                 output_data[x] += factors[self.distance(x, n)] * source_data[n]
 
 
