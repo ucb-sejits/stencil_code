@@ -21,11 +21,11 @@ time_steps = 16
 
 
 class Kernel(Stencil):
-    Stencil.set_neighbor_definition([
+    neighborhoods = [
         [(-1, 1, 0), (-1, -1, 0),
          (-1, 0, 1), (-1, 0, -1)],
         [(-1, 0, 0), (-1, 0, 0)]
-    ])
+    ]
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):

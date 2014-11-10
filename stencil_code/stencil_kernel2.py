@@ -424,6 +424,7 @@ class Stencil(object):
             self.neighborhood_definition = neighborhoods
         else:
             try:
+                # self.neighborhoods below actually references the subclass variable
                 self.neighborhood_definition = self.neighborhoods
             except Exception as exception:
                 raise StencilException(

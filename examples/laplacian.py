@@ -14,11 +14,11 @@ logging.basicConfig(level=0)
 
 
 class LaplacianKernel(Stencil):
-    Stencil.set_neighbor_definition([
+    neighborhoods = [
         [(0, 0, 1), (0, 0, -1),
          (0, 1, 0), (0, -1, 0),
          (1, 0, 0), (-1, 0, 0)]
-    ])
+    ]
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(in_grid):

@@ -12,16 +12,14 @@ class TestStencilBackend(unittest.TestCase):
     @unittest.skip("not finished")
     def test_simple_transform(self):
         class OneDimStencil(Stencil):
-            Stencil.set_neighbor_definition([
-                [-1, 0, 1],
-            ])
+            neighborhoods = [[-1, 0, 1],]
 
             def kernel(self, in_img, out_img):
                 for x in self.interior_points(out_img):
                     for y in self.neighbors(x):
                         out_img[x] += in_img[y]
 
-        kernel = Kernel()
+        kernel = OneDimStencil()
         kernel.should_unroll = False
         out_grid = StencilGrid([5])
         out_grid.ghost_depth = radius

@@ -5,9 +5,9 @@ from stencil_code.neighborhood import Neighborhood
 
 
 class SpecializedLaplacian27(Stencil):
-    Stencil.set_neighbor_definition([
+    neighborhoods = [
         Neighborhood.moore_neighborhood(radius=9, dim=3, include_origin=True),
-    ])
+    ]
 
     def distance(self, x, y):
         """
