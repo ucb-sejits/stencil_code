@@ -382,22 +382,22 @@ class StencilCall(ast.AST):
 
 
 class Stencil(object):
+    """
+    Stencil is an abstract class that requires
+    a kernel method
+    if neighborhoods is not passed to __init__ it may be defined as
+    a class level variable in the subclass
+    """
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
                     "opencl": StencilOclTransformer,
                     "python": None}
 
-    neighbor_definition = None
-
-    @staticmethod
-    def set_neighbor_definition(new_neighbor_definition):
-        Stencil.neighbor_definition = new_neighbor_definition
-
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
 
-    def __init__(self, backend="c", neighborhood_definition=None, boundary_handling=None,):
+    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling=None):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -420,20 +420,27 @@ class Stencil(object):
         except ValueError:
             raise StencilException("Error: {} must define a kernel method".format(type(self)))
 
+        if neighborhoods:
+            self.neighborhood_definition = neighborhoods
+        else:
+            try:
+                self.neighborhood_definition = self.neighborhoods
+            except Exception as exception:
+                raise StencilException(
+                    "Error: neighborhoods must be defined by {}".format(type(self))
+                )
+
         self.backend = self.backend_dict[backend]
 
-        if not neighborhood_definition:
-            neighborhood_definition = Stencil.neighbor_definition
-
         try:
-            self.dim = len(neighborhood_definition[0][0])
+            self.dim = len(self.neighborhood_definition[0][0])
         except Exception as exception:
             raise StencilException(
-                "Error: neighborhood not properly set for {}".format(type(self))
+                "Error: neighborhoods not properly set for {}".format(type(self))
             )
 
         ghost_depth = tuple(0 for _ in range(self.dim))
-        for neighborhood in neighborhood_definition:
+        for neighborhood in self.neighborhood_definition:
             for neighbor in neighborhood:
                 ghost_depth = tuple(
                     max(ghost_depth[i], abs(neighbor[i]))
@@ -475,12 +482,12 @@ class Stencil(object):
         :return: yields absolute neighbor point
         """
         try:
-            for neighbor in self.neighbor_definition[neighbors_id]:
+            for neighbor in self.neighborhood_definition[neighbors_id]:
                 yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
         except IndexError:
             raise StencilException(
                 "Undefined neighborhood identifier {} this stencil has {}".format(
-                    neighbors_id, len(self.neighbor_definition)))
+                    neighbors_id, len(self.neighborhood_definition)))
 
     def get_semantic_node(self, arg_names, *args):
 

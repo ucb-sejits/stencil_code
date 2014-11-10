@@ -18,11 +18,11 @@ class TestStencilKernel(unittest.TestCase):
         with self.assertRaises(StencilException) as context:
             NoNeighborhood()
 
-        self.assertTrue("neighborhood not properly" in context.exception.message)
+        self.assertTrue("neighborhoods must be defined" in context.exception.message)
 
     def test_bad_neighborhood_id(self):
         class OneNeighborhood(Stencil):
-            Stencil.set_neighbor_definition([[(0, 0), (-1, 0)]])
+            neighborhoods = [[(0,0)]]
 
             def kernel(self):
                 pass
