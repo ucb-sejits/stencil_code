@@ -50,6 +50,16 @@ class StencilBackend(NodeTransformer):
         raise NotImplementedError('Subclass should implement this')
 
     def visit_NeighborPointsLoop(self, node):
+        """
+        unrolls the neighbor points loop, appending each current block of the body to a new
+        body for each neighbor point, a side effect of this is local python functions of the
+        neighbor point can be collapsed out, for example, a custom python distance function based
+        on neighbor distance can be resolved at transform time
+        DANGER: this blows up on large neighborhoods
+        :param node:
+        :return:
+        """
+        # TODO: unrolling blows up when neighborhood size id large. 27pt laplacian has 5K neighbors
         neighbors_id = node.neighbor_id
         # grid_name = node.grid_name
         # grid = self.input_dict[grid_name]
@@ -59,6 +69,8 @@ class StencilBackend(NodeTransformer):
         body = []
         for x in self.kernel.neighbors(zero_point, neighbors_id):
             self.offset_list = list(x)
+            if len(body) % 1000 == 0:
+                print("body now {}".format(len(body)))
             for statement in node.body:
                 body.append(self.visit(deepcopy(statement)))
         self.neighbor_target = None
