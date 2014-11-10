@@ -1,4 +1,4 @@
-stencil_code -- A specializer built on the ASP SEJITS framework
+stencil_code -- A specializer built on the CTree SEJITS framework
 -------
 
 stencil_code is based on ctree

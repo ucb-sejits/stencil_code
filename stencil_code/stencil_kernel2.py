@@ -25,6 +25,8 @@ from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
+from stencil_code.StencilException import StencilException
+
 _ = ctree.np  # Make PEP8 happy, and pycharm
 import ctree.ocl
 from ctree.ocl import get_context_and_queue_from_devices
@@ -416,14 +418,20 @@ class Stencil(object):
         try:
             dir(self).index("kernel")
         except ValueError:
-            raise Exception("No kernel method defined.")
+            raise StencilException("Error: {} must define a kernel method".format(type(self)))
 
         self.backend = self.backend_dict[backend]
 
         if not neighborhood_definition:
             neighborhood_definition = Stencil.neighbor_definition
 
-        self.dim = len(neighborhood_definition[0][0])
+        try:
+            self.dim = len(neighborhood_definition[0][0])
+        except Exception as exception:
+            raise StencilException(
+                "Error: neighborhood not properly set for {}".format(type(self))
+            )
+
         ghost_depth = tuple(0 for _ in range(self.dim))
         for neighborhood in neighborhood_definition:
             for neighbor in neighborhood:
@@ -459,13 +467,20 @@ class Stencil(object):
         for item in itertools.product(*dims):
             yield tuple(item)
 
-    def neighbors(self, point, neighbors_id):
+    def neighbors(self, point, neighbors_id=0):
+        """
+        iterate over the neighborhood of point
+        :param point: the nominal center of the neighborhood, neighborhood does not have to be symmetric
+        :param neighbors_id: users may define more than one neighborhood
+        :return: yields absolute neighbor point
+        """
         try:
             for neighbor in self.neighbor_definition[neighbors_id]:
                 yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
         except IndexError:
-            # TODO: Make this a StencilException
-            raise Exception("Undefined neighbor")
+            raise StencilException(
+                "Undefined neighborhood identifier {} this stencil has {}".format(
+                    neighbors_id, len(self.neighbor_definition)))
 
     def get_semantic_node(self, arg_names, *args):
 
