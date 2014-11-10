@@ -193,6 +193,8 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
         self.backend = self.backend_dict[backend]
         self.output = None
         super(SpecializedStencil2, self).__init__(get_ast(stencil_kernel.kernel))
+        #ctree.browser_show_ast(self.original_tree, "lapla1.png")
+
         Fusable.__init__(self)
 
     def args_to_subconfig(self, args):
@@ -261,6 +263,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
                          fusable_nodes=self.fusable_nodes,)
         ]:
             tree = transformer.visit(tree)
+            ctree.browser_show_ast(tree, 'lapla1.png')
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
         # code somewhere else?

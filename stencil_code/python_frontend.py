@@ -14,7 +14,7 @@ class PythonToStencilModel(PyBasicConversions):
         self.arg_names = arg_names
         self.arg_name_map = {}
 
-    # Strip self paramater from kernel
+    # Strip self parameter from kernel
     def visit_FunctionDef(self, node):
         if node.name == 'kernel':
             node.args.args = node.args.args[1:]
@@ -51,9 +51,10 @@ class PythonToStencilModel(PyBasicConversions):
 
     def visit_Call(self, node):
         node = super(PythonToStencilModel, self).visit_Call(node)
-        if str(node.func) == 'distance' or str(node.func) == 'int':
+        func_name = node.func.attr
+        if func_name == 'distance' or func_name == 'int':
             node.args = list(map(self.visit, node.args))
-            return MathFunction(func=node.func, args=node.args)
+            return MathFunction(func=node.func.attr, args=node.args)
         return node
 
     def visit_Subscript(self, node):
