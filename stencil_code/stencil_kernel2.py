@@ -265,7 +265,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
                          fusable_nodes=self.fusable_nodes,)
         ]:
             tree = transformer.visit(tree)
-            ctree.browser_show_ast(tree, 'lapla1.png')
+            # ctree.browser_show_ast(tree, 'lapla1.png')
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
         # code somewhere else?
@@ -397,7 +397,7 @@ class Stencil(object):
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
 
-    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling=None):
+    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling=None, **kwargs):
         """
         Our StencilKernel class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -454,9 +454,9 @@ class Stencil(object):
             self.specializer =  SpecializedStencil2(self, backend,)
         self.model = self.kernel
 
-        self.should_unroll = True
-        self.should_cacheblock = False
-        self.block_size = 1
+        self.should_unroll = kwargs.get('should_unroll', True)
+        self.should_cacheblock = kwargs.get('should_cacheblock', False)
+        self.block_size = kwargs.get('block_size', 1)
 
         self.specialized_sizes = None
 

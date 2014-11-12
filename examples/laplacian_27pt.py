@@ -6,7 +6,7 @@ from stencil_code.neighborhood import Neighborhood
 
 class SpecializedLaplacian27(Stencil):
     neighborhoods = [
-        Neighborhood.moore_neighborhood(radius=9, dim=3, include_origin=True),
+        Neighborhood.moore_neighborhood(radius=1, dim=3, include_origin=True),
     ]
 
     def distance(self, x, y):
@@ -53,8 +53,8 @@ if __name__ == '__main__':
     y_size = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
     z_size = 32 if len(sys.argv) <= 3 else int(sys.argv[3])
 
-    input_grid = numpy.random.random([x_size, y_size, z_size])
-    coefficients = numpy.array([1.0, 0.5, 0.25, 0.125])
+    input_grid = numpy.random.random([x_size, y_size, z_size]).astype(numpy.float32)
+    coefficients = numpy.array([1.0, 0.5, 0.25, 0.125]).astype(numpy.float32)
     laplacian27 = SpecializedLaplacian27(backend='ocl')
 
     output = laplacian27(input_grid, coefficients)
