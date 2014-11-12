@@ -40,7 +40,7 @@ if __name__ == '__main__':
     width = int(sys.argv[2])
     height = int(sys.argv[3])
     image_in = open(sys.argv[1], 'rb')
-    stdev_d = 3
+    stdev_d = 1
     stdev_s = 70
     radius = stdev_d * 3
 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     intensity = float(sum(pixels))/len(pixels)
     print("intensity {}".format(intensity))
 
-    bilateral_filter = BilateralFilter(radius, backend='c')
+    bilateral_filter = BilateralFilter(radius, backend='ocl')
 
     # convert input stream into 2d array
     in_grid = numpy.zeros([height, width], numpy.float32)
@@ -61,8 +61,8 @@ if __name__ == '__main__':
 
     out_grid = bilateral_filter(in_grid, gaussian1, gaussian2)
 
-    print("in  {}".format(in_grid[50, 10:20]))
-    print("out {}".format(out_grid[50, 10:20]))
+    print("in  {}".format(in_grid))
+    print("out {}".format(out_grid))
 
     for i in xrange(height):
         for j in xrange(width):

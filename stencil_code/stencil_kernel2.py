@@ -4,7 +4,7 @@ stuff removed in order to work on a direct c-tree llvm implementation
 
 The main driver, intercepts the kernel() call and invokes the other components.
 
-Stencil kernel classes are subclassed from the StencilKernel class
+Stencil kernel classes are sub-classed from the StencilKernel class
 defined here. At initialization time, the text of the kernel() method
 is parsed into a Python AST, then converted into a StencilModel by
 stencil_python_front_end.
@@ -44,6 +44,7 @@ from pycl import (
 import numpy as np
 import ast
 import itertools
+import abc
 
 from hindemith.fusion.core import Fusable
 
@@ -140,20 +141,20 @@ class OclStencilFunction2(ConcreteSpecializedFunction):
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
-        bufs = []
+        buffers = []
         events = []
         for index, arg in enumerate(args + (output, )):
             buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
             # evt.wait()
             events.append(evt)
-            bufs.append(buf)
+            buffers.append(buf)
             # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         self._c_function(self.queue, self.kernel,
-                         *bufs)
+                         *buffers)
 
         buf, evt = buffer_to_ndarray(
-            self.queue, bufs[-1], output
+            self.queue, buffers[-1], output
         )
         evt.wait()
 
@@ -195,7 +196,6 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
         self.backend = self.backend_dict[backend]
         self.output = None
         super(SpecializedStencil2, self).__init__(get_ast(stencil_kernel.kernel))
-        # ctree.browser_show_ast(self.original_tree, "lapla1.png")
 
         Fusable.__init__(self)
 
@@ -265,7 +265,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
                          fusable_nodes=self.fusable_nodes,)
         ]:
             tree = transformer.visit(tree)
-            # ctree.browser_show_ast(tree, 'lapla1.png')
+
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
         # code somewhere else?
@@ -426,7 +426,7 @@ class Stencil(object):
             try:
                 # self.neighborhoods below actually references the subclass variable
                 self.neighborhood_definition = self.neighborhoods
-            except Exception as exception:
+            except Exception:
                 raise StencilException(
                     "Error: neighborhoods must be defined by {}".format(type(self))
                 )
@@ -453,6 +453,11 @@ class Stencil(object):
         self.block_size = kwargs.get('block_size', 1)
 
         self.specialized_sizes = None
+
+    @abc.abstractmethod
+    def kernel(self, *args):
+        "subclasses must implement this"
+        return
 
     def python_kernel_wrapper(self, *args):
         output = np.zeros_like(args[0])
