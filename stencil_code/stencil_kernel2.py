@@ -195,7 +195,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
         self.backend = self.backend_dict[backend]
         self.output = None
         super(SpecializedStencil2, self).__init__(get_ast(stencil_kernel.kernel))
-        #ctree.browser_show_ast(self.original_tree, "lapla1.png")
+        ctree.browser_show_ast(self.original_tree, "lapla1.png")
 
         Fusable.__init__(self)
 
@@ -440,14 +440,8 @@ class Stencil(object):
                 "Error: neighborhoods not properly set for {}".format(type(self))
             )
 
-        ghost_depth = tuple(0 for _ in range(self.dim))
-        for neighborhood in self.neighborhood_definition:
-            for neighbor in neighborhood:
-                ghost_depth = tuple(
-                    max(ghost_depth[i], abs(neighbor[i]))
-                    for i in range(self.dim)
-                )
-        self.ghost_depth = ghost_depth
+        self.ghost_depth = self.compute_ghost_depth()
+
         if backend == 'python':
             self.specializer = self.python_kernel_wrapper
         elif backend in ['c', 'omp', 'ocl']:
@@ -468,6 +462,21 @@ class Stencil(object):
     @property
     def constants(self):
         return {}
+
+    def compute_ghost_depth(self):
+        """
+        figure out a maximal ghost depth for all neighborhoods
+        The ghost depth may be asymmetric and is therefore a tuple of the ghost depth for each dimension
+        :return: the maximal_ghost_depth tuple
+        """
+        ghost_depth = tuple(0 for _ in range(self.dim))
+        for neighborhood in self.neighborhood_definition:
+            for neighbor in neighborhood:
+                ghost_depth = tuple(
+                    max(ghost_depth[i], abs(neighbor[i]))
+                    for i in range(self.dim)
+                )
+        return ghost_depth
 
     def interior_points(self, x):
         dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])

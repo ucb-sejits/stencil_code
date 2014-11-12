@@ -1,7 +1,9 @@
 
 import ast
+import ctree
 
 from ctree.transformations import PyBasicConversions
+from ctree.c.nodes import SymbolRef
 from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
     MathFunction
 
@@ -42,8 +44,10 @@ class PythonToStencilModel(PyBasicConversions):
                 return InteriorPointsLoop(target=node.target.id,
                                           body=node.body)
             elif node.iter.func.attr is 'neighbors':
+                # neighbor method should have default neighbor id of 0
+                neighbor_id = 0 if len(node.iter.args) < 2 else node.iter.args[1].n
                 return NeighborPointsLoop(
-                    neighbor_id=node.iter.args[1].n,
+                    neighbor_id=neighbor_id,
                     neighbor_target=node.target.id,
                     body=node.body
                 )
@@ -51,8 +55,18 @@ class PythonToStencilModel(PyBasicConversions):
 
     def visit_Call(self, node):
         node = super(PythonToStencilModel, self).visit_Call(node)
-        func_name = node.func.attr
-        if func_name == 'distance' or func_name == 'int':
+        #ctree.browser_show_ast(node, 'bilat1.png')
+
+        func_name = None
+        if node.func == SymbolRef:
+            func_name = node.func.name
+        else:
+            try:
+                func_name = node.func.attr
+            except Exception:
+                pass
+
+        if func_name and func_name == 'distance' or func_name == 'int':
             node.args = list(map(self.visit, node.args))
             return MathFunction(func=node.func.attr, args=node.args)
         return node

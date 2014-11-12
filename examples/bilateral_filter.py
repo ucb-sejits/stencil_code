@@ -5,9 +5,10 @@ import math
 
 
 class BilateralFilter(Stencil):
-    def __init__(self, radius=3):
+    def __init__(self, radius=3, backend='ocl'):
         super(BilateralFilter, self).__init__(
             neighborhoods=[Neighborhood.moore_neighborhood(radius=radius, dim=2)],
+            backend=backend,
             should_unroll=False
         )
 
@@ -16,7 +17,7 @@ class BilateralFilter(Stencil):
 
     def kernel(self, in_img, filter_d, filter_s, out_img):
         for i in self.interior_points(out_img):
-            for j in self.neighbors(i):
+            for j in self.neighbors(i, 0):
                 out_img[i] += in_img[j] * filter_d[int(self.distance(i, j))] *\
                     filter_s[abs(int(in_img[i] - in_img[j]))]
 
@@ -42,8 +43,9 @@ if __name__ == '__main__':
 
     pixels = map(ord, list(image_in.read(width * height))) # Read in grayscale values
     intensity = float(sum(pixels))/len(pixels)
+    print("intensity {}".format(intensity))
 
-    bilateral_filter = BilateralFilter(radius)
+    bilateral_filter = BilateralFilter(radius, backend='python')
 
     # convert input stream into 2d array
     in_grid = numpy.zeros([height, width], numpy.float32)
@@ -56,9 +58,15 @@ if __name__ == '__main__':
 
     out_grid = bilateral_filter(in_grid, gaussian1, gaussian2)
 
-    for x in range(0, width):
-        for y in range(0,height):
-            pixels[y * width + x] = out_grid.data[(x, y)]
+    print("in  {}".format(in_grid[100, 10:20]))
+    print("out {}".format(out_grid[100, 10:20]))
+
+    for i in xrange(height):
+        for j in xrange(width):
+            pixels[i * width + j] = (out_grid[i, j])
+
+    # print(pixels)
+    print("sum pix sum {} len {}".format(sum(pixels), len(pixels)))
     out_intensity = float(sum(pixels))/len(pixels)
     for i in range(0, len(pixels)):
         pixels[i] = min(255, max(0, int(pixels[i] * (intensity/out_intensity))))
