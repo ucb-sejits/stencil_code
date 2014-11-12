@@ -3,6 +3,9 @@ from stencil_code.neighborhood import Neighborhood
 from stencil_code.stencil_kernel2 import Stencil
 import math
 
+import logging
+logging.basicConfig(level=20)
+
 
 class BilateralFilter(Stencil):
     def __init__(self, radius=3, backend='ocl'):
@@ -45,7 +48,7 @@ if __name__ == '__main__':
     intensity = float(sum(pixels))/len(pixels)
     print("intensity {}".format(intensity))
 
-    bilateral_filter = BilateralFilter(radius, backend='python')
+    bilateral_filter = BilateralFilter(radius, backend='c')
 
     # convert input stream into 2d array
     in_grid = numpy.zeros([height, width], numpy.float32)
@@ -58,8 +61,8 @@ if __name__ == '__main__':
 
     out_grid = bilateral_filter(in_grid, gaussian1, gaussian2)
 
-    print("in  {}".format(in_grid[100, 10:20]))
-    print("out {}".format(out_grid[100, 10:20]))
+    print("in  {}".format(in_grid[50, 10:20]))
+    print("out {}".format(out_grid[50, 10:20]))
 
     for i in xrange(height):
         for j in xrange(width):

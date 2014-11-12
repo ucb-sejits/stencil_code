@@ -55,10 +55,9 @@ class PythonToStencilModel(PyBasicConversions):
 
     def visit_Call(self, node):
         node = super(PythonToStencilModel, self).visit_Call(node)
-        #ctree.browser_show_ast(node, 'bilat1.png')
 
         func_name = None
-        if node.func == SymbolRef:
+        if isinstance(node.func, SymbolRef):
             func_name = node.func.name
         else:
             try:
@@ -68,7 +67,7 @@ class PythonToStencilModel(PyBasicConversions):
 
         if func_name and func_name == 'distance' or func_name == 'int':
             node.args = list(map(self.visit, node.args))
-            return MathFunction(func=node.func.attr, args=node.args)
+            return MathFunction(func=func_name, args=node.args)
         return node
 
     def visit_Subscript(self, node):

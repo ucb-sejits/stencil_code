@@ -1,4 +1,5 @@
 from copy import deepcopy
+import ctree
 
 from ctree.c.nodes import *
 from ctypes import c_int
