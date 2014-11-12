@@ -10,6 +10,10 @@ logging.basicConfig(level=20)
 
 
 class SpecializedLaplacian27(Stencil):
+    """
+    a 3d laplacian filter, overrides the default distance function used in looking up
+    the factors
+    """
     neighborhoods = [
         Neighborhood.moore_neighborhood(radius=1, dim=3, include_origin=True),
     ]
@@ -31,7 +35,9 @@ class SpecializedLaplacian27(Stencil):
 
 def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, source, destination):
     """
-    An actual hand written 27 point laplacian function, found in the field
+    An actual hand written 27 point laplacian function, found in the field.  Not exactly as it was found
+    in the field. Turns out this hand-written version was originally missing two of the gamma terms.
+    Problem was found and fixed while comparing results to specialized results
     """
     for k in range(2, nz - 1):
         for j in range(2, ny - 1):
@@ -44,7 +50,8 @@ def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, source, destination):
                              source[i - 1, j + 1, k] + source[i - 1, j, k + 1] +
                              source[i, j - 1, k - 1] + source[i, j + 1, k - 1] +
                              source[i, j - 1, k + 1] + source[i, j + 1, k + 1] +
-                             source[i + 1, j, k - 1] + source[i + 1, j - 1, k]) + \
+                             source[i + 1, j, k - 1] + source[i + 1, j - 1, k] +
+                             source[i + 1, j, k + 1] + source[i + 1, j + 1, k]) + \
                     delta * (source[i - 1, j - 1, k - 1] + source[i - 1, j + 1, k - 1] +
                              source[i - 1, j - 1, k + 1] + source[i - 1, j + 1, k + 1] +
                              source[i + 1, j - 1, k - 1] + source[i + 1, j + 1, k - 1] +
@@ -58,8 +65,10 @@ if __name__ == '__main__':
     y_size = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
     z_size = 32 if len(sys.argv) <= 3 else int(sys.argv[3])
 
-    input_grid = numpy.random.random([x_size, y_size, z_size]).astype(numpy.float32)
+    # input_grid = numpy.random.random([x_size, y_size, z_size]).astype(numpy.float32)
+    input_grid = numpy.ones([x_size, y_size, z_size]).astype(numpy.float32)
     coefficients = numpy.array([1.0, 0.5, 0.25, 0.125]).astype(numpy.float32)
+
     ocl_laplacian = SpecializedLaplacian27(backend='ocl')
     c_laplacian = SpecializedLaplacian27(backend='c')
     python_laplacian = SpecializedLaplacian27(backend='python')
@@ -68,18 +77,22 @@ if __name__ == '__main__':
     c_output = c_laplacian(input_grid, coefficients)
     python_output = python_laplacian(input_grid, coefficients)
 
-    print("specialized ocl output[2][2][:] {}".format(ocl_output[2, 2, 2:z_size-1]))
-    print("specialized c   output[2][2][:] {}".format(ocl_output[2, 2, 2:z_size-1]))
+    hand_coded_output = numpy.empty_like(input_grid)
+    laplacian_27pt(x_size, y_size, z_size,
+                   alpha=coefficients[0], beta=coefficients[1], gamma=coefficients[2], delta=coefficients[3],
+                   source=input_grid, destination=hand_coded_output)
+
+    print("specialized ocl     output[2][2][:] {}".format(ocl_output[2, 2, 2:max(10, z_size-1)]))
+    print("specialized c       output[2][2][:] {}".format(c_output[2, 2, 2:max(10, z_size-1)]))
+    print("specialized python  output[2][2][:] {}".format(python_output[2, 2, 2:max(10, z_size-1)]))
+    print("hand coded  python  output[2][2][:] {}".format(hand_coded_output[2, 2, 2:max(10, z_size-1)]))
+
     numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], c_output[2:x_size-1, 2:y_size-1, 2:z_size-1])
     numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], python_output[2:x_size-1, 2:y_size-1, 2:z_size-1])
 
     # exit(1)
 
-    out_grid = numpy.empty_like(input_grid)
-    laplacian_27pt(x_size, y_size, z_size,
-                   alpha=1.0, beta=0.5, gamma=0.25, delta=0.125,
-                   source=input_grid, destination=out_grid)
     print("X"*120)
-    print("python   output[2][2][:] {}".format(out_grid[2, 2, 2:z_size-1]))
+    print("python   output[2][2][:] {}".format(hand_coded_output[2, 2, 2:z_size-1]))
 
-    numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], out_grid[2:x_size-1, 2:y_size-1, 2:z_size-1])
+    numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], hand_coded_output[2:x_size-1, 2:y_size-1, 2:z_size-1])
