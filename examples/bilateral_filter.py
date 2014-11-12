@@ -1,12 +1,11 @@
 import numpy
 from stencil_code.neighborhood import Neighborhood
-from stencil_code.stencil_kernel2 import *
+from stencil_code.stencil_kernel2 import Stencil
 import math
 
 
 class BilateralFilter(Stencil):
     def __init__(self, radius=3):
-        self.radius = radius
         super(BilateralFilter, self).__init__(
             neighborhoods=[Neighborhood.moore_neighborhood(radius=radius, dim=2)],
             should_unroll=False
