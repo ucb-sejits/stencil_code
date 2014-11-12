@@ -505,3 +505,4 @@ class Stencil(object):
         :param y: Point represented as a list or tuple
         """
         return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
+
