@@ -1,9 +1,10 @@
 __author__ = 'leonardtruong'
 
-from .kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
+import unittest
+
+from test.kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
     BilatKernel, gaussian1, gaussian2
 import numpy as np
-import unittest
 
 stdev_d = 3
 stdev_s = 70

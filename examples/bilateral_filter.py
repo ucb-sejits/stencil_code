@@ -1,67 +1,68 @@
-from stencil_code.stencil_kernel import *
-from stencil_code.stencil_grid import StencilGrid
-
-import sys
 import numpy
+from stencil_code.neighborhood import Neighborhood
+from stencil_code.stencil_kernel2 import *
 import math
-import time
-
-width = int(sys.argv[2])
-height = int(sys.argv[3])
-image_in = open(sys.argv[1], 'rb')
-stdev_d = 3
-stdev_s = 70
-radius = stdev_d * 3
 
 
-class Kernel(StencilKernel):
+class BilateralFilter(Stencil):
+    def __init__(self, radius=3):
+        self.radius = radius
+        super(BilateralFilter, self).__init__(
+            neighborhoods=[Neighborhood.moore_neighborhood(radius=radius, dim=2)],
+            should_unroll=False
+        )
+
+    def distance(self, x, y):
+        return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
+
     def kernel(self, in_img, filter_d, filter_s, out_img):
-        for x in out_img.interior_points():
-            for y in in_img.neighbors(x, 1):
-                out_img[x] += in_img[y] * filter_d[int(distance(x, y))] *\
-                    filter_s[abs(int(in_img[x] - in_img[y]))]
+        for i in self.interior_points(out_img):
+            for j in self.neighbors(i):
+                out_img[i] += in_img[j] * filter_d[int(self.distance(i, j))] *\
+                    filter_s[abs(int(in_img[i] - in_img[j]))]
 
 
 def gaussian(stdev, length):
-    result = StencilGrid([length])
+    result = numpy.zeros(length).astype(numpy.float32)
     scale = 1.0/(stdev*math.sqrt(2.0*math.pi))
     divisor = -1.0 / (2.0 * stdev * stdev)
-    for x in range(length):
+    for x in xrange(length):
         result[x] = scale * math.exp(float(x) * float(x) * divisor)
     return result
 
 
-def distance(x, y):
-    return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
+if __name__ == '__main__':
+    import sys
 
-pixels = map(ord, list(image_in.read(width * height))) # Read in grayscale values
-intensity = float(sum(pixels))/len(pixels)
+    width = int(sys.argv[2])
+    height = int(sys.argv[3])
+    image_in = open(sys.argv[1], 'rb')
+    stdev_d = 3
+    stdev_s = 70
+    radius = stdev_d * 3
 
-kernel = Kernel()
-kernel.should_unroll = False
-out_grid = StencilGrid([width, height])
-out_grid.ghost_depth = radius
-in_grid = StencilGrid([width, height])
-in_grid.ghost_depth = radius
-for x in range(-radius, radius+1):
-    for y in range(-radius, radius+1):
-        in_grid.neighbor_definition[1].append((x, y))
+    pixels = map(ord, list(image_in.read(width * height))) # Read in grayscale values
+    intensity = float(sum(pixels))/len(pixels)
 
-for x in range(0, width):
-    for y in range(0, height):
-        in_grid.data[(x, y)] = pixels[y * width + x]
+    bilateral_filter = BilateralFilter(radius)
 
-gaussian1 = gaussian(stdev_d, radius*2)
-gaussian2 = gaussian(stdev_s, 256)
+    # convert input stream into 2d array
+    in_grid = numpy.zeros([height, width], numpy.float32)
+    for i in xrange(height):
+        for j in xrange(width):
+            in_grid[i, j] = pixels[i * width + j]
 
-kernel.kernel(in_grid, gaussian1, gaussian2, out_grid)
+    gaussian1 = gaussian(stdev_d, radius*2)
+    gaussian2 = gaussian(stdev_s, 256)
 
-for x in range(0, width):
-    for y in range(0,height):
-        pixels[y * width + x] = out_grid.data[(x, y)]
-out_intensity = float(sum(pixels))/len(pixels)
-for i in range(0, len(pixels)):
-    pixels[i] = min(255, max(0, int(pixels[i] * (intensity/out_intensity))))
+    out_grid = bilateral_filter(in_grid, gaussian1, gaussian2)
 
-image_out = open(sys.argv[4], 'wb')
-image_out.write(''.join(map(chr, pixels)))
+    for x in range(0, width):
+        for y in range(0,height):
+            pixels[y * width + x] = out_grid.data[(x, y)]
+    out_intensity = float(sum(pixels))/len(pixels)
+    for i in range(0, len(pixels)):
+        pixels[i] = min(255, max(0, int(pixels[i] * (intensity/out_intensity))))
+
+    image_out = open(sys.argv[4], 'wb')
+    image_out.write(''.join(map(chr, pixels)))
