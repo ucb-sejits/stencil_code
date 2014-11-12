@@ -65,8 +65,9 @@ if __name__ == '__main__':
     y_size = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
     z_size = 32 if len(sys.argv) <= 3 else int(sys.argv[3])
 
-    # input_grid = numpy.random.random([x_size, y_size, z_size]).astype(numpy.float32)
-    input_grid = numpy.ones([x_size, y_size, z_size]).astype(numpy.float32)
+    input_grid = numpy.random.random([x_size, y_size, z_size]).astype(numpy.float32)
+    # using numpy.ones was helpful for testing
+    # input_grid = numpy.ones([x_size, y_size, z_size]).astype(numpy.float32)
     coefficients = numpy.array([1.0, 0.5, 0.25, 0.125]).astype(numpy.float32)
 
     ocl_laplacian = SpecializedLaplacian27(backend='ocl')
