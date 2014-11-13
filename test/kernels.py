@@ -47,14 +47,14 @@ class SpecializedLaplacian27(Stencil):
         """
         return sum([abs(x[i]-y[i]) for i in range(len(x))])
 
-    def kernel(self, source_data, factors, output_data):
+    def kernel(self, source_data, output_data):
         """
         using distance above as index into coefficient array, perform stencil
         """
         for x in self.interior_points(output_data):
-            output_data[x] += SpecializedLaplacian27.alpha * source_data[n]
+            output_data[x] = 0.5 * source_data[x]
             for n in self.neighbors(x, 0):
-                output_data[x] += SpecializedLaplacian27.beta * source_data[n]
+                output_data[x] += 1.0 * source_data[n]
 
 
 class BetterBilateralFilter(Stencil):
