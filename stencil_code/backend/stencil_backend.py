@@ -70,8 +70,6 @@ class StencilBackend(NodeTransformer):
         body = []
         for x in self.kernel.neighbors(zero_point, neighbors_id):
             self.offset_list = list(x)
-            if len(body) % 1000 == 0:
-                print("body now {}".format(len(body)))
             for statement in node.body:
                 body.append(self.visit(deepcopy(statement)))
         self.neighbor_target = None

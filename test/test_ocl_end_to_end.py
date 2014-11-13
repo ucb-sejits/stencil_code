@@ -48,6 +48,6 @@ class TestCEndToEnd(unittest.TestCase):
         print("o2 {}".format(out_grid2[3, 3:8]))
         try:
             numpy.testing.assert_array_almost_equal(
-                out_grid1[3:-3, 3:-3], out_grid2[3:-5, 3:-5], decimal=1)
+                out_grid1[3:-5, 3:-5], out_grid2[3:-5, 3:-5], decimal=1)
         except AssertionError:
             self.fail("Output grids not equal")

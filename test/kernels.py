@@ -118,3 +118,4 @@ class BetterBilateralFilter(Stencil):
             for j in self.neighbors(i, 0):
                 out_img[i] += in_img[j] * filter_d[int(self.distance(i, j))] *\
                     filter_s[abs(int(in_img[i] - in_img[j]))]
+
