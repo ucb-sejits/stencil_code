@@ -46,8 +46,8 @@ class TestCEndToEnd(unittest.TestCase):
         # print("o1 {}".format(out_grid1))
         print("o1 {}".format(out_grid1[3, 3:8]))
         print("o2 {}".format(out_grid2[3, 3:8]))
-        # try:
-        numpy.testing.assert_array_almost_equal(
-            out_grid1[3:-3, 3:-3], out_grid2[3:-3, 3:-3], decimal=1)
-        # except:
-        #     self.fail("Output grids not equal")
+        try:
+            numpy.testing.assert_array_almost_equal(
+                out_grid1[3:-3, 3:-3], out_grid2[3:-3, 3:-3], decimal=1)
+        except Exception as exception:
+            self.fail("Output grids not equal: {}".format(exception))
