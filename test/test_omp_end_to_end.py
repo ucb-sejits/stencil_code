@@ -1,8 +1,9 @@
-import numpy as np
 import unittest
+
+import numpy
+import numpy.testing
 from nose.plugins.attrib import attr
-from .kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
-    BilatKernel, gaussian1, gaussian2
+from kernels import TwoDHeatFlow, LaplacianKernel, BetterBilateralFilter
 
 stdev_d = 3
 stdev_s = 70
@@ -13,24 +14,20 @@ height = width
 
 class TestOmpEndToEnd(unittest.TestCase):
     def setUp(self):
-        self.in_grid = np.random.rand(width, width).astype(np.float32) * 1000
+        self.in_grid = numpy.random.random(width, width).astype(numpy.float32) * 1000
 
     def _check(self, test_kernel):
         out_grid1 = test_kernel(backend='omp',
                                 testing=True)(self.in_grid)
         out_grid2 = test_kernel(backend='python')(self.in_grid)
         try:
-            np.testing.assert_array_almost_equal(out_grid1, out_grid2)
-        except:
+            numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
+        except AssertionError:
             self.fail("Output grids not equal")
 
     @attr('omp')
-    def test_simple_kernel(self):
-        self._check(SimpleKernel)
-
-    @attr('omp')
     def test_2d_heat(self):
-        self._check(TwoDHeatKernel)
+        self._check(TwoDHeatFlow)
 
     @attr('omp')
     def test_laplacian(self):
@@ -38,14 +35,11 @@ class TestOmpEndToEnd(unittest.TestCase):
 
     @attr('omp')
     def test_bilateral_filter(self):
-        in_grid = np.random.rand(width, height).astype(np.float32) * 255
-        out_grid1 = BilatKernel(backend='omp', testing=True)(
-            in_grid, gaussian1, gaussian2
-        )
-        out_grid2 = BilatKernel(backend='python')(
-            in_grid, gaussian1, gaussian2
-        )
+        in_grid = numpy.random.random(width, height).astype(numpy.float32) * 255
+        out_grid1 = BetterBilateralFilter(backend='omp')(in_grid)
+        out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
+
         try:
-            np.testing.assert_array_almost_equal(out_grid1, out_grid2)
-        except:
+            numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
+        except AssertionError:
             self.fail("Output grids not equal")

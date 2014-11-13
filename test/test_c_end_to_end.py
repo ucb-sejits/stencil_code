@@ -40,7 +40,7 @@ class TestCEndToEnd(unittest.TestCase):
 
     def test_bilateral_filter(self):
         in_grid = numpy.random.random([width, height]).astype(numpy.float32) * 255
-        out_grid1 = BetterBilateralFilter(backend='c', sigma_d=1, sigma_i=70)(in_grid)
+        out_grid1 = BetterBilateralFilter(backend='c', sigma_d=3, sigma_i=70)(in_grid)
         out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
 
         try:
