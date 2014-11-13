@@ -7,6 +7,7 @@ from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 from hindemith.fusion.core import KernelCall
+from stencil_code.StencilException import StencilException
 from ..stencil_model import MathFunction, OclNeighborLoop, MacroDefns, \
     LoadSharedMemBlock
 from .stencil_backend import StencilBackend
@@ -115,11 +116,11 @@ class StencilOclSemanticTransformer(StencilBackend):
             Assign(
                 SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
                 Div(SymbolRef('tid'), base)
-                ),
+            ),
             Assign(
                 SymbolRef("r_%d" % (dim - 1), ct.c_int()),
                 Mod(SymbolRef('tid'), base)
-                )
+            )
         ]
         for d in reversed(range(0, dim - 1)):
             base = None
@@ -133,21 +134,21 @@ class StencilOclSemanticTransformer(StencilBackend):
                     Assign(
                         SymbolRef("local_id%d" % d, ct.c_int()),
                         Div(SymbolRef('r_%d' % (d + 1)), base)
-                        )
                     )
+                )
                 local_indices.append(
                     Assign(
                         SymbolRef("r_%d" % d, ct.c_int()),
                         Mod(SymbolRef('r_%d' % (d + 1)), base)
-                        )
                     )
+                )
             else:
                 local_indices.append(
                     Assign(
                         SymbolRef("local_id%d" % d, ct.c_int()),
                         SymbolRef('r_%d' % (d + 1))
-                        )
                     )
+                )
         body = For(
             Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
             Lt(SymbolRef('tid'), SymbolRef('block_size')),
@@ -326,10 +327,17 @@ class StencilOclTransformer(StencilBackend):
                         break
 
                 local_size = (x_len, y_len)
+                if arg_cfg[0].shape[0] % x_len != 0 or \
+                   arg_cfg[0].shape[1] % y_len != 0:
+                    raise StencilException(
+                        'opencl backend must have sizes that are multiples of {}'.format(
+                            local_size
+                        ))
             else:
                 local_size = (min(
                     max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
 
+        print("local_size={}".format(local_size))
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
@@ -499,11 +507,11 @@ class StencilOclTransformer(StencilBackend):
                 Assign(
                     SymbolRef("local_id%d" % (dim - 1), ct.c_int()),
                     Div(SymbolRef('tid'), base)
-                    ),
+                ),
                 Assign(
                     SymbolRef("r_%d" % (dim - 1), ct.c_int()),
                     Mod(SymbolRef('tid'), base)
-                    )
+                )
             ]
         else:
             local_indices = [
@@ -532,21 +540,21 @@ class StencilOclTransformer(StencilBackend):
                     Assign(
                         SymbolRef("local_id%d" % d, ct.c_int()),
                         Div(SymbolRef('r_%d' % (d + 1)), base)
-                        )
                     )
+                )
                 local_indices.append(
                     Assign(
                         SymbolRef("r_%d" % d, ct.c_int()),
                         Mod(SymbolRef('r_%d' % (d + 1)), base)
-                        )
                     )
+                )
             else:
                 local_indices.append(
                     Assign(
                         SymbolRef("local_id%d" % d, ct.c_int()),
                         SymbolRef('r_%d' % (d + 1))
-                        )
                     )
+                )
         body.append(
             For(
                 Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),

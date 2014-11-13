@@ -48,7 +48,8 @@ if __name__ == '__main__':
     intensity = float(sum(pixels))/len(pixels)
     print("intensity {}".format(intensity))
 
-    bilateral_filter = BilateralFilter(radius, backend='ocl')
+    ocl_bilateral_filter = BilateralFilter(radius, backend='ocl')
+    c_bilateral_filter = BilateralFilter(radius, backend='c')
 
     # convert input stream into 2d array
     in_grid = numpy.zeros([height, width], numpy.float32)
@@ -59,14 +60,16 @@ if __name__ == '__main__':
     gaussian1 = gaussian(stdev_d, radius*2)
     gaussian2 = gaussian(stdev_s, 256)
 
-    out_grid = bilateral_filter(in_grid, gaussian1, gaussian2)
+    ocl_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
+    c_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
 
     print("in  {}".format(in_grid))
-    print("out {}".format(out_grid))
+    print("ocl_out {}".format(ocl_out_grid))
+    print("c_out   {}".format(c_out_grid))
 
     for i in xrange(height):
         for j in xrange(width):
-            pixels[i * width + j] = (out_grid[i, j])
+            pixels[i * width + j] = (ocl_out_grid[i, j])
 
     # print(pixels)
     print("sum pix sum {} len {}".format(sum(pixels), len(pixels)))
