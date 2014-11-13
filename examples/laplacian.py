@@ -3,9 +3,6 @@ from ctree.util import Timer
 import numpy
 import numpy.testing
 
-_ = numpy
-
-
 import sys
 
 import logging
@@ -22,7 +19,7 @@ class LaplacianKernel(Stencil):
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(in_grid):
-            out_grid[x] = -6 * in_grid[x]
+            out_grid[x] = -4 * in_grid[x]
             for y in self.neighbors(x, 0):
                 out_grid[x] += in_grid[y]
 

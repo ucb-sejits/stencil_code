@@ -12,7 +12,6 @@ import logging
 logging.basicConfig(level=20)
 
 import numpy
-_ = numpy
 from ctree.util import Timer
 
 width = 256
@@ -20,7 +19,7 @@ height = 256
 time_steps = 16
 
 
-class Kernel(Stencil):
+class TwoDHeatFlow(Stencil):
     neighborhoods = [
         [(-1, 1, 0), (-1, -1, 0),
          (-1, 0, 1), (-1, 0, -1)],
@@ -35,8 +34,8 @@ class Kernel(Stencil):
             for z in self.neighbors(x, 1):
                 out_grid[x] -= 0.25 * in_grid[z]
 
-kernel = Kernel(backend='ocl')
-py_kernel = Kernel(backend='python')
+kernel = TwoDHeatFlow(backend='c')
+py_kernel = TwoDHeatFlow(backend='python')
 simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
 
 with Timer() as t:
