@@ -19,7 +19,7 @@ class TestCEndToEnd(unittest.TestCase):
         outgrid2 = test_kernel(backend='python')(self.in_grid)
         try:
             numpy.testing.assert_array_almost_equal(outgrid1, outgrid2)
-        except Exception:
+        except AssertionError:
             self.fail("Output grids not equal")
 
     def test_2d_heat(self):
@@ -35,7 +35,7 @@ class TestCEndToEnd(unittest.TestCase):
 
         try:
             numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
-        except:
+        except AssertionError:
             self.fail("Output grids not equal")
 
     def test_bilateral_filter(self):
@@ -43,8 +43,7 @@ class TestCEndToEnd(unittest.TestCase):
         out_grid1 = BetterBilateralFilter(backend='c', sigma_d=1, sigma_i=70)(in_grid)
         out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
 
-        print(out_grid2)
         try:
             numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
-        except:
+        except AssertionError:
             self.fail("Output grids not equal")

@@ -3,8 +3,8 @@ from stencil_code.neighborhood import Neighborhood
 import numpy
 import math
 
-import logging
-logging.basicConfig(level=20)
+# import logging
+# logging.basicConfig(level=20)
 
 
 class TwoDHeatFlow(Stencil):

@@ -6,7 +6,7 @@ import numpy.testing
 from kernels import TwoDHeatFlow, LaplacianKernel, SpecializedLaplacian27, BetterBilateralFilter
 
 width = 128
-height = 64
+height = 128
 
 
 class TestCEndToEnd(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestCEndToEnd(unittest.TestCase):
         outgrid2 = test_kernel(backend='python')(self.in_grid)
         try:
             numpy.testing.assert_array_almost_equal(outgrid1[1:-1, 1:-1], outgrid2[1:-1, 1:-1])
-        except Exception:
+        except AssertionError:
             self.fail("Output grids not equal")
 
     def test_2d_heat(self):
@@ -35,19 +35,19 @@ class TestCEndToEnd(unittest.TestCase):
         try:
             numpy.testing.assert_array_almost_equal(
                 out_grid1[1:-1, 1:-1, 1:-1], out_grid2[1:-1, 1:-1, 1:-1])
-        except:
+        except AssertionError:
             self.fail("Output grids not equal")
 
     def test_bilateral_filter(self):
         in_grid = numpy.random.random([width, height]).astype(numpy.float32) * 255
         out_grid1 = BetterBilateralFilter(backend='ocl')(in_grid)
-        out_grid2 = BetterBilateralFilter(backend='c')(in_grid)
+        out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
 
         # print("o1 {}".format(out_grid1))
         print("o1 {}".format(out_grid1[3, 3:8]))
         print("o2 {}".format(out_grid2[3, 3:8]))
         try:
             numpy.testing.assert_array_almost_equal(
-                out_grid1[3:-3, 3:-3], out_grid2[3:-3, 3:-3], decimal=1)
-        except Exception as exception:
-            self.fail("Output grids not equal: {}".format(exception))
+                out_grid1[3:-3, 3:-3], out_grid2[3:-5, 3:-5], decimal=1)
+        except AssertionError:
+            self.fail("Output grids not equal")

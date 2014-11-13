@@ -175,17 +175,18 @@ class StencilOclSemanticTransformer(StencilBackend):
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
-        body = []
-
-        body.append(MacroDefns([
-            CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
-                      self.gen_local_macro()),
-            CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
-                      self.gen_global_macro())]
-        ))
-        body.append(LoadSharedMemBlock(*self.load_shared_memory_block(
-            SymbolRef('block'),
-            Constant(self.ghost_depth * 2 * self.fusion_padding))))
+        body = [
+            MacroDefns([
+                CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
+                          self.gen_local_macro()),
+                CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
+                          self.gen_global_macro())
+            ]),
+            LoadSharedMemBlock(*self.load_shared_memory_block(
+                SymbolRef('block'),
+                Constant(self.ghost_depth * 2 * self.fusion_padding))
+            )
+        ]
 
         self.output_index = SymbolRef('global_index')
         next_body = []
@@ -337,7 +338,6 @@ class StencilOclTransformer(StencilBackend):
                 local_size = (min(
                     max_total, max_sizes[0], arg_cfg[0].shape[0] / 2))
 
-        print("local_size={}".format(local_size))
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
