@@ -5,6 +5,8 @@ import math
 
 import logging
 logging.basicConfig(level=20)
+
+
 class TwoDHeatFlow(Stencil):
     neighborhoods = [[(0, 0)], [
         (-1, 1),  (0, 1),  (1, 1),

@@ -1,59 +1,53 @@
-import numpy as np
+__author__ = 'leonardtruong'
 import unittest
-from .kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
-    BilatKernel, gaussian1, gaussian2, Laplacian3DKernel
 
-stdev_d = 3
-stdev_s = 70
-radius = 1
-width = 64
-height = width
+import numpy
+import numpy.testing
+from kernels import TwoDHeatFlow, LaplacianKernel, SpecializedLaplacian27, BetterBilateralFilter
+
+width = 128
+height = 64
 
 
-class TestOclEndToEnd(unittest.TestCase):
+class TestCEndToEnd(unittest.TestCase):
     def setUp(self):
-        self.in_grid = np.random.rand(width, width).astype(np.float32) * 1000
+        self.in_grid = numpy.random.random([width, width]).astype(numpy.float32) * 1000
 
     def _check(self, test_kernel):
-        out_grid1 = test_kernel(backend='ocl')(self.in_grid)
-        out_grid2 = test_kernel(backend='python')(self.in_grid)
+        outgrid1 = test_kernel(backend='ocl')(self.in_grid)
+        outgrid2 = test_kernel(backend='python')(self.in_grid)
         try:
-            np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1],
-                                                 out_grid2[1:-1, 1:-1],
-                                                 decimal=3)
-        except AssertionError as e:
-            self.fail("Output grids not equal: %s" % e)
-
-    def test_simple_ocl_kernel(self):
-        self._check(SimpleKernel)
+            numpy.testing.assert_array_almost_equal(outgrid1[1:-1, 1:-1], outgrid2[1:-1, 1:-1])
+        except Exception:
+            self.fail("Output grids not equal")
 
     def test_2d_heat(self):
-        self._check(TwoDHeatKernel)
+        self._check(TwoDHeatFlow)
 
     def test_laplacian(self):
         self._check(LaplacianKernel)
 
+    def test_laplacian27(self):
+        in_grid = numpy.random.random([32, 32, 32]).astype(numpy.float32) * 255
+        out_grid1 = SpecializedLaplacian27(backend='ocl')(in_grid)
+        out_grid2 = SpecializedLaplacian27(backend='python')(in_grid)
+
+        try:
+            numpy.testing.assert_array_almost_equal(
+                out_grid1[1:-1, 1:-1, 1:-1], out_grid2[1:-1, 1:-1, 1:-1])
+        except:
+            self.fail("Output grids not equal")
+
     def test_bilateral_filter(self):
-        in_grid = np.random.rand(128, 16).astype(np.float32) * 255
+        in_grid = numpy.random.random([width, height]).astype(numpy.float32) * 255
+        out_grid1 = BetterBilateralFilter(backend='ocl')(in_grid)
+        out_grid2 = BetterBilateralFilter(backend='c')(in_grid)
 
-        out_grid1 = BilatKernel(backend='ocl')(
-            in_grid, gaussian1, gaussian2)
-        out_grid2 = BilatKernel(backend='python')(
-            in_grid, gaussian1, gaussian2)
-        try:
-            np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1],
-                                                 out_grid2[1:-1, 1:-1])
-        except AssertionError as e:
-            self.fail("Output grids not equal: %s" % e)
-
-    def test_laplacian_3D(self):
-        in_grid = np.random.rand(64, 32, 16).astype(np.float32) * 100
-
-        out_grid1 = Laplacian3DKernel(backend='ocl')(in_grid)
-        out_grid2 = Laplacian3DKernel(backend='c')(in_grid)
-        try:
-            np.testing.assert_array_almost_equal(out_grid1[1:-1, 1:-1, 1:-1],
-                                                 out_grid2[1:-1, 1:-1, 1:-1],
-                                                 decimal=3)
-        except AssertionError as e:
-            self.fail("Output grids not equal: %s" % e)
+        # print("o1 {}".format(out_grid1))
+        print("o1 {}".format(out_grid1[3, 3:8]))
+        print("o2 {}".format(out_grid2[3, 3:8]))
+        # try:
+        numpy.testing.assert_array_almost_equal(
+            out_grid1[3:-3, 3:-3], out_grid2[3:-3, 3:-3], decimal=1)
+        # except:
+        #     self.fail("Output grids not equal")

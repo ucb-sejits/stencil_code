@@ -9,9 +9,6 @@ import numpy.testing
 width = 128
 height = 64
 
-import logging
-logging.basicConfig(level=20)
-
 
 class TestCEndToEnd(unittest.TestCase):
     def setUp(self):
@@ -25,11 +22,11 @@ class TestCEndToEnd(unittest.TestCase):
         except Exception:
             self.fail("Output grids not equal")
 
-    # def test_2d_heat(self):
-    #     self._check(TwoDHeatFlow)
-    #
-    # def test_laplacian(self):
-    #     self._check(LaplacianKernel)
+    def test_2d_heat(self):
+        self._check(TwoDHeatFlow)
+
+    def test_laplacian(self):
+        self._check(LaplacianKernel)
 
     def test_laplacian27(self):
         in_grid = numpy.random.random([32, 32, 32]).astype(numpy.float32) * 255
@@ -41,12 +38,13 @@ class TestCEndToEnd(unittest.TestCase):
         except:
             self.fail("Output grids not equal")
 
-    # def test_bilateral_filter(self):
-    #     in_grid = numpy.random.random([width, height]).astype(numpy.float32) * 255
-    #     out_grid1 = BetterBilateralFilter(backend='c')(in_grid)
-    #     out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
-    #
-    #     try:
-    #         numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
-    #     except:
-    #         self.fail("Output grids not equal")
+    def test_bilateral_filter(self):
+        in_grid = numpy.random.random([width, height]).astype(numpy.float32) * 255
+        out_grid1 = BetterBilateralFilter(backend='ocl', sigma_d=1, sigma_i=70)(in_grid)
+        out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
+
+        print(out_grid2)
+        try:
+            numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
+        except:
+            self.fail("Output grids not equal")
