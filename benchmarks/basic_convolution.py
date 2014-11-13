@@ -1,22 +1,14 @@
 from __future__ import print_function
-import numpy as np
+
+import numpy
+from stencil_code.stencil_kernel2 import Stencil
 from stencil_code.neighborhood import Neighborhood
-# from stencil_code.stencil_kernel import StencilKernel
-
-stencil = np.array(
-    [
-        [1, 1, 1, 1, 1],
-        [1, 1, 1, 1, 1],
-        [1, 1, -4, 1, 1],
-        [1, 1, 1, 1, 1],
-        [1, 1, 1, 1, 1],
-    ]
-)
 
 
-class ConvolutionFilter(object):
-    def __init__(self, convolution_array):
-        self.neighbors, self.coefficients, self.halo = Neighborhood.compute_from_indices(convolution_array)
+class ConvolutionFilter(Stencil):
+    def __init__(self, convolution_array=None, backend='ocl'):
+        neighbors, self.coefficients, _ = Neighborhood.compute_from_indices(convolution_array)
+        super(ConvolutionFilter, self).__init__(neighborhoods=[neighbors], backend=backend)
 
     @staticmethod
     def clamped_add_tuple(point1, point2, grid):
@@ -25,33 +17,47 @@ class ConvolutionFilter(object):
 
         return tuple(map(clamp, zip(point1, point2, grid.shape)))
 
-    def all_points(self, grid):
-        iterator = np.nditer(grid, flags=['multi_index'])
-        for _ in iterator:
-            yield iterator.multi_index
+    def __call__(self, *args, **kwargs):
+        """
+        We had to override __call__ here because the kernel currently cannot directly reference
+        the smoothing arrays as class members so we must add them here to the call so
+        the Stencil's __call__ can have access to them
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        new_args = [
+            args[0],
+            self.coefficients,
+        ]
+        return super(ConvolutionFilter, self).__call__(*new_args, **kwargs)
 
-    def neighbor_coefficient_iterator(self, grid, point):
-        print(self.neighbors)
-        for neighbor_index, neighbor_offset in enumerate(self.neighbors):
-            print("{} {} + {}".format(neighbor_index, point, neighbor_offset))
-            yield ConvolutionFilter.clamped_add_tuple(point, neighbor_offset, grid), self.coefficients[neighbor_index]
-
-    def kernel(self, input_grid):
-        output_grid = np.empty_like(input_grid)
-        for point in self.all_points(output_grid):
-            for neighbor_point, coefficient in self.neighbor_coefficient_iterator(input_grid, point):
-                output_grid[point] += input_grid[neighbor_point] * coefficient
+    def kernel(self, input_grid, coefficients, output_grid):
+        for point in self.interior_points(output_grid):
+            x = 0
+            for n in self.neighbors(point, 0):
+                output_grid[point] += input_grid[n] * coefficients[x]
+                x += 1
 
         return output_grid
 
 
 def main():
-    # in_grid = np.random.random([10, 5])
-    in_grid = np.fromfunction(lambda x, y: x, [10, 4])
+    # in_grid = numpy.random.random([10, 5])
+    in_grid = numpy.ones([32, 32])
+    stencil = numpy.array(
+        [
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, -4, 1, 1],
+            [1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1],
+        ]
+    )
 
-    convolve_filter = ConvolutionFilter(stencil)
+    convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='python')
 
-    out_grid = convolve_filter.kernel(in_grid)
+    out_grid = convolve_filter(in_grid)
     print(out_grid)
 
 
