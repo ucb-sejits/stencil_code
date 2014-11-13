@@ -25,7 +25,7 @@ from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
-from stencil_code.StencilException import StencilException
+from stencil_code.stencil_exception import StencilException
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
 import ctree.ocl

@@ -7,7 +7,7 @@ from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 from hindemith.fusion.core import KernelCall
-from stencil_code.StencilException import StencilException
+from stencil_code.stencil_exception import StencilException
 from ..stencil_model import MathFunction, OclNeighborLoop, MacroDefns, \
     LoadSharedMemBlock
 from .stencil_backend import StencilBackend
