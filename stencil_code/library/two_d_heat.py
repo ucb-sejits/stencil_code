@@ -34,18 +34,19 @@ class TwoDHeatFlow(Stencil):
             for z in self.neighbors(x, 1):
                 out_grid[x] -= 0.25 * in_grid[z]
 
-kernel = TwoDHeatFlow(backend='c')
-py_kernel = TwoDHeatFlow(backend='python')
-simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
+if __name__ == '__main__':
+    kernel = TwoDHeatFlow(backend='c')
+    py_kernel = TwoDHeatFlow(backend='python')
+    simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
 
-with Timer() as t:
-    a = kernel(simulation_space)
+    with Timer() as t:
+        a = kernel(simulation_space)
 
-with Timer() as py_time:
-    b = py_kernel(simulation_space)
+    with Timer() as py_time:
+        b = py_kernel(simulation_space)
 
-# Python mode doesn't clamp yet
-numpy.testing.assert_array_almost_equal(a[1:-1, 1:-1, 1:-1], b[1:-1, 1:-1, 1:-1])
+    # Python mode doesn't clamp yet
+    numpy.testing.assert_array_almost_equal(a[1:-1, 1:-1, 1:-1], b[1:-1, 1:-1, 1:-1])
 
-print("Specialized Time: %.03fs" % t.interval)
-print("Python Time: %.03fs" % py_time.interval)
+    print("Specialized Time: %.03fs" % t.interval)
+    print("Python Time: %.03fs" % py_time.interval)
