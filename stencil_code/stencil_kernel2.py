@@ -399,7 +399,7 @@ class Stencil(object):
 
     def __init__(self, backend='ocl', neighborhoods=None, boundary_handling=None, **kwargs):
         """
-        Our StencilKernel class wraps an un-specialized stencil kernel
+        Our Stencil class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
         have a kernel method defined.  When initialized, an instance of
         StencilKernel will store the kernel method and replace it with a
