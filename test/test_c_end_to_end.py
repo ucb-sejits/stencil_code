@@ -40,10 +40,10 @@ class TestCEndToEnd(unittest.TestCase):
 
     def test_bilateral_filter(self):
         in_grid = numpy.random.random([width, height]).astype(numpy.float32) * 255
-        out_grid1 = BetterBilateralFilter(backend='c', sigma_d=3, sigma_i=70)(in_grid)
+        out_grid1 = BetterBilateralFilter(backend='c')(in_grid)
         out_grid2 = BetterBilateralFilter(backend='python')(in_grid)
 
         try:
-            numpy.testing.assert_array_almost_equal(out_grid1, out_grid2)
+            numpy.testing.assert_array_almost_equal(out_grid1[5:-5, 5:-5], out_grid2[5:-5, 5:-5], decimal=3)
         except AssertionError:
             self.fail("Output grids not equal")

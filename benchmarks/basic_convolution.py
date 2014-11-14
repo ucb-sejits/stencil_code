@@ -47,6 +47,7 @@ class ConvolutionFilter(Stencil):
             for n in self.neighbors(point, 0):
                 output_grid[point] += input_grid[n] * self.distance(point, n)
 
+
 def main():
     # in_grid = numpy.random.random([10, 5])
     in_grid = numpy.ones([32, 32]).astype(numpy.float32)
@@ -54,9 +55,9 @@ def main():
         [
             [1, 1, 1, 1, 1],
             [1, 1, 1, 1, 1],
-            [1, 1, -4, 1, 1],
+            [1, 1, -4, 1, 3],b
             [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
+            [1, 1, 1, 7, 1],
         ]
     )
 
