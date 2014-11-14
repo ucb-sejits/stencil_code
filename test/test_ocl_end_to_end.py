@@ -12,15 +12,21 @@ from stencil_code.library.two_d_heat import TwoDHeatFlow
 
 class TestOclEndToEnd(unittest.TestCase):
     backend_to_test = 'ocl'
-    backend_to_compare = 'python'
+    backend_to_compare = 'c'
 
     def _compare_grids(self, stencil, grid1, grid2):
-        interior_points_slice = tuple([slice(x+2, -(x+2)) for x in stencil.ghost_depth])
-        print("interior_points_slice {} of {}".format(interior_points_slice, stencil))
+        interior_points_slice = stencil.interior_points_slice()
+        # print("interior_points_slice {} of {}".format(interior_points_slice, stencil))
+        numpy.testing.assert_array_almost_equal(
+            grid1[interior_points_slice],
+            grid2[interior_points_slice]
+        )
+        return
         try:
             numpy.testing.assert_array_almost_equal(
                 grid1[interior_points_slice],
-                grid2[interior_points_slice]
+                grid2[interior_points_slice],
+                decimals=3
             )
         except AssertionError:
             self.fail("Output grids not equal slice is {} for {}".format(interior_points_slice, stencil))

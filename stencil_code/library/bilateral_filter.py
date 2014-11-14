@@ -3,8 +3,8 @@ from stencil_code.neighborhood import Neighborhood
 from stencil_code.stencil_kernel2 import Stencil
 import math
 
-import logging
-logging.basicConfig(level=20)
+# import logging
+# logging.basicConfig(level=20)
 
 
 class BilateralFilter(Stencil):
@@ -40,7 +40,8 @@ if __name__ == '__main__':
     width = int(sys.argv[2])
     height = int(sys.argv[3])
     image_in = open(sys.argv[1], 'rb')
-    stdev_d = 1
+    out_filename = "/dev/null" if len(sys.argv) < 5 else sys.argv[4]
+    stdev_d = 3
     stdev_s = 70
     radius = stdev_d * 3
 
@@ -63,10 +64,6 @@ if __name__ == '__main__':
     ocl_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
     c_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
 
-    print("in  {}".format(in_grid))
-    print("ocl_out {}".format(ocl_out_grid))
-    print("c_out   {}".format(c_out_grid))
-
     for i in xrange(height):
         for j in xrange(width):
             pixels[i * width + j] = (ocl_out_grid[i, j])
@@ -77,5 +74,5 @@ if __name__ == '__main__':
     for i in range(0, len(pixels)):
         pixels[i] = min(255, max(0, int(pixels[i] * (intensity/out_intensity))))
 
-    image_out = open(sys.argv[4], 'wb')
+    image_out = open(out_filename, 'wb')
     image_out.write(''.join(map(chr, pixels)))

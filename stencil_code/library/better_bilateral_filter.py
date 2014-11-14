@@ -1,7 +1,14 @@
+import random
+import string
+
+__author__ = "chickmarkley"
+
 import numpy
+import numpy.testing
+import math
+
 from stencil_code.neighborhood import Neighborhood
 from stencil_code.stencil_kernel2 import Stencil
-import math
 
 # import logging
 # logging.basicConfig(level=20)
@@ -12,7 +19,7 @@ class BetterBilateralFilter(Stencil):
     An implementation of BilateralFilter that better encapsulates the
     internal tools used.
     """
-    def __init__(self, sigma_d=1, sigma_i=70, backend='ocl'):
+    def __init__(self, sigma_d=3, sigma_i=70, backend='ocl'):
         """
         prepare the bilateral filter
         :param sigma_d: the smoothing associated with distance between points
@@ -83,10 +90,12 @@ if __name__ == '__main__':
     image_in = open(sys.argv[1], 'rb')
 
     out_filename = "/dev/null" if len(sys.argv) < 5 else sys.argv[4]
-    stdev_d = 1 if len(sys.argv) < 6 else sys.argv[5]
+    stdev_d = 3 if len(sys.argv) < 6 else sys.argv[5]
     stdev_s = 70 if len(sys.argv) < 7 else int(sys.argv[6])
 
     pixels = map(ord, list(image_in.read(width * height))) # Read in grayscale values
+    # for testing, put known junk in pixels
+    # pixels = map(ord, [str(chr((x % 32)+65)) for x in range(width * height)])
     intensity = float(sum(pixels))/len(pixels)
     print("intensity {}".format(intensity))
 
@@ -100,11 +109,12 @@ if __name__ == '__main__':
             in_grid[i, j] = pixels[i * width + j]
 
     ocl_out_grid = ocl_bilateral_filter(in_grid)
-    c_out_grid = ocl_bilateral_filter(in_grid)
+    c_out_grid = c_bilateral_filter(in_grid)
 
-    print("in  {}".format(in_grid))
-    print("ocl_out {}".format(ocl_out_grid))
-    print("c_out   {}".format(c_out_grid))
+    numpy.testing.assert_array_almost_equal(
+        ocl_out_grid[ocl_bilateral_filter.interior_points_slice()],
+        c_out_grid[ocl_bilateral_filter.interior_points_slice()]
+    )
 
     for i in xrange(height):
         for j in xrange(width):

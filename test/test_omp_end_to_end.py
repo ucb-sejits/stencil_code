@@ -16,7 +16,7 @@ class TestOmpEndToEnd(unittest.TestCase):
     backend_to_compare = 'c'
 
     def _compare_grids(self, stencil, grid1, grid2):
-        interior_points_slice = tuple([slice(x, -x) for x in stencil.ghost_depth])
+        interior_points_slice = stencil.interior_points_slice()
         try:
             numpy.testing.assert_array_almost_equal(
                 grid1[interior_points_slice],

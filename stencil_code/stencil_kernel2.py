@@ -504,6 +504,16 @@ class Stencil(object):
                 "Undefined neighborhood identifier {} this stencil has {}".format(
                     neighbors_id, len(self.neighborhood_definition)))
 
+    def interior_points_slice(self, extra=0):
+        """
+        this is a convenience method that returns a tuple of the form
+        (x:-x, ...) because areas of ghost zone may not be calculated, this can
+        be used to limit the region of a test like
+        :param extra: in case you want to further decrease the interior side
+        :return: a tuple representing a numpy slice that selects the interior of a grid
+        """
+        return tuple([slice(x+extra, -(x+extra)) for x in self.ghost_depth])
+
     def get_semantic_node(self, arg_names, *args):
 
         func_decl = PythonToStencilModel(arg_names).visit(
