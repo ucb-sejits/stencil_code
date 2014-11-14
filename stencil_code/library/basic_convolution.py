@@ -9,6 +9,12 @@ logging.basicConfig(level=20)
 
 
 class ConvolutionFilter(Stencil):
+    """
+    basic filter requires user to pass in a matrix of coefficients. the
+    dimensions of this convolution_array define the stencil neighborhood
+    This should be a foundation class for example stencils such as the laplacians
+    and jacobi stencils
+    """
     def __init__(self, convolution_array=None, backend='ocl'):
         self.convolution_array = convolution_array
         neighbors, coefficients, _ = Neighborhood.compute_from_indices(convolution_array)
@@ -48,7 +54,7 @@ class ConvolutionFilter(Stencil):
                 output_grid[point] += input_grid[n] * self.distance(point, n)
 
 
-def main():
+if __name__ == '__main__':
     # in_grid = numpy.random.random([10, 5])
     in_grid = numpy.ones([32, 32]).astype(numpy.float32)
     stencil = numpy.array(
@@ -65,7 +71,6 @@ def main():
     c_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='c')
     ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
 
-
     python_out_grid = python_convolve_filter(in_grid)
     c_out_grid = c_convolve_filter(in_grid)
     ocl_out_grid = ocl_convolve_filter(in_grid)
@@ -74,7 +79,3 @@ def main():
     print(c_out_grid)
     print()
     print(ocl_out_grid)
-
-
-if __name__ == '__main__':
-    main()
