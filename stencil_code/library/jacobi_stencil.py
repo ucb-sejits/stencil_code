@@ -1,9 +1,9 @@
 from stencil_code.stencil_kernel2 import Stencil
 import numpy
 import numpy.testing
-import logging
 
-logging.basicConfig(level=20)
+# import logging
+# logging.basicConfig(level=20)
 
 
 class Jacobi(Stencil):
@@ -16,11 +16,13 @@ class Jacobi(Stencil):
             for y in self.neighbors(x, 1):
                 out_grid[x] += .3 * in_grid[y]
 
-in_img = numpy.random.random(1024, 1024).astype(numpy.float32) * 100
 
-jacobi_stencil = Jacobi(backend='ocl')
-py = Jacobi(backend='python')
+if __name__ == '__main__':
+    in_img = numpy.random.random([1024, 1024]).astype(numpy.float32) * 100
 
-out_img = jacobi_stencil(in_img)
-check = py(in_img)
-numpy.testing.assert_array_almost_equal(out_img[1:-1, 1:-1], check[1:-1, 1:-1], decimal=4)
+    jacobi_stencil = Jacobi(backend='ocl')
+    py = Jacobi(backend='python')
+
+    out_img = jacobi_stencil(in_img)
+    check = py(in_img)
+    numpy.testing.assert_array_almost_equal(out_img[1:-1, 1:-1], check[1:-1, 1:-1], decimal=4)

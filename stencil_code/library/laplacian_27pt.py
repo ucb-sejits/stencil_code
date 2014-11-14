@@ -5,8 +5,8 @@ import numpy.testing
 from stencil_code.stencil_kernel2 import Stencil
 from stencil_code.neighborhood import Neighborhood
 
-import logging
-logging.basicConfig(level=20)
+# import logging
+# logging.basicConfig(level=20)
 
 
 class SpecializedLaplacian27(Stencil):
@@ -88,12 +88,12 @@ if __name__ == '__main__':
     print("specialized python  output[2][2][:] {}".format(python_output[2, 2, 2:max(10, z_size-1)]))
     print("hand coded  python  output[2][2][:] {}".format(hand_coded_output[2, 2, 2:max(10, z_size-1)]))
 
-    numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], c_output[2:x_size-1, 2:y_size-1, 2:z_size-1])
-    numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], python_output[2:x_size-1, 2:y_size-1, 2:z_size-1])
+    numpy.testing.assert_array_almost_equal(ocl_output[5:-5, 5:-5, 5:-5], c_output[5:-5, 5:-5, 5:-5])
+    numpy.testing.assert_array_almost_equal(ocl_output[5:-5, 5:-5, 5:-5], python_output[5:-5, 5:-5, 5:-5])
 
     # exit(1)
 
     print("X"*120)
-    print("python   output[2][2][:] {}".format(hand_coded_output[2, 2, 2:z_size-1]))
+    print("python   output[2][2][:] {}".format(hand_coded_output[2, 2, 5:-5]))
 
-    numpy.testing.assert_array_almost_equal(ocl_output[2:x_size-1, 2:y_size-1, 2:z_size-1], hand_coded_output[2:x_size-1, 2:y_size-1, 2:z_size-1])
+    numpy.testing.assert_array_almost_equal(ocl_output[5:-5, 5:-5, 5:-5], hand_coded_output[5:-5, 5:-5, 5:-5], decimal=4)
