@@ -25,11 +25,8 @@ class TestCEndToEnd(unittest.TestCase):
             self.fail("Output grids not equal")
 
     def _check(self, stencil_class_to_test, in_grid, coefficients=None):
-        if in_grid is None:
-            in_grid = self.in_grid
-
-        hp_stencil = stencil_class_to_test(backend=self.backend_to_test)
-        compare_stencil = stencil_class_to_test(backend=self.backend_to_compare)
+        hp_stencil = stencil_class_to_test(backend=TestCEndToEnd.backend_to_test)
+        compare_stencil = stencil_class_to_test(backend=TestCEndToEnd.backend_to_compare)
 
         if coefficients is None:
             hp_out_grid = hp_stencil(in_grid)
