@@ -48,6 +48,8 @@ if __name__ == '__main__':
         if include_omp:
             omp_kernel = Convolution(backend='omp')
             out_grid = omp_kernel(input_image)
+        else:
+            omp_kernel = None
 
         for _ in range(iterations):
             with Timer() as t0:
@@ -104,19 +106,33 @@ if __name__ == '__main__':
     r1 = plt.scatter(x, results[0], marker='x', color=colors[0])
     r2 = plt.scatter(x, results[1], marker='x', color=colors[1])
     r3 = plt.scatter(x, results[2], marker='x', color=colors[2])
-    r4 = plt.scatter(x, results[3], marker='x', color=colors[3])
-    r5 = plt.scatter(x, results[4], marker='x', color=colors[4])
+    if include_omp:
+        r4 = plt.scatter(x, results[3], marker='x', color=colors[3])
+        r5 = plt.scatter(x, results[4], marker='x', color=colors[4])
+    else:
+        r4 = r5 = None
     r6 = plt.scatter(x, results[5], marker='o', color=colors[0])
     r7 = plt.scatter(x, results[6], marker='o', color=colors[1])
 
-    plt.legend((r1, r2, r3, r4, r5, r6, r7),
-               ('Numpy convolve', 'C with compile', 'C without compile', 'OpenMP with compile', 'OpenMp withouth compile', 'OpenCL with compile', 'OpenCL without compile'),
-               scatterpoints=1,
-               loc='lower left',
-               ncol=3,
-               fontsize=8)
+    if include_omp:
+        plt.legend((r1, r2, r3, r4, r5, r6, r7),
+                   (
+                       'Numpy convolve', 'C with compile', 'C without compile',
+                       'OpenMP with compile', 'OpenMp without compile', 'OpenCL with compile',
+                       'OpenCL without compile'
+                   ),
+                   scatterpoints=1,
+                   loc='lower left',
+                   ncol=3,
+                   fontsize=8)
+    else:
+        plt.legend((r1, r2, r3, r6, r7),
+                   (
+                       'Numpy convolve', 'C with compile', 'C without compile', 'OpenCL with compile',
+                       'OpenCL without compile'
+                   ),
+                   scatterpoints=1,
+                   loc='lower left',
+                   ncol=3,
+                   fontsize=8)
     plt.show()
-
-    # print("Print numpy out_image: ", out_image)
-    # print("Print numpy out_image2: ", out_image2)
-    # print("StencilGrid out_grid:", out_grid)
