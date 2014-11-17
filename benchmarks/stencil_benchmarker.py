@@ -10,20 +10,26 @@ class StencilTest(object):
     """
     a test instance that supports runs with different test_ids
     """
-    def __init__(self, name,):
+    def __init__(self, name, stencil, backend, setup_args=()):
         self.name = name
+        self.stencil_class = stencil
+        self.setup_args = setup_args
         self.trial_times = dict()
+        self.stencil_instance = None
 
-    @abc.abstractmethod
     def setup(self):
-        """a method that constructs a stencil"""
-        return
+        """a method that constructs a stencil, override to do something like implement a primed test"""
+        pass
 
     def run(self, test_matrix):
         """
+        override this method to change this
         :param test_matrix:
         :return:
         """
+        stencil = self.stencil_class(*self.setup_args)
+        return stencil(test_matrix)
+
     def run_trial(self, test_matrix, test_id=0):
         if test_id not in self.trial_times:
             self.trial_times[test_id] = []
@@ -42,6 +48,15 @@ class StencilTest(object):
             return 0
 
         return sum(self.trial_times[test_id]) / float(len(self.trial_times[test_id]))
+
+
+class PrimedStencilTest(StencilTest):
+    def setup(self):
+        self.stencil_instance = self.stencil_class(*self.setup_args)
+
+    def run(self, test_matrix):
+        print("instance is {}".format(self.stencil_instance))
+        return self.stencil_instance(test_matrix)
 
 
 class StencilBenchmarker(object):
