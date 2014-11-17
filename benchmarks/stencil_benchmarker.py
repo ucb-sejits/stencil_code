@@ -12,6 +12,7 @@ class StencilTest(object):
         self.name = name
         self.stencil_class = stencil
         self.setup_args = setup_args
+        self.backend = backend
         self.trial_times = dict()
         self.stencil_instance = None
 
@@ -25,7 +26,7 @@ class StencilTest(object):
         :param test_matrix:
         :return:
         """
-        stencil = self.stencil_class(*self.setup_args)
+        stencil = self.stencil_class(backend=self.backend, *self.setup_args)
         return stencil(test_matrix)
 
     def run_trial(self, test_matrix, test_id=0):
@@ -79,6 +80,7 @@ class StencilBenchmarker(object):
     def run(self):
         test_shapes = []
         for input_image in self.matrix_iterator():
+            print("Testing matrix with shape {}".format(input_image.shape))
             test_shapes.append(input_image.shape)
             for test in self.tests_to_run:
                 for trials in xrange(self.iterations):
