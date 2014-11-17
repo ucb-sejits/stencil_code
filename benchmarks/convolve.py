@@ -23,7 +23,6 @@ if __name__ == '__main__':
         ]
     )
 
-
     class Convolution(ConvolutionFilter):
         def __init__(self, backend):
             super(Convolution, self).__init__(stencil, backend=backend)
