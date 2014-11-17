@@ -28,6 +28,8 @@ class StencilTest(object):
         if test_id not in self.trial_times:
             self.trial_times[test_id] = []
 
+        self.setup()
+
         with Timer() as timer:
             out_image = self.run(test_matrix)
         self.trial_times[test_id].append(timer.interval)
@@ -51,7 +53,7 @@ class StencilBenchmarker(object):
         self.tests_to_run = tests_to_run
         self.iterations = iterations
         self.min_power = 10
-        self.max_power = 14
+        self.max_power = 12
 
     def matrix_iterator(self):
         """
@@ -60,7 +62,7 @@ class StencilBenchmarker(object):
         """
         for width in [2**size for size in range(self.min_power, self.max_power)]:
             for height in [2**size for size in range(self.min_power, self.max_power)]:
-                yield numpy.random.random([height, width])
+                yield numpy.random.random([height, width]).astype(numpy.float32)
 
     def run(self):
         test_shapes = []

@@ -19,8 +19,9 @@ class Test(StencilTest):
 
 benchmarker = StencilBenchmarker(
     [
-        Test("python", "python"),
+        # Test("python", "python"),
         Test("c", "c"),
+        Test("ocl", "ocl"),
     ]
 )
 
