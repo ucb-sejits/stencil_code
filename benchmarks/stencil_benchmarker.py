@@ -1,8 +1,6 @@
 from __future__ import print_function
 
-import abc
 import numpy
-from stencil_code.library.basic_convolution import ConvolutionFilter
 from ctree.util import Timer
 
 
@@ -37,7 +35,7 @@ class StencilTest(object):
         self.setup()
 
         with Timer() as timer:
-            out_image = self.run(test_matrix)
+            _ = self.run(test_matrix)
         self.trial_times[test_id].append(timer.interval)
 
     def average_time(self, test_id):
@@ -55,7 +53,6 @@ class PrimedStencilTest(StencilTest):
         self.stencil_instance = self.stencil_class(*self.setup_args)
 
     def run(self, test_matrix):
-        print("instance is {}".format(self.stencil_instance))
         return self.stencil_instance(test_matrix)
 
 
