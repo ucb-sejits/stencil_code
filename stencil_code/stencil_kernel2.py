@@ -438,7 +438,13 @@ class Stencil(object):
         if not boundary_handling in Stencil.boundary_handling_list:
             raise StencilException("Error: boundary handling value '{}' not recognized".format(boundary_handling))
 
+
         self.boundary_handling = boundary_handling
+        self.is_clamped = boundary_handling == 'clamp'
+        self.is_warped = boundary_handling == 'warp'
+        self.is_copied = boundary_handling == 'copy'
+
+        self.current_shape = None  # this is used to communicate shape info from interior points to neighbors
 
         try:
             self.dim = len(self.neighborhood_definition[0][0])
@@ -463,10 +469,15 @@ class Stencil(object):
 
     @abc.abstractmethod
     def kernel(self, *args):
-        "subclasses must implement this"
+        """subclasses must implement this"""
         return
 
     def python_kernel_wrapper(self, *args):
+        """
+        create an output buffer based on input_buffer then call the kernel
+        :param args:
+        :return:
+        """
         output = np.zeros_like(args[0])
         self.kernel(*(args + (output,)))
         return output
@@ -494,9 +505,13 @@ class Stencil(object):
         """
         an iterator over the points in a matrix being operated on.  The behaviour
         of this method depends on the boundary_handling
+        DANGER: clamping requires that the neighbors method have access to the current shape,
+                which means this functions is not re-entrant, it cannot be called from
+                separate threads with different shapes
         :param x: the matrix to iterate over, typically this is the output matrix
         :return:
         """
+        self.current_shape = x.shape
         dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
                 for index, dim in enumerate(x.shape))
         for item in itertools.product(*dims):
@@ -510,8 +525,15 @@ class Stencil(object):
         :return: yields absolute neighbor point
         """
         try:
-            for neighbor in self.neighborhood_definition[neighbors_id]:
-                yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
+            if self.is_clamped and self.current_shape is not None:
+                for neighbor in self.neighborhood_definition[neighbors_id]:
+                    yield tuple(map(
+                        lambda dim: Stencil.clamp(point[dim]+neighbor[dim], 0, self.current_shape[dim]),
+                        range(len(point))))
+            else:
+                for neighbor in self.neighborhood_definition[neighbors_id]:
+                    yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
+
         except IndexError:
             raise StencilException(
                 "Undefined neighborhood identifier {} this stencil has {}".format(
@@ -542,4 +564,8 @@ class Stencil(object):
         :param y: Point represented as a list or tuple
         """
         return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
+
+    @staticmethod
+    def clamp(x, min_x, max_x):
+        return max(min_x, min(x, max_x-1))
 
