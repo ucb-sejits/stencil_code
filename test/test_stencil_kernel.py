@@ -10,6 +10,17 @@ class TestStencilKernel(unittest.TestCase):
             pass
         self.assertRaises(StencilException, BadKernel)
 
+    def test_bad_boundary_handling(self):
+        class Kernel(Stencil):
+            neighborhoods = [[(0, 0)]]
+            def kernel(self, *args):
+                pass
+
+        with self.assertRaises(StencilException) as context:
+            _ = Kernel(boundary_handling='dog')
+
+        self.assertTrue("boundary handling value" in context.exception.message)
+
     def test_no_neighborhood(self):
         class NoNeighborhood(Stencil):
             def kernel(self):

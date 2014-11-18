@@ -394,10 +394,12 @@ class Stencil(object):
                     "opencl": StencilOclTransformer,
                     "python": None}
 
+    boundary_handling_list = ['clamp', 'copy', 'warp']
+
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
 
-    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling=None, **kwargs):
+    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling='clamp', **kwargs):
         """
         Our Stencil class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -432,6 +434,11 @@ class Stencil(object):
                 )
 
         self.backend = self.backend_dict[backend]
+
+        if not boundary_handling in Stencil.boundary_handling_list:
+            raise StencilException("Error: boundary handling value '{}' not recognized".format(boundary_handling))
+
+        self.boundary_handling = boundary_handling
 
         try:
             self.dim = len(self.neighborhood_definition[0][0])
@@ -484,6 +491,12 @@ class Stencil(object):
         return ghost_depth
 
     def interior_points(self, x):
+        """
+        an iterator over the points in a matrix being operated on.  The behaviour
+        of this method depends on the boundary_handling
+        :param x: the matrix to iterate over, typically this is the output matrix
+        :return:
+        """
         dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
                 for index, dim in enumerate(x.shape))
         for item in itertools.product(*dims):

@@ -1,4 +1,7 @@
 """
+DEPRECATED: use Stencil from stencil_kernel2.py
+TODO: get rid of this file
+
 This version was taken from the stencil_specializer project and has all asp
 stuff removed in order to work on a direct c-tree llvm implementation
 
