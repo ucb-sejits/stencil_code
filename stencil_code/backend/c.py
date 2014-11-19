@@ -22,9 +22,16 @@ class StencilCTransformer(StencilBackend):
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
-        macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
+        min_macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
                           TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
                           SymbolRef('_a'), SymbolRef('_b')))
+        max_macro = CppDefine("max", [SymbolRef('_a'), SymbolRef('_b')],
+                          TernaryOp(Gt(SymbolRef('_a'), SymbolRef('_b')),
+                          SymbolRef('_b'), SymbolRef('_a')))
+        clamp_macro = CppDefine(
+            "clamp", [SymbolRef('_a'), SymbolRef('_min_a'), SymbolRef('_max_a')],
+            StringTemplate("(_a>_max_a?_max_a:_a)<_min_a?_min_a:(_a>_max_a?_max_a:_a)"),
+        )
         node.params.append(SymbolRef('duration', POINTER(c_float)))
         start_time = Assign(StringTemplate('clock_t start_time'), FunctionCall(
             SymbolRef('clock')))
@@ -33,7 +40,7 @@ class StencilCTransformer(StencilBackend):
                           Div(Sub(FunctionCall(SymbolRef('clock')), SymbolRef(
                               'start_time')), SymbolRef('CLOCKS_PER_SEC')))
         node.defn.append(end_time)
-        return [StringTemplate("#include <time.h>"), abs_decl, macro, node]
+        return [StringTemplate("#include <time.h>"), abs_decl, min_macro, clamp_macro, node]
 
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
@@ -72,8 +79,13 @@ class StencilCTransformer(StencilBackend):
         self.kernel_target = None
         return ret_node
 
-    # Handle array references
     def visit_GridElement(self, node):
+        """
+        handles array references to input_grids, understands clamping
+        on input_grids by looking at the kernel of the current specializer
+        :param node:
+        :return:
+        """
         grid_name = node.grid_name
         target = node.target
         if isinstance(target, SymbolRef):
@@ -84,12 +96,25 @@ class StencilCTransformer(StencilBackend):
                                     SymbolRef(self.output_index))
                 elif grid_name in self.input_dict:
                     # grid = self.input_dict[grid_name]
-                    pt = list(map(lambda x: SymbolRef(x), self.var_list))
+                    if self.is_clamped:
+                        grid = self.input_dict[grid_name]
+                        pt = list(map(lambda d: self.gen_clamped_index(self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
+                    else:
+                        pt = list(map(lambda x: SymbolRef(x), self.var_list))
+
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
             # elif grid_name == self.neighbor_grid_name:
             else:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
+                if self.is_clamped:
+                    grid = self.input_dict[grid_name]
+                    pt = list(map(
+                        lambda d, y: self.gen_clamped_index(
+                            Add(SymbolRef(self.var_list[d]), Constant(y)),
+                            grid.shape[d]-1), range(len(self.var_list)), self.offset_list
+                    ))
+                else:
+                    pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 index = self.gen_array_macro(grid_name, pt)
                 return ArrayRef(SymbolRef(grid_name), index)
@@ -97,4 +122,8 @@ class StencilCTransformer(StencilBackend):
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise Exception("Found GridElement that is not supported")
+
+    def gen_clamped_index(self, symbol_ref, max_index):
+        return FunctionCall('clamped', [symbol_ref, Constant(0), Constant(max_index)])
+
 

@@ -14,6 +14,7 @@ class StencilBackend(NodeTransformer):
         self.output_grid = output_grid
         self.kernel = kernel
         self.ghost_depth = kernel.ghost_depth
+        self.is_clamped = kernel.is_clamped
         self.next_fresh_var = 0
         self.output_index = None
         self.neighbor_grid_name = None

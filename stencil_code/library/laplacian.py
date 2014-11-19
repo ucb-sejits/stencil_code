@@ -30,8 +30,8 @@ class LaplacianKernel(Stencil):
         return out_grid
 
 if __name__ == '__main__':
-    # import logging
-    # logging.basicConfig(level=0)
+    import logging
+    logging.basicConfig(level=0)
 
     nx = 8 if len(sys.argv) <= 1 else int(sys.argv[1])
     ny = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     input_grid = numpy.random.random([nx, ny, nz]).astype(numpy.float32) * 1024
 
-    laplacian = LaplacianKernel(backend='ocl')
+    laplacian = LaplacianKernel(backend='c')
     with Timer() as s_t:
         a = laplacian(input_grid)
     print("Specialized time {:0.3f}s".format(s_t.interval))

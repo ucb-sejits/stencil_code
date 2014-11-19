@@ -3,7 +3,6 @@ from nose.tools import assert_list_equal
 import numpy
 from stencil_code.neighborhood import Neighborhood
 
-from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_kernel2 import Stencil
 
 
