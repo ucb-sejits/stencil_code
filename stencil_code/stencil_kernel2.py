@@ -394,7 +394,7 @@ class Stencil(object):
                     "opencl": StencilOclTransformer,
                     "python": None}
 
-    boundary_handling_list = ['clamp', 'copy', 'wrap']
+    boundary_handling_list = ['clamp', 'zero', 'copy', 'wrap']
 
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
@@ -443,6 +443,7 @@ class Stencil(object):
         self.is_clamped = boundary_handling == 'clamp'
         self.is_warped = boundary_handling == 'warp'
         self.is_copied = boundary_handling == 'copy'
+        self.is_zeroed = boundary_handling == 'zero'
 
         self.current_shape = None  # this is used to communicate shape info from interior points to neighbors
 
