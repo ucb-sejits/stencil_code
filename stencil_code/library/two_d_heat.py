@@ -7,10 +7,6 @@ that the time steps will be run in the correct order
 from __future__ import print_function
 from stencil_code.stencil_kernel2 import Stencil
 
-import logging
-
-logging.basicConfig(level=20)
-
 import numpy
 from ctree.util import Timer
 
@@ -35,7 +31,10 @@ class TwoDHeatFlow(Stencil):
                 out_grid[x] -= 0.25 * in_grid[z]
 
 if __name__ == '__main__':
-    kernel = TwoDHeatFlow(backend='c')
+    # import logging
+    # logging.basicConfig(level=20)
+
+    kernel = TwoDHeatFlow(backend='ocl')
     py_kernel = TwoDHeatFlow(backend='python')
     simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
 
@@ -45,8 +44,7 @@ if __name__ == '__main__':
     with Timer() as py_time:
         b = py_kernel(simulation_space)
 
-    # Python mode doesn't clamp yet
-    numpy.testing.assert_array_almost_equal(a[1:-1, 1:-1, 1:-1], b[1:-1, 1:-1, 1:-1])
+    numpy.testing.assert_array_almost_equal(a, b)
 
     print("Specialized Time: %.03fs" % t.interval)
     print("Python Time: %.03fs" % py_time.interval)

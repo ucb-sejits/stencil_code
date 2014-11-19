@@ -578,7 +578,7 @@ class StencilOclTransformer(StencilBackend):
                                         get_local_size(d))
                                 ), Constant(self.kernel.ghost_depth[d]))),
                                     Constant(0), Constant(
-                                        self.arg_cfg[0].shape[d]
+                                        self.arg_cfg[0].shape[d]-1
                                     )
                                 ]
                             ) for d in range(0, dim)]

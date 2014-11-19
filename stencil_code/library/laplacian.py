@@ -5,9 +5,6 @@ import numpy.testing
 
 import sys
 
-# import logging
-# logging.basicConfig(level=0)
-
 
 class LaplacianKernel(Stencil):
     neighborhoods = [
@@ -33,9 +30,12 @@ class LaplacianKernel(Stencil):
         return out_grid
 
 if __name__ == '__main__':
-    nx = 1024 if len(sys.argv) <= 1 else int(sys.argv[1])
-    ny = 1024 if len(sys.argv) <= 2 else int(sys.argv[2])
-    nz = 32 if len(sys.argv) <= 3 else int(sys.argv[3])
+    # import logging
+    # logging.basicConfig(level=0)
+
+    nx = 8 if len(sys.argv) <= 1 else int(sys.argv[1])
+    ny = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
+    nz = 128 if len(sys.argv) <= 3 else int(sys.argv[3])
 
     input_grid = numpy.random.random([nx, ny, nz]).astype(numpy.float32) * 1024
 
@@ -46,10 +46,9 @@ if __name__ == '__main__':
     print("a.shape {}".format(a.shape))
 
     # too slow to compare directly, this will apply python method to just a subset
-    smaller_input_grid = input_grid[:64, :64, :nz]
     py = LaplacianKernel(backend='python')
     with Timer() as py_t:
-        b = py(smaller_input_grid)
-    numpy.testing.assert_array_almost_equal(a[2:62, 2:62, 2:nz-2], b[2:62, 2:62, 2:nz-2], decimal=4)
+        b = py(input_grid)
+    numpy.testing.assert_array_almost_equal(a, b, decimal=4)
     print("PASSED")
     print("Py time {:0.3f}".format(py_t.interval))

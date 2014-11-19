@@ -394,7 +394,7 @@ class Stencil(object):
                     "opencl": StencilOclTransformer,
                     "python": None}
 
-    boundary_handling_list = ['clamp', 'copy', 'warp']
+    boundary_handling_list = ['clamp', 'copy', 'wrap']
 
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
@@ -511,9 +511,13 @@ class Stencil(object):
         :param x: the matrix to iterate over, typically this is the output matrix
         :return:
         """
-        self.current_shape = x.shape
-        dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
-                for index, dim in enumerate(x.shape))
+        if self.is_clamped:
+            self.current_shape = x.shape
+            dims = (range(0, dim) for index, dim in enumerate(x.shape))
+        else:
+            dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
+                    for index, dim in enumerate(x.shape))
+
         for item in itertools.product(*dims):
             yield tuple(item)
 

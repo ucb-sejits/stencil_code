@@ -2,9 +2,6 @@ from stencil_code.stencil_kernel2 import Stencil
 import numpy
 import numpy.testing
 
-# import logging
-# logging.basicConfig(level=20)
-
 
 class Jacobi(Stencil):
     neighborhoods = [[(0, -1), (0, 1)], [(-1, 0), (1, 0)]]
@@ -18,6 +15,9 @@ class Jacobi(Stencil):
 
 
 if __name__ == '__main__':
+    # import logging
+    # logging.basicConfig(level=20)
+
     in_img = numpy.random.random([1024, 1024]).astype(numpy.float32) * 100
 
     jacobi_stencil = Jacobi(backend='ocl')
@@ -25,4 +25,4 @@ if __name__ == '__main__':
 
     out_img = jacobi_stencil(in_img)
     check = py(in_img)
-    numpy.testing.assert_array_almost_equal(out_img[1:-1, 1:-1], check[1:-1, 1:-1], decimal=4)
+    numpy.testing.assert_array_almost_equal(out_img, check, decimal=4)
