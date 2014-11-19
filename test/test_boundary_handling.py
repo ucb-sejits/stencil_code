@@ -45,10 +45,15 @@ class TestBoundaryHandling(unittest.TestCase):
         )
 
     def test_clamped(self):
+        """
+        zero boundary handling should just leave zero's in grid halo
+        :return:
+        """
+        #TODO: currently ocl backend does not support anything but clamped
         in_grid = numpy.ones([10, 10])
 
         python_clamped_kernel = DiagnosticStencil(backend='python', boundary_handling='clamp')
-        c_clamped_kernel = DiagnosticStencil(backend='python', boundary_handling='clamp')
+        c_clamped_kernel = DiagnosticStencil(backend='c', boundary_handling='clamp')
         python_clamped_out = python_clamped_kernel(in_grid)
         c_clamped_out = c_clamped_kernel(in_grid)
 
@@ -56,7 +61,7 @@ class TestBoundaryHandling(unittest.TestCase):
         self.assertTrue(python_clamped_out[0, 0] == 30)
 
         python_unclamped_kernel = DiagnosticStencil(backend='python', boundary_handling='zero')
-        c_unclamped_kernel = DiagnosticStencil(backend='python', boundary_handling='zero')
+        c_unclamped_kernel = DiagnosticStencil(backend='c', boundary_handling='zero')
         python_unclamped_out = python_unclamped_kernel(in_grid)
         c_unclamped_out = c_unclamped_kernel(in_grid)
 
