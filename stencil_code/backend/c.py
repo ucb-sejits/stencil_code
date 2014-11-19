@@ -43,6 +43,13 @@ class StencilCTransformer(StencilBackend):
         return [StringTemplate("#include <time.h>"), abs_decl, min_macro, clamp_macro, node]
 
     def visit_InteriorPointsLoop(self, node):
+        """
+        generate the c for loops necessary to represent the interior points iteration
+        if this kernel is clamped then, iterate over all points and use clamping in the
+        input array references on the kernel code
+        :param node:
+        :return:
+        """
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
         curr_node = None
@@ -50,16 +57,27 @@ class StencilCTransformer(StencilBackend):
         for d in range(dim):
             target = self.gen_fresh_var()
             self.var_list.append(target)
-            for_loop = For(
-                Assign(SymbolRef(target, c_int()),
-                       Constant(self.ghost_depth[d])),
-                LtE(SymbolRef(target),
-                    Constant(
-                        self.output_grid.shape[d] -
-                        self.ghost_depth[d] - 1)
-                    ),
-                PostInc(SymbolRef(target)),
-                [])
+            if self.is_clamped:
+                for_loop = For(
+                    Assign(SymbolRef(target, c_int()),
+                           Constant(0)),
+                    LtE(SymbolRef(target),
+                        Constant(
+                            self.output_grid.shape[d] - 1)
+                        ),
+                    PostInc(SymbolRef(target)),
+                    [])
+            else:
+                for_loop = For(
+                    Assign(SymbolRef(target, c_int()),
+                           Constant(self.ghost_depth[d])),
+                    LtE(SymbolRef(target),
+                        Constant(
+                            self.output_grid.shape[d] -
+                            self.ghost_depth[d] - 1)
+                        ),
+                    PostInc(SymbolRef(target)),
+                    [])
 
             if d == 0:
                 ret_node = for_loop
@@ -124,6 +142,6 @@ class StencilCTransformer(StencilBackend):
         raise Exception("Found GridElement that is not supported")
 
     def gen_clamped_index(self, symbol_ref, max_index):
-        return FunctionCall('clamped', [symbol_ref, Constant(0), Constant(max_index)])
+        return FunctionCall('clamp', [symbol_ref, Constant(0), Constant(max_index)])
 
 
