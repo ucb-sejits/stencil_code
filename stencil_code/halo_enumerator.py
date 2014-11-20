@@ -15,7 +15,7 @@ class HaloEnumerator(object):
         :param shape: the size of each dimension of the matrix to iterate over
         :return:
         """
-        assert(len(halo) == len(shape), "HaloEnumerator halo {} must have same dimensions as shape")
+        assert len(halo) == len(shape), "HaloEnumerator halo({}) and shape({}) must be same size".format(halo, shape)
 
         self.halo = halo
         self.shape = shape
@@ -61,14 +61,13 @@ class HaloEnumerator(object):
 
         for dimension in range(len(self.shape)):
             # print("constraint {}".format(constraint))
+            point = [0 for _ in self.shape]
             for fixed_surface_index in range(0, self.halo[dimension]):
-                point = [0 for _ in self.shape]
                 point[dimension] = fixed_surface_index
                 for surface_point in self.other_dimension_iterator(dimension, 0, constraint, point):
                     yield surface_point
 
             for fixed_surface_index in range(self.shape[dimension]-self.halo[dimension], self.shape[dimension]):
-                point = [0 for _ in self.shape]
                 point[dimension] = fixed_surface_index
                 for surface_point in self.other_dimension_iterator(dimension, 0, constraint, point):
                     yield surface_point
@@ -87,5 +86,6 @@ class HaloEnumerator(object):
             yield next_point
 
 
-for halo_index in HaloEnumerator([1, 1], [5, 5]):
-    print("border point {}".format(halo_index))
+if __name__ == '__main__':
+    for halo_index in HaloEnumerator([1, 1], [5, 5]):
+        print("border point {}".format(halo_index))

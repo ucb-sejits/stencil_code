@@ -514,7 +514,7 @@ class Stencil(object):
         """
         if self.is_clamped:
             self.current_shape = x.shape
-            dims = (range(0, dim) for index, dim in enumerate(x.shape))
+            dims = (range(0, dim) for dim in x.shape)
         else:
             dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
                     for index, dim in enumerate(x.shape))
