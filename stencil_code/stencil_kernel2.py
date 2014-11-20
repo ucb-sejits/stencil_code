@@ -574,3 +574,12 @@ class Stencil(object):
     def clamp(x, min_x, max_x):
         return max(min_x, min(x, max_x-1))
 
+    def halo_points(self, grid):
+        """
+        generator for points not in the interior of the specified grid based on this stencil's
+        ghost_depth and boundary handling
+        :param grid:
+        :return:
+        """
+        shape = grid.shape
+
