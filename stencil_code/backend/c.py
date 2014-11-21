@@ -45,8 +45,12 @@ class StencilCTransformer(StencilBackend):
     def visit_InteriorPointsLoop(self, node):
         """
         generate the c for loops necessary to represent the interior points iteration
-        if this kernel is clamped then, iterate over all points and use clamping in the
-        input array references on the kernel code
+        for boundary_handling
+        if clamped then, iterate over all points and use clamping in the
+            input array references on the kernel code
+        if copied then
+            insert an if before the unrolled neighbor stuff to do a direct copy from
+            the original input_grid
         :param node:
         :return:
         """
@@ -57,7 +61,7 @@ class StencilCTransformer(StencilBackend):
         for d in range(dim):
             target = self.gen_fresh_var()
             self.var_list.append(target)
-            if self.is_clamped:
+            if self.is_clamped or self.is_copied:
                 for_loop = For(
                     Assign(SymbolRef(target, c_int()),
                            Constant(0)),
@@ -89,11 +93,48 @@ class StencilCTransformer(StencilBackend):
         macro = self.gen_array_macro(self.output_grid_name, pt)
         curr_node.body = [Assign(SymbolRef(self.output_index, c_int()),
                                  macro)]
-        for elem in map(self.visit, node.body):
-            if type(elem) == list:
-                curr_node.body.extend(elem)
-            else:
-                curr_node.body.append(elem)
+
+        if self.is_copied:
+            # this a little hokey but if we are in boundary copy mode
+            # we change the for loops above to visit everything and
+            # then we test to see if the any of the values are in the halo zone
+            # and if so we just copy straight from in_grid, otherwise we
+            # do the neighborhood unrolling
+            def test_index_in_halo(index):
+                return Or(
+                        Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
+                        Gt(SymbolRef(self.var_list[index]), Constant(self.output_grid.shape[index] - (self.ghost_depth[index] + 1))),
+                        )
+
+            def boundary_or(index):
+                if index < len(self.var_list) - 1:
+                    return Or(test_index_in_halo(index), boundary_or(index+1))
+                else:
+                    return test_index_in_halo(index)
+
+            then_block = Assign(
+                ArrayRef(SymbolRef(self.output_grid_name), SymbolRef(self.output_index)),
+                ArrayRef(SymbolRef('in_grid'), SymbolRef(self.output_index)),
+                )
+            else_block = []
+            for elem in map(self.visit, node.body):
+                if type(elem) == list:
+                    else_block.extend(elem)
+                else:
+                    else_block.append(elem)
+            if_boundary_block = If(
+                boundary_or(0),
+                then_block,
+                else_block
+            )
+            curr_node.body.append(if_boundary_block)
+        else:
+            for elem in map(self.visit, node.body):
+                if type(elem) == list:
+                    curr_node.body.extend(elem)
+                else:
+                    curr_node.body.append(elem)
+
         self.kernel_target = None
         return ret_node
 
