@@ -32,7 +32,7 @@ import ctree.ocl
 from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
-from .backend.ocl import StencilOclTransformer, StencilOclSemanticTransformer
+from .backend.ocl import StencilOclTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
@@ -374,14 +374,6 @@ class StencilCall(ast.AST):
             self.input_grids, self.output_grid, self.kernel,
             block_padding
         ).visit(self.function_decl)
-
-    def backend_semantic_transform(self, fusion_padding):
-        self.function_decl = StencilOclSemanticTransformer(
-            self.input_grids, self.output_grid, self.kernel,
-            fusion_padding
-        ).visit(self.function_decl)
-        self.body = self.function_decl.defn
-        self.params = self.function_decl.params
 
 
 class Stencil(object):
