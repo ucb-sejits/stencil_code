@@ -47,7 +47,7 @@ import itertools
 import abc
 
 from hindemith.fusion.core import Fusable
-
+from stencil_code.halo_enumerator import HaloEnumerator
 
 class ConcreteStencil2(ConcreteSpecializedFunction):
     """StencilFunction
@@ -583,5 +583,6 @@ class Stencil(object):
         :param grid:
         :return:
         """
-        shape = grid.shape
+        for halo_point in HaloEnumerator(self.ghost_depth, grid.shape):
+            yield halo_point
 
