@@ -69,7 +69,7 @@ class TestBoundaryHandling(unittest.TestCase):
         numpy.testing.assert_array_almost_equal(python_unclamped_out, c_unclamped_out, decimal=4)
         self.assertTrue(python_unclamped_out[0, 0] == 0)
 
-    def test_copied(self):
+    def test_copied_for_python(self):
         in_grid = numpy.ones([5, 5]).astype(numpy.float32)
         python_copy_boundary_kernel = DiagnosticStencil(backend='python', boundary_handling='copy')
         copy_out_grid = python_copy_boundary_kernel(in_grid)
