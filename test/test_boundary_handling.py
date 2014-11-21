@@ -68,3 +68,23 @@ class TestBoundaryHandling(unittest.TestCase):
         # print(python_unclamped_out)
         numpy.testing.assert_array_almost_equal(python_unclamped_out, c_unclamped_out, decimal=4)
         self.assertTrue(python_unclamped_out[0, 0] == 0)
+
+    def test_copied(self):
+        in_grid = numpy.ones([5, 5]).astype(numpy.float32)
+        python_copy_boundary_kernel = DiagnosticStencil(backend='python', boundary_handling='copy')
+        copy_out_grid = python_copy_boundary_kernel(in_grid)
+
+        compare_list = [1. for _ in range(5)]
+        assert_list_equal(list(copy_out_grid[0]), compare_list)
+        assert_list_equal(list(copy_out_grid[4]), compare_list)
+        assert_list_equal(list(copy_out_grid[:][0]), compare_list)
+        assert_list_equal(list(copy_out_grid[:][4]), compare_list)
+
+        python_clamp_boundary_kernel = DiagnosticStencil(backend='python', boundary_handling='clamp')
+        copy_out_grid = python_clamp_boundary_kernel(in_grid)
+
+        compare_list = [30. for _ in range(5)]
+        assert_list_equal(list(copy_out_grid[0]), compare_list)
+        assert_list_equal(list(copy_out_grid[4]), compare_list)
+        assert_list_equal(list(copy_out_grid[:][0]), compare_list)
+        assert_list_equal(list(copy_out_grid[:][4]), compare_list)

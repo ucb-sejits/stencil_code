@@ -481,8 +481,14 @@ class Stencil(object):
         :param args:
         :return:
         """
-        output = np.zeros_like(args[0])
+        input_grid = args[0]
+        output = np.zeros_like(input_grid)
         self.kernel(*(args + (output,)))
+
+        if self.is_copied:
+            for point in self.halo_points(input_grid):
+                output[point] = input_grid[point]
+
         return output
 
     @property
@@ -517,6 +523,9 @@ class Stencil(object):
         if self.is_clamped:
             self.current_shape = x.shape
             dims = (range(0, dim) for dim in x.shape)
+        elif self.is_copied:
+            dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
+                    for index, dim in enumerate(x.shape))
         else:
             dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
                     for index, dim in enumerate(x.shape))
