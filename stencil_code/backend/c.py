@@ -1,6 +1,5 @@
 __author__ = 'leonardtruong'
 from ctree.cpp.nodes import CppDefine
-from ctree.templates.nodes import StringTemplate
 from .stencil_backend import *
 from ctypes import c_int, POINTER, c_float
 
@@ -10,8 +9,8 @@ class StencilCTransformer(StencilBackend):
         super(StencilCTransformer, self).visit_FunctionDecl(node)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
             defname = "_%s_array_macro" % node.params[index].name
-            params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
-            params = "(%s)" % params
+            # params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
+            # params = "(%s)" % params
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
                 ndim = str(int(arg.strides[x]/arg.itemsize))
@@ -23,11 +22,8 @@ class StencilCTransformer(StencilBackend):
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
         min_macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
-                          TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
-                          SymbolRef('_a'), SymbolRef('_b')))
-        max_macro = CppDefine("max", [SymbolRef('_a'), SymbolRef('_b')],
-                          TernaryOp(Gt(SymbolRef('_a'), SymbolRef('_b')),
-                          SymbolRef('_b'), SymbolRef('_a')))
+                              TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
+                                        SymbolRef('_a'), SymbolRef('_b')))
         clamp_macro = CppDefine(
             "clamp", [SymbolRef('_a'), SymbolRef('_min_a'), SymbolRef('_max_a')],
             StringTemplate("(_a>_max_a?_max_a:_a)<_min_a?_min_a:(_a>_max_a?_max_a:_a)"),
@@ -102,9 +98,10 @@ class StencilCTransformer(StencilBackend):
             # do the neighborhood unrolling
             def test_index_in_halo(index):
                 return Or(
-                        Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
-                        Gt(SymbolRef(self.var_list[index]), Constant(self.output_grid.shape[index] - (self.ghost_depth[index] + 1))),
-                        )
+                    Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
+                    Gt(SymbolRef(self.var_list[index]),
+                       Constant(self.output_grid.shape[index] - (self.ghost_depth[index] + 1))),
+                )
 
             def boundary_or(index):
                 if index < len(self.var_list) - 1:
@@ -115,7 +112,7 @@ class StencilCTransformer(StencilBackend):
             then_block = Assign(
                 ArrayRef(SymbolRef(self.output_grid_name), SymbolRef(self.output_index)),
                 ArrayRef(SymbolRef('in_grid'), SymbolRef(self.output_index)),
-                )
+            )
             else_block = []
             for elem in map(self.visit, node.body):
                 if type(elem) == list:
@@ -145,6 +142,10 @@ class StencilCTransformer(StencilBackend):
         :param node:
         :return:
         """
+
+        def gen_clamped_index(symbol_ref, max_index):
+            return FunctionCall('clamp', [symbol_ref, Constant(0), Constant(max_index)])
+
         grid_name = node.grid_name
         target = node.target
         if isinstance(target, SymbolRef):
@@ -157,7 +158,9 @@ class StencilCTransformer(StencilBackend):
                     # grid = self.input_dict[grid_name]
                     if self.is_clamped:
                         grid = self.input_dict[grid_name]
-                        pt = list(map(lambda d: self.gen_clamped_index(self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
+                        pt = list(
+                            map(lambda d: gen_clamped_index(
+                                self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
                     else:
                         pt = list(map(lambda x: SymbolRef(x), self.var_list))
 
@@ -168,7 +171,7 @@ class StencilCTransformer(StencilBackend):
                 if self.is_clamped:
                     grid = self.input_dict[grid_name]
                     pt = list(map(
-                        lambda d, y: self.gen_clamped_index(
+                        lambda d, y: gen_clamped_index(
                             Add(SymbolRef(self.var_list[d]), Constant(y)),
                             grid.shape[d]-1), range(len(self.var_list)), self.offset_list
                     ))
@@ -181,8 +184,3 @@ class StencilCTransformer(StencilBackend):
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise Exception("Found GridElement that is not supported")
-
-    def gen_clamped_index(self, symbol_ref, max_index):
-        return FunctionCall('clamp', [symbol_ref, Constant(0), Constant(max_index)])
-
-

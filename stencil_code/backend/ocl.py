@@ -8,9 +8,8 @@ from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 from hindemith.fusion.core import KernelCall
 from stencil_code.stencil_exception import StencilException
-from ..stencil_model import MathFunction, OclNeighborLoop, MacroDefns, \
-    LoadSharedMemBlock
-from .stencil_backend import StencilBackend
+from stencil_code.stencil_model import MathFunction, OclNeighborLoop, MacroDefns, LoadSharedMemBlock
+from stencil_code.backend.stencil_backend import StencilBackend
 import ctypes as ct
 import pycl as cl
 
