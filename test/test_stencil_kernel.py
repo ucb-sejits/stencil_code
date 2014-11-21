@@ -1,7 +1,7 @@
 import unittest
 
 from stencil_code.stencil_exception import StencilException
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 
 
 class TestStencilKernel(unittest.TestCase):

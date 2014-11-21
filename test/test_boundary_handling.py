@@ -5,7 +5,7 @@ import numpy.testing
 from stencil_code.library.diagnostic_stencil import DiagnosticStencil
 from stencil_code.neighborhood import Neighborhood
 
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 
 
 class TestBoundaryHandling(unittest.TestCase):

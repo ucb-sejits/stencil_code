@@ -1,6 +1,6 @@
 import unittest
 
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 from stencil_code.backend.omp import *
 from ctree.transformations import PyBasicConversions
 

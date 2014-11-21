@@ -8,7 +8,7 @@ import numpy.testing
 import math
 
 from stencil_code.neighborhood import Neighborhood
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 
 # import logging
 # logging.basicConfig(level=20)

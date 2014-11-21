@@ -8,7 +8,7 @@ import itertools
 from operator import mul
 
 from stencil_code.halo_enumerator import HaloEnumerator
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 
 
 class TestHaloEnumerator(unittest.TestCase):

@@ -5,7 +5,7 @@ TODO: figure out if this works at all, seems like there is no guarantee
 that the time steps will be run in the correct order
 """
 from __future__ import print_function
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 
 import numpy
 from ctree.util import Timer

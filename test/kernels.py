@@ -1,4 +1,4 @@
-from stencil_code.stencil_kernel2 import Stencil
+from stencil_code.stencil_kernel import Stencil
 from stencil_code.neighborhood import Neighborhood
 import numpy
 import math

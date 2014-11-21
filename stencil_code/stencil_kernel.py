@@ -49,7 +49,7 @@ import abc
 from hindemith.fusion.core import Fusable
 from stencil_code.halo_enumerator import HaloEnumerator
 
-class ConcreteStencil2(ConcreteSpecializedFunction):
+class ConcreteStencil(ConcreteSpecializedFunction):
     """StencilFunction
 
     The standard concrete specialized function that is returned when using the
@@ -96,7 +96,7 @@ class ConcreteStencil2(ConcreteSpecializedFunction):
         return output
 
 
-class OclStencilFunction2(ConcreteSpecializedFunction):
+class OclStencilFunction(ConcreteSpecializedFunction):
     """OclStencilFunction
 
     The ConcreteSpecializedFunction used by the OpenCL backend.  Allows us to
@@ -173,7 +173,7 @@ StencilArgConfig = namedtuple(
 )
 
 
-class SpecializedStencil2(LazySpecializedFunction, Fusable):
+class SpecializedStencil(LazySpecializedFunction, Fusable):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
@@ -197,7 +197,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
         self.backend = self.backend_dict[backend]
         self.output = None
         self.args = None
-        super(SpecializedStencil2, self).__init__(get_ast(stencil_kernel.kernel))
+        super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel))
 
         Fusable.__init__(self)
 
@@ -315,7 +315,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
 
     def finalize(self, tree, entry_type, entry_point):
         if self.backend == StencilOclTransformer:
-            fn = OclStencilFunction2()
+            fn = OclStencilFunction()
             kernel = tree.find(OclFile)
             program = clCreateProgramWithSource(fn.context,
                                                 kernel.codegen()).build()
@@ -326,7 +326,7 @@ class SpecializedStencil2(LazySpecializedFunction, Fusable):
                 self.output
             )
         else:
-            fn = ConcreteStencil2()
+            fn = ConcreteStencil()
             finalized = fn.finalize(tree, entry_point, entry_type,
                                     self.output)
         self.output = None
@@ -461,7 +461,7 @@ class Stencil(object):
         if backend == 'python':
             self.specializer = self.python_kernel_wrapper
         elif backend in ['c', 'omp', 'ocl']:
-            self.specializer = SpecializedStencil2(self, backend,)
+            self.specializer = SpecializedStencil(self, backend,)
         self.model = self.kernel
 
         self.should_unroll = kwargs.get('should_unroll', True)
