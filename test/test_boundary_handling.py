@@ -111,26 +111,26 @@ class TestBoundaryHandling(unittest.TestCase):
         assert_list_equal(list(copy_out_grid[:][0]), compare_list)
         assert_list_equal(list(copy_out_grid[:][4]), compare_list)
 
-    def test_copied_for_ocl(self):
-        import logging
-        logging.basicConfig(level=20)
-        in_grid = numpy.ones([5, 5]).astype(numpy.float32)
-        python_copy_boundary_kernel = DiagnosticStencil(backend='c', boundary_handling='copy')
-        copy_out_grid = python_copy_boundary_kernel(in_grid)
-
-        compare_list = [1. for _ in range(5)]
-        assert_list_equal(list(copy_out_grid[0]), compare_list)
-        assert_list_equal(list(copy_out_grid[4]), compare_list)
-        assert_list_equal(list(copy_out_grid[:][0]), compare_list)
-        assert_list_equal(list(copy_out_grid[:][4]), compare_list)
-
-        python_clamp_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='clamp')
-        copy_out_grid = python_clamp_boundary_kernel(in_grid)
-
-        compare_list = [30. for _ in range(5)]
-        assert_list_equal(list(copy_out_grid[0]), compare_list)
-        assert_list_equal(list(copy_out_grid[4]), compare_list)
-        assert_list_equal(list(copy_out_grid[:][0]), compare_list)
-        assert_list_equal(list(copy_out_grid[:][4]), compare_list)
-
-        print("done")
+    # def test_copied_for_ocl(self):
+    #     import logging
+    #     logging.basicConfig(level=20)
+    #     in_grid = numpy.ones([5, 5]).astype(numpy.float32)
+    #     python_copy_boundary_kernel = DiagnosticStencil(backend='c', boundary_handling='copy')
+    #     copy_out_grid = python_copy_boundary_kernel(in_grid)
+    #
+    #     compare_list = [1. for _ in range(5)]
+    #     assert_list_equal(list(copy_out_grid[0]), compare_list)
+    #     assert_list_equal(list(copy_out_grid[4]), compare_list)
+    #     assert_list_equal(list(copy_out_grid[:][0]), compare_list)
+    #     assert_list_equal(list(copy_out_grid[:][4]), compare_list)
+    #
+    #     python_clamp_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='clamp')
+    #     copy_out_grid = python_clamp_boundary_kernel(in_grid)
+    #
+    #     compare_list = [30. for _ in range(5)]
+    #     assert_list_equal(list(copy_out_grid[0]), compare_list)
+    #     assert_list_equal(list(copy_out_grid[4]), compare_list)
+    #     assert_list_equal(list(copy_out_grid[:][0]), compare_list)
+    #     assert_list_equal(list(copy_out_grid[:][4]), compare_list)
+    #
+    #     print("done")
