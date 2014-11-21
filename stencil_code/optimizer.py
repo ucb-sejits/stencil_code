@@ -60,7 +60,7 @@ def block_loops(inner, unblocked, block_factor):
     # need to update inner to point to the innermost in the new blocked version
     inner = FindInnerMostLoop().find(blocked)
 
-    assert (inner != None)
+    assert (inner is not None)
     return [inner, blocked]
 
 
