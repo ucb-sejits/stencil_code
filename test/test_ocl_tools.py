@@ -23,6 +23,7 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(product([1]) == 1)
         self.assertTrue(product([2, 3, 4]) == 24)
 
+    @unittest.skip("not generalized for different devices")
     def test_compute_local_group_size_1d(self):
         tools = OclTools()
 
@@ -51,6 +52,7 @@ class TestOclTools(unittest.TestCase):
         print("local_size {}".format(tools.compute_local_size_2d([512, 513])))
         print("local_size {}".format(tools.compute_local_size_2d([101, 1025])))
         print("local_size {}".format(tools.compute_local_size_2d([5120, 32])))
+        print("local_size {}".format(tools.compute_local_size_2d([5120011, 320001])))
 
         shape = [102, 7]
 

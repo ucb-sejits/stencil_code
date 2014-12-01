@@ -2,7 +2,6 @@ from __future__ import print_function
 __author__ = 'chick'
 
 from operator import mul
-import numpy
 
 
 def product(vector):
@@ -13,12 +12,13 @@ class OclTools(object):
     def __init__(self, device=None):
         if device is not None:
             self.max_work_group_size = device.max_work_group_size
+            self.max_local_group_sizes = device.max_local_group_sizes
+            self.max_compute_units = device.max_compute_units
         else:
             # these settings are for testing only
             self.max_work_group_size = 512
             self.max_local_group_sizes = [512, 512, 512]
             self.max_compute_units = 40
-
 
     def compute_local_size_1d(self, shape):
         """
@@ -34,12 +34,19 @@ class OclTools(object):
         :param shape:
         :return:
         """
-        d0_size, d1_size = 1, 1
         grid_size = product(shape)
         if grid_size < self.max_work_group_size:
             return tuple(shape)
 
         def get_work_group_for_divisor(dim_divisor):
+            """
+            generated a legal work group size when dividing up the right most dimension
+            in dim_divisor pieces,
+            the adjustment tries to make the division of the shape a little bigger to so the 1/dim_divisor
+            sizes will just cover the shape in that dimension
+            :param dim_divisor:
+            :return:
+            """
             adjust = 0 if shape[1] % 2 == 0 else 1
             d1_size = min((shape[1]/dim_divisor) + adjust, self.max_local_group_sizes[1])
             d0_size = min(self.max_work_group_size / d1_size, self.max_local_group_sizes[0])
