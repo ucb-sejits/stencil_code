@@ -4,12 +4,7 @@ from stencil_code.neighborhood import Neighborhood
 __author__ = 'chick'
 
 import unittest
-import numpy
-import itertools
-from operator import mul
 
-from stencil_code.halo_enumerator import HaloEnumerator
-from stencil_code.stencil_kernel import Stencil
 from stencil_code.backend.ocl_tools import product, OclTools
 
 
@@ -40,7 +35,7 @@ class TestOclTools(unittest.TestCase):
             tools.compute_local_size_1d([100]) == 50,
             "when smaller than work group divide by 2"
         )
-        print("ls1d {}".format(tools.compute_local_size_1d([1000])))
+        # print("ls1d {}".format(tools.compute_local_size_1d([1000])))
 
         self.assertTrue(
             tools.compute_local_size_1d([1000]) == 500,
@@ -55,10 +50,10 @@ class TestOclTools(unittest.TestCase):
     def test_compute_local_group_size_2d(self):
         # return the same kernel for MPU style device, macbookpro 2014
 
-        # tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
-        #
-        # self.assertTrue(tools.compute_local_size_2d([1, 101]) == (1, 1))
-        # self.assertTrue(tools.compute_local_size_2d([101, 1]) == (101, 1))
+        tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
+
+        self.assertTrue(tools.compute_local_size_2d([1, 101]) == (1, 1))
+        self.assertTrue(tools.compute_local_size_2d([101, 1]) == (101, 1))
 
         # this device looks like a 2014 Iris Pro
         # the following numbers have not yet been tested for optimality
@@ -77,3 +72,18 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(tools.compute_local_size_2d([5120, 32]) == (16, 32))
         self.assertTrue(tools.compute_local_size_2d([5120011, 320001]) == (1, 512))
         self.assertTrue(tools.compute_local_size_2d([102, 7]) == (102, 4))
+
+    def test_compute_local_group_size_3d(self):
+        tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
+
+        self.assertTrue(tools.compute_local_size_3d([1, 1, 101]) == (1, 1, 1))
+        self.assertTrue(tools.compute_local_size_3d([1, 101, 1]) == (1, 1, 1))
+        self.assertTrue(tools.compute_local_size_3d([101, 1, 1]) == (101, 1, 1))
+
+        tools = OclTools(MockDevice(512, [512, 512, 512], 40))
+
+        self.assertTrue(tools.compute_local_size_3d([1, 1, 101]) == (1, 1, 101))
+        self.assertTrue(tools.compute_local_size_3d([1, 101, 1]) == (1, 101, 1))
+        self.assertTrue(tools.compute_local_size_3d([101, 1, 1]) == (101, 1, 1))
+
+        self.assertTrue(tools.compute_local_size_3d([100, 512, 101]) == (1, 19, 26))
