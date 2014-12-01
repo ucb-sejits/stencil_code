@@ -2,13 +2,13 @@ from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
     FunctionDecl, GtE, Sub, Cast
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
-    clSetKernelArg, NULL, barrier, CLK_LOCAL_MEM_FENCE
+    clSetKernelArg, NULL
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 from hindemith.fusion.core import KernelCall
 from stencil_code.stencil_exception import StencilException
-from stencil_code.stencil_model import MathFunction, OclNeighborLoop, MacroDefns, LoadSharedMemBlock
+from stencil_code.stencil_model import MathFunction
 from stencil_code.backend.stencil_backend import StencilBackend
 import ctypes as ct
 import pycl as cl
@@ -24,6 +24,7 @@ class StencilOclTransformer(StencilBackend):
         self.stencil_op = []
         self.load_mem_block = []
         self.macro_defns = []
+        self.project = None
 
     def visit_Project(self, node):
         self.project = node
@@ -456,6 +457,16 @@ class StencilOclTransformer(StencilBackend):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise Exception(
             "Unsupported GridElement encountered: {0}".format(grid_name))
+
+    def generate_copy_boundary_kernels(self):
+        """
+        boundary copy kernels copy values in the input_grid boundary to the same index on the
+        out_grid.  There is one kernel generated for each dimension, that kernel will process
+        a the left and right planes (a plane for a dimension index d, is all points for other dimensions
+        that have a fixed value in the halo of that dimension).  The work group size is the size of the
+        entire matrix.
+        """
+        pass
 
 
 def gen_decls(dim, ghost_depth):

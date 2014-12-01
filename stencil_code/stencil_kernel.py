@@ -49,6 +49,7 @@ import abc
 from hindemith.fusion.core import Fusable
 from stencil_code.halo_enumerator import HaloEnumerator
 
+
 class ConcreteStencil(ConcreteSpecializedFunction):
     """StencilFunction
 
@@ -108,9 +109,11 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         function.
         """
         # TODO: Need dependency injection to control ocl device selection
+        self.desired_ocl_device = -1
         devices = cl.clGetDeviceIDs()
-        self.context, self.queue = get_context_and_queue_from_devices(
-            [devices[-1]])
+        self.context, self.queue = get_context_and_queue_from_devices([devices[self.desired_ocl_device]])
+        self.max_work_group_size = devices(self.desired_ocl_device).max_work_group_size
+
         # some variables that will be used that PEP-8 wants to see initialized in __init__
         self.kernel = None
         self.output = None
