@@ -34,10 +34,6 @@ class OclTools(object):
         :param shape:
         :return:
         """
-        grid_size = product(shape)
-        if grid_size < self.max_work_group_size:
-            return tuple(shape)
-
         def get_work_group_for_divisor(dim_divisor):
             """
             generated a legal work group size when dividing up the right most dimension
@@ -47,9 +43,9 @@ class OclTools(object):
             :param dim_divisor:
             :return:
             """
-            adjust = 0 if shape[1] % 2 == 0 else 1
+            adjust = 0 if shape[1] % 2 == 0 or dim_divisor == 1 else 1
             d1_size = min((shape[1]/dim_divisor) + adjust, self.max_local_group_sizes[1])
-            d0_size = min(self.max_work_group_size / d1_size, self.max_local_group_sizes[0])
+            d0_size = min(self.max_work_group_size / d1_size, self.max_local_group_sizes[0], shape[0])
             return d0_size, d1_size
 
         def compute_error(work_group_size):
@@ -69,11 +65,11 @@ class OclTools(object):
                     dimension_weight = work_groups_per_dim[dim]/float(total_work_groups)
                     return (work_group[dim] - remainder) * dimension_weight
 
-            error = sum([
+            local_error = sum([
                 error_for_dim(n)
                 for n in range(dimensions)
             ])
-            return error
+            return local_error
 
         best_work_group = None
         minimum_error = None
