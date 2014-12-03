@@ -6,9 +6,12 @@ from stencil_code.backend.ocl_tools import product, OclTools
 
 __author__ = 'chick'
 
+import ctypes as ct
 from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
-    FunctionDecl, GtE, Sub, Cast
+    FunctionDecl, GtE, Sub, Cast, If
+from ctree.ocl.macros import get_global_id, get_group_id
+
 from hindemith.fusion.core import KernelCall
 
 
@@ -53,13 +56,75 @@ class BoundaryCopyKernel(object):
         self.kernel_name = "boundary_copy_kernel_{}d_dim_{}".format(len(halo), dimension)
 
     def compute_global_size(self):
+        """
+        a boundary kernel will for the edge points in one dimension iterated over
+        all the points in higher indexed dimensions and interior points in
+        lower indexed dimensions.  Because global_size for this kernel is a subset of the
+        orginal grid it must be offset from the origin. OpenCL does not currently support this so
+        we must implement it ourselves in the kernel code
+        :return:
+        """
         dimension_sizes = [x for x in self.shape]
         dimension_offsets = [0 for _ in self.shape]
         for other_dimension in range(self.dimension):
             dimension_sizes[other_dimension] -= max(1, (2 * self.halo[other_dimension]))
-            dimension_offsets.append(self.halo[other_dimension])
+            dimension_offsets[other_dimension] = self.halo[other_dimension]
         dimension_sizes[self.dimension] = self.halo[self.dimension]
         return dimension_sizes, dimension_offsets
+
+    def generate_ocl_kernel(self):
+        """
+        generate OpenCL code to handle this slice of the boundary
+        :return:
+        """
+
+        # copy boundary points from in_grid to out_grid
+        body = []
+
+        global_idx = 'global_index'
+        self.output_index = global_idx
+        body.append(Assign(SymbolRef('global_index', ct.c_int()),
+                    self.gen_global_index()))
+
+        body.append(
+            Assign(
+                ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
+                ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
+            )
+        )
+
+    def gen_global_index(self):
+        dim = self.dimensions
+        index = get_global_id(dim - 1)
+        for d in reversed(range(dim - 1)):
+            stride = self.grid.strides[d] // \
+                self.grid.itemsize
+            index = Add(
+                index,
+                Mul(
+                    Add(
+                        get_global_id(d),
+                        Constant(self.global_offset(d))
+                    ),
+                    Constant(stride)
+                )
+            )
+        return index
+
+    def gen_index_in_bounds_conditional(self, body):
+        """
+        if local_size is not an even multiple of the global_size we have to pretend to bad the
+        global_size and then conditionally perform body when out of actual global_size
+        :param body:
+        :return:
+        """
+        # TODO: currently this functional always wraps with if but it should only do so on padded dims
+        conditional = Lt(get_group_id(0), Constant(self.global_offset(0)))
+        for dim in range(1, self.dimensions):
+            conditional = And(conditional, GtE(get_group_id(dim), Constant(self.global_offset(dim))))
+
+        return If(conditional, body)
+
 
 
 def boundary_kernel_factory(halo, grid, device=None):
@@ -92,7 +157,7 @@ if __name__ == '__main__':
                     print("dim {} {:16} {:16} ".format(
                         dim, in_grid.shape, halo
                     ), end="")
-                    print("global {:16} local {:16}".format(
-                        bk0.global_size, bk0.local_size
+                    print("global {:16} local {:16} {:16}".format(
+                        bk0.global_size, bk0.local_size, bk0.global_offset
                     ))
 
