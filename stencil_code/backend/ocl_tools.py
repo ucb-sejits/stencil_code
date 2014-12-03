@@ -77,35 +77,15 @@ class OclTools(object):
         """
         return min(shape[0]/2, self.max_local_group_sizes[0])
 
-    def compute_local_size_2d(self, shape):
-        """
-        2d local size
-        :param shape:
-        :return:
-        """
-        best_work_group = None
-        minimum_error = None
-        for divisor in range(1, 8):
-            work_group = self.get_work_group_for_divisor(shape, divisor)
-            error = self.compute_error(shape, work_group)
-
-            print("shape {} work_group {} error {}".format(shape, work_group, error))
-
-            if error == 0.0:
-                return work_group
-
-            if minimum_error is None or minimum_error > error:
-                minimum_error = error
-                best_work_group = work_group
-
-        return best_work_group
-
-    def compute_local_size_3d(self, shape):
+    def compute_local_size(self, shape):
         """
         3d local size
         :param shape:
         :return:
         """
+        if len(shape) == 1:
+            return min(shape[0]/2, self.max_local_group_sizes[0])
+
         best_work_group = None
         minimum_error = None
         for divisor in range(1, 8):

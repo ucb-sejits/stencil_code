@@ -29,18 +29,18 @@ class TestOclTools(unittest.TestCase):
 
         # chooses the minimum of shape / 2 and max local group size
         self.assertTrue(
-            tools.compute_local_size_1d([100]) == 50,
+            tools.compute_local_size([100]) == 50,
             "when smaller than work group divide by 2"
         )
-        # print("ls1d {}".format(tools.compute_local_size_1d([1000])))
+        # print("ls1d {}".format(tools.compute_local_size([1000])))
 
         self.assertTrue(
-            tools.compute_local_size_1d([1000]) == 500,
+            tools.compute_local_size([1000]) == 500,
             "when smaller than work group divide by 2"
         )
 
         self.assertTrue(
-            tools.compute_local_size_1d([10000]) == 512,
+            tools.compute_local_size([10000]) == 512,
             "when smaller than work group divide by 2"
         )
 
@@ -49,8 +49,8 @@ class TestOclTools(unittest.TestCase):
 
         tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
 
-        self.assertTrue(tools.compute_local_size_2d([1, 101]) == (1, 1))
-        self.assertTrue(tools.compute_local_size_2d([101, 1]) == (101, 1))
+        self.assertTrue(tools.compute_local_size([1, 101]) == (1, 1))
+        self.assertTrue(tools.compute_local_size([101, 1]) == (101, 1))
 
         # this device looks like a 2014 Iris Pro
         # the following numbers have not yet been tested for optimality
@@ -60,27 +60,27 @@ class TestOclTools(unittest.TestCase):
 
         tools = OclTools(MockDevice(512, [512, 512, 512], 40))
 
-        self.assertTrue(tools.compute_local_size_2d([1, 101]) == (1, 101))
-        self.assertTrue(tools.compute_local_size_2d([101, 1]) == (101, 1))
+        self.assertTrue(tools.compute_local_size([1, 101]) == (1, 101))
+        self.assertTrue(tools.compute_local_size([101, 1]) == (101, 1))
 
-        self.assertTrue(tools.compute_local_size_2d([512, 101]) == (19, 26))
-        self.assertTrue(tools.compute_local_size_2d([512, 513]) == (1, 257))
-        self.assertTrue(tools.compute_local_size_2d([300, 1025]) == (1, 342))
-        self.assertTrue(tools.compute_local_size_2d([5120, 32]) == (16, 32))
-        self.assertTrue(tools.compute_local_size_2d([5120011, 320001]) == (1, 512))
-        self.assertTrue(tools.compute_local_size_2d([102, 7]) == (102, 4))
+        self.assertTrue(tools.compute_local_size([512, 101]) == (19, 26))
+        self.assertTrue(tools.compute_local_size([512, 513]) == (1, 257))
+        self.assertTrue(tools.compute_local_size([300, 1025]) == (1, 342))
+        self.assertTrue(tools.compute_local_size([5120, 32]) == (16, 32))
+        self.assertTrue(tools.compute_local_size([5120011, 320001]) == (1, 512))
+        self.assertTrue(tools.compute_local_size([102, 7]) == (102, 4))
 
     def test_compute_local_group_size_3d(self):
         tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
 
-        self.assertTrue(tools.compute_local_size_3d([1, 1, 101]) == (1, 1, 1))
-        self.assertTrue(tools.compute_local_size_3d([1, 101, 1]) == (1, 1, 1))
-        self.assertTrue(tools.compute_local_size_3d([101, 1, 1]) == (101, 1, 1))
+        self.assertTrue(tools.compute_local_size([1, 1, 101]) == (1, 1, 1))
+        self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 1, 1))
+        self.assertTrue(tools.compute_local_size([101, 1, 1]) == (101, 1, 1))
 
         tools = OclTools(MockDevice(512, [512, 512, 512], 40))
 
-        self.assertTrue(tools.compute_local_size_3d([1, 1, 101]) == (1, 1, 101))
-        self.assertTrue(tools.compute_local_size_3d([1, 101, 1]) == (1, 101, 1))
-        self.assertTrue(tools.compute_local_size_3d([101, 1, 1]) == (101, 1, 1))
+        self.assertTrue(tools.compute_local_size([1, 1, 101]) == (1, 1, 101))
+        self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 101, 1))
+        self.assertTrue(tools.compute_local_size([101, 1, 1]) == (101, 1, 1))
 
-        self.assertTrue(tools.compute_local_size_3d([100, 512, 101]) == (1, 19, 26))
+        self.assertTrue(tools.compute_local_size([100, 512, 101]) == (1, 19, 26))
