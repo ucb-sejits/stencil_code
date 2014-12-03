@@ -69,14 +69,6 @@ class OclTools(object):
         ])
         return local_error
 
-    def compute_local_size_1d(self, shape):
-        """
-        1d local_size
-        :param shape:
-        :return:
-        """
-        return min(shape[0]/2, self.max_local_group_sizes[0])
-
     def compute_local_size(self, shape):
         """
         3d local size
