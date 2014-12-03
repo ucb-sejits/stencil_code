@@ -32,7 +32,10 @@ class OclTools(object):
         last_dim = len(shape) - 1
         penultimate_dim = last_dim - 1
         adjust = 0 if shape[last_dim] % 2 == 0 or dim_divisor == 1 else 1
-        last_dim_size = min((shape[last_dim]/dim_divisor) + adjust, self.max_local_group_sizes[last_dim])
+        last_dim_size = max(1, min(
+            (shape[last_dim]/dim_divisor) + adjust,
+            self.max_local_group_sizes[last_dim]
+        ))
         penultimate_dim_size = min(
             self.max_work_group_size / last_dim_size,
             self.max_local_group_sizes[penultimate_dim], shape[penultimate_dim]
@@ -84,7 +87,7 @@ class OclTools(object):
             work_group = self.get_work_group_for_divisor(shape, divisor)
             error = self.compute_error(shape, work_group)
 
-            print("shape {} work_group {} error {}".format(shape, work_group, error))
+            # print("shape {} work_group {} error {}".format(shape, work_group, error))
 
             if error == 0.0:
                 return work_group

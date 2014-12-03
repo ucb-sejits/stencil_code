@@ -26,4 +26,11 @@ class TestBoundaryKernel(unittest.TestCase):
 
         bk = BoundaryCopyKernel(halo, grid, 0)
 
-        print("local_size {}".format(bk.compute_local_group_size()))
+        print("grid {} halo {} global {} local {}".format(
+            shape, halo, bk.global_size, bk.local_size
+        ))
+
+    def test_exception_for_bad_halo_grid_values(self):
+        BoundaryCopyKernel([2, 3], numpy.ones([4, 423]), 1)
+
+

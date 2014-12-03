@@ -1,5 +1,6 @@
-from operator import mul
+from __future__ import print_function
 import numpy
+import numpy.random
 from stencil_code.stencil_exception import StencilException
 from stencil_code.backend.ocl_tools import product, OclTools
 
@@ -28,13 +29,26 @@ class BoundaryCopyKernel(object):
         self.halo = tuple(halo)
         self.grid = grid
         self.shape = grid.shape
+
+        # check for some pathologies and raise exception if any are present
+        if len(halo) != len(self.shape):
+            raise StencilException("halo {} can't apply to grid shape {}".format(self.halo, self.shape))
+        # halo or grid to small
+        if any([x < 1 or y < 1 for x, y in zip(self.halo, self.shape)]):
+            raise StencilException(
+                "halo {} can't be bigger than grid {} in any dimension".format(self.halo, self.shape)
+            )
+        # no interior points in a dimension
+        if any([s <= 2*h for h, s in zip(self.halo, self.shape)]):
+            raise StencilException("halo {} can't span grid shape {} in any dimension".format(self.halo, self.shape))
+
         self.dimension = dimension
         self.dimensions = len(grid.shape)
 
         self.device = device
 
         self.global_size, self.global_offset = self.compute_global_size()
-        self.local_size = OclTools.compute_local_size_1d()
+        self.local_size = OclTools(device=None).compute_local_size(self.global_size)
 
         self.kernel_name = "boundary_copy_kernel_{}d_dim_{}".format(len(halo), dimension)
 
@@ -42,10 +56,18 @@ class BoundaryCopyKernel(object):
         dimension_sizes = [x for x in self.shape]
         dimension_offsets = [0 for _ in self.shape]
         for other_dimension in range(self.dimension):
-            dimension_sizes[other_dimension] -= (2 * self.halo[other_dimension])
+            dimension_sizes[other_dimension] -= max(1, (2 * self.halo[other_dimension]))
             dimension_offsets.append(self.halo[other_dimension])
-        dimension_sizes[other_dimension] = self.halo[other_dimension]
+        dimension_sizes[self.dimension] = self.halo[self.dimension]
         return dimension_sizes, dimension_offsets
+
+
+def boundary_kernel_factory(halo, grid, device=None):
+    return [
+        BoundaryCopyKernel(halo, grid, dimension, device)
+        for dimension in range(len(grid.shape))
+    ]
+
 
 if __name__ == '__main__':
     import itertools
@@ -56,14 +78,21 @@ if __name__ == '__main__':
         shape_list = [8, 1014, 4096][:dims]
         for _ in range(dims):
             shape = numpy.random.random(shape_list).astype(numpy.int) + 1
-            halo = [2, 3, 5][:dims]
 
             print("Dimension {} {}".format(dims, "="*80))
             for shape in itertools.permutations(shape_list):
-                rand_shape = map(lambda x: numpy.random.randint(1, x), shape)
-                print("rand_shape {}".format(rand_shape))
-                halo = [2, 3, 5][:dims]
+                rand_shape = map(lambda x: numpy.random.randint(5, x), shape)
                 in_grid = numpy.zeros(rand_shape)
-                bk0 = BoundaryCopyKernel(halo, in_grid, 0)
-                print("{:16s} {:16s} local {:16s}".format(bk0.shape, bk0.halo, bk0.local_size))
+                halo = map(lambda x: numpy.random.randint(1, (max(2, (x-1)/2))), rand_shape)
+
+                print("shape {} halo {}".format(rand_shape, halo))
+                boundary_kernels = boundary_kernel_factory(halo, in_grid)
+
+                for dim, bk0 in enumerate(boundary_kernels):
+                    print("dim {} {:16} {:16} ".format(
+                        dim, in_grid.shape, halo
+                    ), end="")
+                    print("global {:16} local {:16}".format(
+                        bk0.global_size, bk0.local_size
+                    ))
 
