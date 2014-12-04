@@ -1,5 +1,6 @@
 from stencil_code.boundary_kernel import BoundaryCopyKernel
 from stencil_code.neighborhood import Neighborhood
+from stencil_code.stencil_exception import StencilException
 
 __author__ = 'chick'
 
@@ -25,12 +26,24 @@ class TestBoundaryKernel(unittest.TestCase):
         grid = numpy.ones(shape).astype(numpy.float32)
 
         bk = BoundaryCopyKernel(halo, grid, 0)
+        self.assertEqual(bk.global_size, [3, 7])
+        self.assertEqual(bk.global_offset, [0, 0])
 
-        print("grid {} halo {} global {} local {}".format(
-            shape, halo, bk.global_size, bk.local_size
-        ))
+        bk = BoundaryCopyKernel(halo, grid, 1)
+        self.assertEqual(bk.global_size, [96, 3])
+        self.assertEqual(bk.global_offset, [3, 0])
 
     def test_exception_for_bad_halo_grid_values(self):
-        BoundaryCopyKernel([2, 3], numpy.ones([4, 423]), 1)
+        with self.assertRaises(StencilException) as context:
+            BoundaryCopyKernel([2, 3], numpy.ones([4, 423]), 1)
+        self.assertTrue("can't span" in context.exception.message)
+
+        with self.assertRaises(StencilException) as context:
+            BoundaryCopyKernel([2, 3, 4], numpy.ones([4, 423]), 1)
+        self.assertTrue("can't apply" in context.exception.message)
+
+        with self.assertRaises(StencilException) as context:
+            BoundaryCopyKernel([0, 3], numpy.ones([4, 423]), 1)
+        self.assertTrue("can't be bigger" in context.exception.message)
 
 

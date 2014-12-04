@@ -43,7 +43,9 @@ class BoundaryCopyKernel(object):
             )
         # no interior points in a dimension
         if any([s <= 2*h for h, s in zip(self.halo, self.shape)]):
-            raise StencilException("halo {} can't span grid shape {} in any dimension".format(self.halo, self.shape))
+            raise StencilException(
+                "halo {} can't span grid shape {} in any dimension".format(self.halo, self.shape)
+            )
 
         self.dimension = dimension
         self.dimensions = len(grid.shape)
