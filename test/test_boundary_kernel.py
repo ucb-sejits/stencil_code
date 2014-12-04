@@ -60,7 +60,7 @@ class TestBoundaryKernel(unittest.TestCase):
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == If
         )
-        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 513]), 1
+        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 513]), 1)
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
         )
