@@ -37,6 +37,10 @@ class BoundaryCopyKernel(object):
         # check for some pathologies and raise exception if any are present
         if len(halo) != len(self.shape):
             raise StencilException("halo {} can't apply to grid shape {}".format(self.halo, self.shape))
+
+        if dimension < 0 or dimension >= len(self.shape):
+            raise StencilException("dimension {} too big for grid shape {}".format(dimension, self.shape))
+
         # halo or grid to small
         if any([x < 1 or y < 1 for x, y in zip(self.halo, self.shape)]):
             raise StencilException(
@@ -47,6 +51,7 @@ class BoundaryCopyKernel(object):
             raise StencilException(
                 "halo {} can't span grid shape {} in any dimension".format(self.halo, self.shape)
             )
+
 
         self.dimension = dimension
         self.dimensions = len(grid.shape)
@@ -106,7 +111,8 @@ class BoundaryCopyKernel(object):
                 Assign(
                     ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
                     ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
-                )
+                ),
+                is_low_side=True
             )
         )
         body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
@@ -114,7 +120,7 @@ class BoundaryCopyKernel(object):
         body.append(
             AddAssign(
                 SymbolRef("global_index"),
-                Constant(self.shape[self.dimension] - 2 * self.halo[self.dimension])
+                Constant(self.shape[self.dimension] - self.halo[self.dimension])
             )
         )
         body.append(
@@ -123,7 +129,7 @@ class BoundaryCopyKernel(object):
                     ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
                     ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
                 ),
-                add_halo_dimension=True
+                is_low_side=False
             )
         )
 
@@ -147,25 +153,31 @@ class BoundaryCopyKernel(object):
             )
         return index
 
-    def gen_index_in_bounds_conditional(self, body, add_halo_dimension=False):
+    def gen_index_in_bounds_conditional(self, body, is_low_side=True):
         """
-        if local_size is not an even multiple of the global_size we have to pretend to bad the
-        global_size and then conditionally perform body when out of actual global_size
+        provide bounds checking if the virtual grid size differs from grid size
         :param body:
         :return:
         """
-        # TODO: currently this functional always wraps with if but it should only do so on padded dims
-        def constant_for_dim(d):
-            if d == self.dimension and add_halo_dimension:
-                return Constant(self.global_size[d])
-            else:
-                return Constant(self.global_size[d] + self.halo[d])
+        def is_conditional_required_for(d):
+            if self.virtual_global_size[d] == self.global_size[d]:
+                return False
+            if d == self.dimension and is_low_side:
+                return False
+            return True
 
-        # conditional = Lt(get_global_id(0), Constant(self.global_size[0]))
-        conditional = Lt(get_global_id(0), constant_for_dim(0))
-        # for dim in range(1, self.dimensions):
-        #     conditional = And(conditional, GtE( get_global_id(dim), constant_for_dim(dim)))
-        return If(conditional, body)
+        conditional = None
+        for dim in range(self.dimensions):
+            if is_conditional_required_for(dim):
+                if conditional is None:
+                    conditional = Lt(get_global_id(dim), Constant(self.global_size[dim]))
+                else:
+                    conditional = And(conditional, Lt(get_global_id(dim), Constant(self.global_size[dim])))
+
+        if conditional is None:
+            return body
+        else:
+            return If(conditional, body)
 
 
 def boundary_kernel_factory(halo, grid, device=None):
@@ -178,9 +190,19 @@ def boundary_kernel_factory(halo, grid, device=None):
 if __name__ == '__main__':
     import itertools
 
+    grid = numpy.ones([11, 513])
+    halo = [1, 2]
+    for dim in range(len(halo)):
+        bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
+
+        print("gs {} ls {} code {}".format(bk.global_size, bk.local_size, [x.codegen() for x in bk.generate_ocl_kernel()]))
+        # ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
+        # print(bk.generate_ocl_kernel())
+    exit(0)
+
     grid = numpy.ones([4, 8, 32])
     halo = [1, 2, 4]
-    for dim in range(3):
+    for dim in range(len(halo)):
         bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
 
         print([x.codegen() for x in bk.generate_ocl_kernel()])

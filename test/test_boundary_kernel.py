@@ -1,16 +1,11 @@
-from stencil_code.boundary_kernel import BoundaryCopyKernel
-from stencil_code.neighborhood import Neighborhood
-from stencil_code.stencil_exception import StencilException
-
 __author__ = 'chick'
 
 import unittest
 import numpy
-import itertools
-from operator import mul
 
-from stencil_code.halo_enumerator import HaloEnumerator
-from stencil_code.stencil_kernel import Stencil
+from ctree.c.nodes import If, Constant
+from stencil_code.boundary_kernel import BoundaryCopyKernel
+from stencil_code.stencil_exception import StencilException
 
 
 class TestBoundaryKernel(unittest.TestCase):
@@ -56,4 +51,16 @@ class TestBoundaryKernel(unittest.TestCase):
             bk.global_size, bk.local_size, bk.virtual_global_size
         ))
 
-
+    def test_gen_index_in_bounds_conditional(self):
+        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 512]), 0)
+        self.assertTrue(
+            type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
+        )
+        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 513]), 0)
+        self.assertTrue(
+            type(bk.gen_index_in_bounds_conditional(Constant(1))) == If
+        )
+        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 513]), 1
+        self.assertTrue(
+            type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
+        )
