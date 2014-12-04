@@ -190,27 +190,27 @@ def boundary_kernel_factory(halo, grid, device=None):
 if __name__ == '__main__':
     import itertools
 
-    grid = numpy.ones([11, 513])
-    halo = [1, 2]
-    for dim in range(len(halo)):
-        bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
-
-        print("gs {} ls {} code {}".format(bk.global_size, bk.local_size, [x.codegen() for x in bk.generate_ocl_kernel()]))
-        # ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
-        # print(bk.generate_ocl_kernel())
-    exit(0)
-
-    grid = numpy.ones([4, 8, 32])
-    halo = [1, 2, 4]
-    for dim in range(len(halo)):
-        bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
-
-        print([x.codegen() for x in bk.generate_ocl_kernel()])
-        ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
-        # print(bk.generate_ocl_kernel())
-    exit(0)
-
-    numpy.random.seed(0)
+    # grid = numpy.ones([11, 513])
+    # halo = [1, 2]
+    # for dim in range(len(halo)):
+    #     bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
+    #
+    #     print("gs {} ls {} code {}".format(bk.global_size, bk.local_size, [x.codegen() for x in bk.generate_ocl_kernel()]))
+    #     # ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
+    #     # print(bk.generate_ocl_kernel())
+    # exit(0)
+    #
+    # grid = numpy.ones([4, 8, 32])
+    # halo = [1, 2, 4]
+    # for dim in range(len(halo)):
+    #     bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
+    #
+    #     print([x.codegen() for x in bk.generate_ocl_kernel()])
+    #     ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
+    #     # print(bk.generate_ocl_kernel())
+    # exit(0)
+    #
+    # numpy.random.seed(0)
 
     for dims in range(1, 4):
         shape_list = [8, 1014, 4096][:dims]

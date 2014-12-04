@@ -79,7 +79,7 @@ class OclTools(object):
         :return:
         """
         if len(shape) == 1:
-            return min(shape[0]/2, self.max_local_group_sizes[0])
+            return (max(1, min(shape[0]/2, self.max_local_group_sizes[0])),)
 
         best_work_group = None
         minimum_error = None
