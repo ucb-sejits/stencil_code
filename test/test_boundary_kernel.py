@@ -49,6 +49,8 @@ class TestBoundaryKernel(unittest.TestCase):
     def test_virtual_global_size(self):
         grid = numpy.ones([17, 513])
         bk = BoundaryCopyKernel([2, 2], grid, 0)
+        self.assertEqual(bk.global_size, [2, 513])
+        self.assertEqual(bk.virtual_global_size, [2, 514])
 
         print("global_size {} local_size {} virtual_global_size {}".format(
             bk.global_size, bk.local_size, bk.virtual_global_size

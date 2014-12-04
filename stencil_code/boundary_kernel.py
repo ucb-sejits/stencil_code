@@ -7,6 +7,7 @@ from stencil_code.backend.ocl_tools import product, OclTools
 __author__ = 'chick'
 
 import ctypes as ct
+import ctree
 from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
     FunctionDecl, GtE, Sub, Cast, If
@@ -88,26 +89,44 @@ class BoundaryCopyKernel(object):
 
     def generate_ocl_kernel(self):
         """
-        generate OpenCL code to handle this slice of the boundary
+        generate OpenCL code to handle this slice of the boundary,
+        kernel will have threads complete the low order indices first
+        then will do the high order indices, i.e. the points in the ghost zone of the given dimension
         :return:
         """
 
         # copy boundary points from in_grid to out_grid
         body = []
 
-        global_idx = 'global_index'
-        self.output_index = global_idx
         body.append(Assign(SymbolRef('global_index', ct.c_int()),
                     self.gen_global_index()))
 
         body.append(
-            Assign(
-                ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
-                ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
+            self.gen_index_in_bounds_conditional(
+                Assign(
+                    ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
+                    ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
+                )
+            )
+        )
+        body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
+
+        body.append(
+            AddAssign(
+                SymbolRef("global_index"),
+                Constant(self.shape[self.dimension] - 2 * self.halo[self.dimension])
+            )
+        )
+        body.append(
+            self.gen_index_in_bounds_conditional(
+                Assign(
+                    ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
+                    ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
+                ),
+                add_halo_dimension=True
             )
         )
 
-        body = self.gen_index_in_bounds_conditional(body)
         return body
 
     def gen_global_index(self):
@@ -128,7 +147,7 @@ class BoundaryCopyKernel(object):
             )
         return index
 
-    def gen_index_in_bounds_conditional(self, body):
+    def gen_index_in_bounds_conditional(self, body, add_halo_dimension=False):
         """
         if local_size is not an even multiple of the global_size we have to pretend to bad the
         global_size and then conditionally perform body when out of actual global_size
@@ -136,10 +155,16 @@ class BoundaryCopyKernel(object):
         :return:
         """
         # TODO: currently this functional always wraps with if but it should only do so on padded dims
-        conditional = Lt(get_global_id(0), Constant(self.global_size[0]))
-        for dim in range(1, self.dimensions):
-            conditional = And(conditional, GtE(get_global_id(dim), Constant(self.global_size[dim])))
+        def constant_for_dim(d):
+            if d == self.dimension and add_halo_dimension:
+                return Constant(self.global_size[d])
+            else:
+                return Constant(self.global_size[d] + self.halo[d])
 
+        # conditional = Lt(get_global_id(0), Constant(self.global_size[0]))
+        conditional = Lt(get_global_id(0), constant_for_dim(0))
+        # for dim in range(1, self.dimensions):
+        #     conditional = And(conditional, GtE( get_global_id(dim), constant_for_dim(dim)))
         return If(conditional, body)
 
 
@@ -158,8 +183,9 @@ if __name__ == '__main__':
     for dim in range(3):
         bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
 
-        # print([x.codegen() for x in bk.generate_ocl_kernel()])
-        print(bk.generate_ocl_kernel())
+        print([x.codegen() for x in bk.generate_ocl_kernel()])
+        ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
+        # print(bk.generate_ocl_kernel())
     exit(0)
 
     numpy.random.seed(0)
