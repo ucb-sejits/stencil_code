@@ -93,6 +93,9 @@ class BoundaryCopyKernel(object):
             )
         )
 
+        body = self.gen_index_in_bounds_conditional(body)
+        return body
+
     def gen_global_index(self):
         dim = self.dimensions
         index = get_global_id(dim - 1)
@@ -104,7 +107,7 @@ class BoundaryCopyKernel(object):
                 Mul(
                     Add(
                         get_global_id(d),
-                        Constant(self.global_offset(d))
+                        Constant(self.global_offset[d])
                     ),
                     Constant(stride)
                 )
@@ -119,12 +122,11 @@ class BoundaryCopyKernel(object):
         :return:
         """
         # TODO: currently this functional always wraps with if but it should only do so on padded dims
-        conditional = Lt(get_group_id(0), Constant(self.global_offset(0)))
+        conditional = Lt(get_global_id(0), Constant(self.global_size[0]))
         for dim in range(1, self.dimensions):
-            conditional = And(conditional, GtE(get_group_id(dim), Constant(self.global_offset(dim))))
+            conditional = And(conditional, GtE(get_global_id(dim), Constant(self.global_size[dim])))
 
         return If(conditional, body)
-
 
 
 def boundary_kernel_factory(halo, grid, device=None):
@@ -136,6 +138,15 @@ def boundary_kernel_factory(halo, grid, device=None):
 
 if __name__ == '__main__':
     import itertools
+
+    grid = numpy.ones([4, 8, 32])
+    halo = [1, 2, 4]
+    for dim in range(3):
+        bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
+
+        # print([x.codegen() for x in bk.generate_ocl_kernel()])
+        print(bk.generate_ocl_kernel())
+    exit(0)
 
     numpy.random.seed(0)
 
