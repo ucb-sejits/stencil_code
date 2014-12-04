@@ -46,4 +46,12 @@ class TestBoundaryKernel(unittest.TestCase):
             BoundaryCopyKernel([0, 3], numpy.ones([4, 423]), 1)
         self.assertTrue("can't be bigger" in context.exception.message)
 
+    def test_virtual_global_size(self):
+        grid = numpy.ones([17, 513])
+        bk = BoundaryCopyKernel([2, 2], grid, 0)
+
+        print("global_size {} local_size {} virtual_global_size {}".format(
+            bk.global_size, bk.local_size, bk.virtual_global_size
+        ))
+
 

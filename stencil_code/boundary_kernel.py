@@ -54,6 +54,7 @@ class BoundaryCopyKernel(object):
 
         self.global_size, self.global_offset = self.compute_global_size()
         self.local_size = OclTools(device=None).compute_local_size(self.global_size)
+        self.virtual_global_size = self.compute_virtual_global_size()
 
         self.kernel_name = "boundary_copy_kernel_{}d_dim_{}".format(len(halo), dimension)
 
@@ -73,6 +74,17 @@ class BoundaryCopyKernel(object):
             dimension_offsets[other_dimension] = self.halo[other_dimension]
         dimension_sizes[self.dimension] = self.halo[self.dimension]
         return dimension_sizes, dimension_offsets
+
+    def compute_virtual_global_size(self):
+        """
+        if the global size is not a even multiple of the local size then the virtual size will be
+        the next largest multiple
+        :return:
+        """
+        return [
+            size if size % self.local_size[dim] == 0 else ((size / self.local_size[dim]) + 1) * self.local_size[dim]
+            for dim, size in enumerate(self.global_size)
+        ]
 
     def generate_ocl_kernel(self):
         """
