@@ -1,11 +1,12 @@
 from __future__ import print_function
 __author__ = 'chick'
 
-from operator import mul
-
 
 def product(vector):
-    return reduce(mul, vector, 1)
+    result = 1
+    for element in vector:
+        result *= element
+    return result
 
 
 class OclTools(object):
