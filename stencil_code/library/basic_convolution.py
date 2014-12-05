@@ -4,9 +4,6 @@ import numpy
 from stencil_code.stencil_kernel import Stencil
 from stencil_code.neighborhood import Neighborhood
 
-# import logging
-# logging.basicConfig(level=20)
-
 
 class ConvolutionFilter(Stencil):
     """
@@ -20,7 +17,9 @@ class ConvolutionFilter(Stencil):
         neighbors, coefficients, _ = Neighborhood.compute_from_indices(convolution_array)
         self.neighbor_to_coefficient = dict(zip(neighbors, coefficients))
         self.coefficients = numpy.array(coefficients)
-        super(ConvolutionFilter, self).__init__(neighborhoods=[neighbors], backend=backend)
+        super(ConvolutionFilter, self).__init__(
+            neighborhoods=[neighbors], backend=backend, boundary_handling='copy'
+        )
 
     @staticmethod
     def clamped_add_tuple(point1, point2, grid):
@@ -55,6 +54,9 @@ class ConvolutionFilter(Stencil):
 
 
 if __name__ == '__main__':
+    import logging
+    logging.basicConfig(level=20)
+
     # in_grid = numpy.random.random([10, 5])
     in_grid = numpy.ones([32, 32]).astype(numpy.float32)
     stencil = numpy.array(
@@ -66,6 +68,10 @@ if __name__ == '__main__':
             [1, 1, 1, 7, 1],
         ]
     )
+
+    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
+    ocl_out_grid = ocl_convolve_filter(in_grid)
+    exit(0)
 
     python_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='python')
     c_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='c')

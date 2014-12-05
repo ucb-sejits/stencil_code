@@ -10,6 +10,8 @@ from hindemith.fusion.core import KernelCall
 from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_model import MathFunction
 from stencil_code.backend.stencil_backend import StencilBackend
+
+from stencil_code.boundary_kernel import boundary_kernel_factory
 import ctypes as ct
 import pycl as cl
 
@@ -57,7 +59,36 @@ class StencilOclTransformer(StencilBackend):
         node.params.append(SymbolRef('block', ct.POINTER(ct.c_float)()))
         node.params[-1].set_local()
         node.defn = node.defn[0]
-        self.project.files.append(OclFile('kernel', [node]))
+
+        # if boundary handling is copy we have to generate a collection of
+        # boundary kernels to handle the on-gpu boundary copy
+        if self.is_copied:
+            device = cl.clGetDeviceIDs()[-1]
+            boundary_handlers = boundary_kernel_factory(self.ghost_depth, self.output_grid, device)
+            boundary_kernels = [
+                FunctionDecl(
+                    name=boundary_handler.kernel_name,
+                    params=node.params,
+                    defn=boundary_handler.generate_ocl_kernel_body(),
+                )
+                for boundary_handler in boundary_handlers
+            ]
+
+            self.project.files.append(OclFile('kernel', [node]))
+
+            for boundary_kernel in boundary_kernels:
+                boundary_kernel.set_kernel()
+                self.project.files.append(OclFile('kernel', [boundary_kernel]))
+
+            # ctree.browser_show_ast(node)
+            import ctree
+            ctree.browser_show_ast(boundary_kernels[0])
+        else:
+            self.project.files.append(OclFile('kernel', [node]))
+
+        # print(self.project.files[0])
+        # print(self.project.files[-1])
+
         arg_cfg = self.arg_cfg
         if self.testing:
             local_size = (1, 1, 1)
