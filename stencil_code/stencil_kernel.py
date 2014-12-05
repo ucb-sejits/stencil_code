@@ -84,8 +84,7 @@ class ConcreteStencil(ConcreteSpecializedFunction):
                       that was passed to :attr: `finalize`.
 
         """
-        # TODO: provide stronger type checking to give users better error
-        # messages.
+        # TODO: provide stronger type checking to give users better error messages.
         duration = c_float()
         if self.output is not None:
             output = self.output
@@ -112,7 +111,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self.desired_ocl_device = -1
         devices = cl.clGetDeviceIDs()
         self.context, self.queue = get_context_and_queue_from_devices([devices[self.desired_ocl_device]])
-        self.max_work_group_size = devices(self.desired_ocl_device).max_work_group_size
+        self.max_work_group_size = devices[self.desired_ocl_device].max_work_group_size
 
         # some variables that will be used that PEP-8 wants to see initialized in __init__
         self.kernel = None

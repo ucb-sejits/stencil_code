@@ -52,7 +52,6 @@ class BoundaryCopyKernel(object):
                 "halo {} can't span grid shape {} in any dimension".format(self.halo, self.shape)
             )
 
-
         self.dimension = dimension
         self.dimensions = len(grid.shape)
 
@@ -92,7 +91,7 @@ class BoundaryCopyKernel(object):
             for dim, size in enumerate(self.global_size)
         ]
 
-    def generate_ocl_kernel(self):
+    def generate_ocl_kernel_body(self):
         """
         generate OpenCL code to handle this slice of the boundary,
         kernel will have threads complete the low order indices first

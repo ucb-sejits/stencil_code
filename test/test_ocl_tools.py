@@ -29,18 +29,19 @@ class TestOclTools(unittest.TestCase):
 
         # chooses the minimum of shape / 2 and max local group size
         self.assertTrue(
-            tools.compute_local_size([100]) == 50,
+            tools.compute_local_size([100]) == (50,),
             "when smaller than work group divide by 2"
+            " compute_local_size {} != 50".format(tools.compute_local_size([100]))
         )
         # print("ls1d {}".format(tools.compute_local_size([1000])))
 
         self.assertTrue(
-            tools.compute_local_size([1000]) == 500,
+            tools.compute_local_size([1000]) == (500,),
             "when smaller than work group divide by 2"
         )
 
         self.assertTrue(
-            tools.compute_local_size([10000]) == 512,
+            tools.compute_local_size([10000]) == (512,),
             "when smaller than work group divide by 2"
         )
 
