@@ -25,7 +25,6 @@ from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
-from stencil_code.boundary_kernel import BoundaryCopyKernel
 from stencil_code.stencil_exception import StencilException
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
@@ -337,8 +336,8 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
                 ]
                 kernels = []
                 for index, kernel in enumerate(tree.find_all(OclFile)):
-                    print("XXX index {} kernel {}".format(index, kernel.name))
-                    print(kernel.codegen())
+                    # print("XXX index {} kernel {}".format(index, kernel.name))
+                    # print(kernel.codegen())
                     program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
                     ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
                     kernel_ptr = program[ocl_kernel_name]

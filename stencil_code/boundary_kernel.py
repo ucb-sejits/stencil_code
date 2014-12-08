@@ -116,9 +116,9 @@ class BoundaryCopyKernel(object):
 
             FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]),
 
-            AddAssign(
+            Assign(
                 SymbolRef("global_index"),
-                Constant(self.shape[self.dimension] - self.halo[self.dimension])
+                self.gen_global_index_with_halo_offset()
             ),
 
             self.gen_index_in_bounds_conditional(
@@ -145,6 +145,26 @@ class BoundaryCopyKernel(object):
                         get_global_id(d),
                         Constant(self.global_offset[d])
                     ),
+                    Constant(stride)
+                )
+            )
+        return index
+
+    def gen_global_index_with_halo_offset(self):
+        dim = self.dimensions
+        index = get_global_id(dim - 1)
+        if dim - 1 == self.dimension:
+            index = Add(index, Constant(self.shape[dim-1] - self.halo[dim-1]))
+        for d in reversed(range(dim - 1)):
+            stride = self.grid.strides[d] // \
+                self.grid.itemsize
+            add_amount = Add(get_global_id(d), Constant(self.global_offset[d]))
+            if d == self.dimension:
+                add_amount = Add(add_amount, Constant(self.shape[self.dimension] - self.halo[self.dimension]))
+            index = Add(
+                index,
+                Mul(
+                    add_amount,
                     Constant(stride)
                 )
             )
