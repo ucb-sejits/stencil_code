@@ -25,6 +25,7 @@ from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
+from stencil_code.boundary_kernel import BoundaryCopyKernel
 from stencil_code.stencil_exception import StencilException
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
@@ -155,6 +156,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             buffers.append(buf)
             # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
+        if self.kernel
         self._c_function(self.queue, self.kernel,
                          *buffers)
 
@@ -318,15 +320,32 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
     def finalize(self, tree, entry_type, entry_point):
         if self.backend == StencilOclTransformer:
             fn = OclStencilFunction()
-            kernel = tree.find(OclFile)
-            program = clCreateProgramWithSource(fn.context,
-                                                kernel.codegen()).build()
-            stencil_kernel_ptr = program['stencil_kernel']
-            finalized = fn.finalize(
-                tree, entry_type, entry_point,
-                stencil_kernel_ptr,
-                self.output
-            )
+            if self.kernel.is_copied:
+                args = [
+                    tree, entry_type, entry_point,
+                ]
+                kernels = []
+                for index, kernel in enumerate(tree.find_all(OclFile)):
+                    print("XXX index {} kernel {}".format(index, kernel.name))
+                    print(kernel.codegen())
+                    program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
+                    ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
+                    kernel_ptr = program[ocl_kernel_name]
+                    kernels.append(kernel_ptr)
+                args.append(kernels)
+                args.append(self.output)
+
+                finalized = fn.finalize(*args)
+            else:
+                kernel = tree.find(OclFile)
+                program = clCreateProgramWithSource(fn.context,
+                                                    kernel.codegen()).build()
+                stencil_kernel_ptr = program['stencil_kernel']
+                finalized = fn.finalize(
+                    tree, entry_type, entry_point,
+                    stencil_kernel_ptr,
+                    self.output
+                )
         else:
             fn = ConcreteStencil()
             finalized = fn.finalize(tree, entry_point, entry_type,

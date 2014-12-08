@@ -61,7 +61,11 @@ class BoundaryCopyKernel(object):
         self.local_size = OclTools(device=None).compute_local_size(self.global_size)
         self.virtual_global_size = self.compute_virtual_global_size()
 
-        self.kernel_name = "boundary_copy_kernel_{}d_dim_{}".format(len(halo), dimension)
+        self.kernel_name = BoundaryCopyKernel.kernel_name(self.dimension)
+
+    @staticmethod
+    def kernel_name(dimension):
+        return "kernel_d{}".format(dimension)
 
     def compute_global_size(self):
         """
@@ -100,6 +104,8 @@ class BoundaryCopyKernel(object):
         """
 
         # copy boundary points from in_grid to out_grid
+        in_grid_name = 'input_grid'
+        out_grid_name = 'output_grid'
         body = []
 
         body.append(Assign(SymbolRef('global_index', ct.c_int()),
@@ -108,8 +114,8 @@ class BoundaryCopyKernel(object):
         body.append(
             self.gen_index_in_bounds_conditional(
                 Assign(
-                    ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
-                    ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
+                    ArrayRef(SymbolRef(out_grid_name), SymbolRef('global_index')),
+                    ArrayRef(SymbolRef(in_grid_name), SymbolRef('global_index'))
                 ),
                 is_low_side=True
             )
@@ -125,8 +131,8 @@ class BoundaryCopyKernel(object):
         body.append(
             self.gen_index_in_bounds_conditional(
                 Assign(
-                    ArrayRef(SymbolRef('out_grid'), SymbolRef('global_index')),
-                    ArrayRef(SymbolRef('in_grid'), SymbolRef('global_index'))
+                    ArrayRef(SymbolRef(out_grid_name), SymbolRef('global_index')),
+                    ArrayRef(SymbolRef(in_grid_name), SymbolRef('global_index'))
                 ),
                 is_low_side=False
             )

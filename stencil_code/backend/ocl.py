@@ -61,6 +61,15 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].set_local()
         node.defn = node.defn[0]
 
+        def kernel_dim_name(dim):
+            return "kernel_d{}".format(dim)
+
+        def global_for_dim_name(dim):
+            return "global_size_d{}".format(dim)
+
+        def local_for_dim_name(dim):
+            return "local_size_d{}".format(dim)
+
         # if boundary handling is copy we have to generate a collection of
         # boundary kernels to handle the on-gpu boundary copy
         if self.is_copied:
@@ -77,9 +86,9 @@ class StencilOclTransformer(StencilBackend):
 
             self.project.files.append(OclFile('kernel', [node]))
 
-            for boundary_kernel in boundary_kernels:
+            for dim, boundary_kernel in enumerate(boundary_kernels):
                 boundary_kernel.set_kernel()
-                self.project.files.append(OclFile('kernel', [boundary_kernel]))
+                self.project.files.append(OclFile(kernel_dim_name(dim), [boundary_kernel]))
 
             self.boundary_kernels = boundary_kernels
 
@@ -190,15 +199,6 @@ class StencilOclTransformer(StencilBackend):
                 NULL()
             )
         )
-
-        def kernel_dim_name(dim):
-            return "kernel_d{}".format(dim)
-
-        def global_for_dim_name(dim):
-            return "global_size_d{}".format(dim)
-
-        def local_for_dim_name(dim):
-            return "local_size_d{}".format(dim)
 
         defn.extend(setargs)
         enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
