@@ -1,3 +1,5 @@
+import ctypes as ct
+
 from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
     FunctionDecl, GtE, Sub, Cast
@@ -7,13 +9,12 @@ from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 from hindemith.fusion.core import KernelCall
+import pycl as cl
+
 from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_model import MathFunction
 from stencil_code.backend.stencil_backend import StencilBackend
-
-from stencil_code.boundary_kernel import boundary_kernel_factory
-import ctypes as ct
-import pycl as cl
+from stencil_code.backend.ocl_boundary_copier import boundary_kernel_factory
 
 
 class StencilOclTransformer(StencilBackend):

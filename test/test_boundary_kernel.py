@@ -1,10 +1,11 @@
 __author__ = 'chick'
 
 import unittest
-import numpy
 
+import numpy
 from ctree.c.nodes import If, Constant
-from stencil_code.boundary_kernel import BoundaryCopyKernel
+
+from stencil_code.backend.ocl_boundary_copier import OclBoundaryCopier
 from stencil_code.stencil_exception import StencilException
 
 
@@ -20,30 +21,30 @@ class TestBoundaryKernel(unittest.TestCase):
         halo = [3, 3]
         grid = numpy.ones(shape).astype(numpy.float32)
 
-        bk = BoundaryCopyKernel(halo, grid, 0)
+        bk = OclBoundaryCopier(halo, grid, 0)
         self.assertEqual(bk.global_size, [3, 7])
         self.assertEqual(bk.global_offset, [0, 0])
 
-        bk = BoundaryCopyKernel(halo, grid, 1)
+        bk = OclBoundaryCopier(halo, grid, 1)
         self.assertEqual(bk.global_size, [96, 3])
         self.assertEqual(bk.global_offset, [3, 0])
 
     def test_exception_for_bad_halo_grid_values(self):
         with self.assertRaises(StencilException) as context:
-            BoundaryCopyKernel([2, 3], numpy.ones([4, 423]), 1)
+            OclBoundaryCopier([2, 3], numpy.ones([4, 423]), 1)
         self.assertTrue("can't span" in context.exception.message)
 
         with self.assertRaises(StencilException) as context:
-            BoundaryCopyKernel([2, 3, 4], numpy.ones([4, 423]), 1)
+            OclBoundaryCopier([2, 3, 4], numpy.ones([4, 423]), 1)
         self.assertTrue("can't apply" in context.exception.message)
 
         with self.assertRaises(StencilException) as context:
-            BoundaryCopyKernel([0, 3], numpy.ones([4, 423]), 1)
+            OclBoundaryCopier([0, 3], numpy.ones([4, 423]), 1)
         self.assertTrue("can't be bigger" in context.exception.message)
 
     def test_virtual_global_size(self):
         grid = numpy.ones([17, 513])
-        bk = BoundaryCopyKernel([2, 2], grid, 0)
+        bk = OclBoundaryCopier([2, 2], grid, 0)
         self.assertEqual(bk.global_size, [2, 513])
         self.assertEqual(bk.virtual_global_size, [2, 514])
 
@@ -52,15 +53,15 @@ class TestBoundaryKernel(unittest.TestCase):
         ))
 
     def test_gen_index_in_bounds_conditional(self):
-        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 512]), 0)
+        bk = OclBoundaryCopier([2, 2], numpy.ones([512, 512]), 0)
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
         )
-        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 513]), 0)
+        bk = OclBoundaryCopier([2, 2], numpy.ones([512, 513]), 0)
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == If
         )
-        bk = BoundaryCopyKernel([2, 2], numpy.ones([512, 513]), 1)
+        bk = OclBoundaryCopier([2, 2], numpy.ones([512, 513]), 1)
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
         )

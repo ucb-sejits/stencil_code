@@ -12,7 +12,7 @@ from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
 from ctree.ocl.macros import get_global_id
 
 
-class BoundaryCopyKernel(object):
+class OclBoundaryCopier(object):
     """
     container for numbers necessary to generate and to call a kernel
     that copies boundary points from input to output during stencil
@@ -57,7 +57,7 @@ class BoundaryCopyKernel(object):
         self.local_size = OclTools(device=None).compute_local_size(self.global_size)
         self.virtual_global_size = self.compute_virtual_global_size()
 
-        self.kernel_name = BoundaryCopyKernel.kernel_name(self.dimension)
+        self.kernel_name = OclBoundaryCopier.kernel_name(self.dimension)
 
     @staticmethod
     def kernel_name(dimension):
@@ -199,7 +199,7 @@ class BoundaryCopyKernel(object):
 
 def boundary_kernel_factory(halo, grid, device=None):
     return [
-        BoundaryCopyKernel(halo, grid, dimension, device)
+        OclBoundaryCopier(halo, grid, dimension, device)
         for dimension in range(len(grid.shape))
     ]
 

@@ -58,6 +58,38 @@ if __name__ == '__main__':
     logging.basicConfig(level=20)
 
     # in_grid = numpy.random.random([10, 5])
+    in_grid = numpy.ones([8, 8, 16]).astype(numpy.float32)
+    stencil = numpy.array(
+        [
+            [
+                [1, 1, 1],
+                [1, 1, 1],
+                [1, 1, 1],
+            ],
+            [
+                [1, 1, 1],
+                [1, 100, 1],
+                [1, 1, 1],
+            ],
+            [
+                [1, 1, 1],
+                [1, 1, 1],
+                [1, 1, 1],
+            ],
+        ]
+    )
+
+    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
+    ocl_out_grid = ocl_convolve_filter(in_grid)
+    for i in [0, 1, 6, 7]:
+        print("i {}".format(i))
+        for r in ocl_out_grid[i]:
+            for c in r:
+                print("{:4.0f}".format(c), end="")
+            print()
+    exit(0)
+
+    # in_grid = numpy.random.random([10, 5])
     in_grid = numpy.ones([32, 32]).astype(numpy.float32)
     stencil = numpy.array(
         [
