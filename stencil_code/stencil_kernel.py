@@ -156,9 +156,17 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             buffers.append(buf)
             # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
-        if self.kernel
-        self._c_function(self.queue, self.kernel,
-                         *buffers)
+        if isinstance(self.kernel, list):
+            kernels = len(self.kernel)
+            if kernels == 2:
+                self._c_function(self.queue, self.kernel[0], self.kernel[1], *buffers)
+            if kernels == 3:
+                self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], *buffers)
+            if kernels == 4:
+                self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], self.kernel[3], *buffers)
+        else:
+            self._c_function(self.queue, self.kernel,
+                             *buffers)
 
         buf, evt = buffer_to_ndarray(
             self.queue, buffers[-1], output
@@ -289,6 +297,9 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         if self.backend == StencilOclTransformer:
             entry_point = 'stencil_control'
             entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
+            if self.kernel.is_copied:
+                for _ in range(self.kernel.dim):
+                    entry_type.append(cl.cl_kernel)
             entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
             entry_type = CFUNCTYPE(*entry_type)
             return tree, entry_type, entry_point
