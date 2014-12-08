@@ -2,18 +2,14 @@ from __future__ import print_function
 import numpy
 import numpy.random
 from stencil_code.stencil_exception import StencilException
-from stencil_code.backend.ocl_tools import product, OclTools
+from stencil_code.backend.ocl_tools import OclTools
 
 __author__ = 'chick'
 
 import ctypes as ct
-import ctree
 from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
-    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
-    FunctionDecl, GtE, Sub, Cast, If
-from ctree.ocl.macros import get_global_id, get_group_id
-
-from hindemith.fusion.core import KernelCall
+    AddAssign, ArrayRef, FunctionCall, If
+from ctree.ocl.macros import get_global_id
 
 
 class BoundaryCopyKernel(object):
@@ -106,29 +102,25 @@ class BoundaryCopyKernel(object):
         # copy boundary points from in_grid to out_grid
         in_grid_name = 'input_grid'
         out_grid_name = 'output_grid'
-        body = []
 
-        body.append(Assign(SymbolRef('global_index', ct.c_int()),
-                    self.gen_global_index()))
+        body = [
+            Assign(SymbolRef('global_index', ct.c_int()), self.gen_global_index()),
 
-        body.append(
             self.gen_index_in_bounds_conditional(
                 Assign(
                     ArrayRef(SymbolRef(out_grid_name), SymbolRef('global_index')),
                     ArrayRef(SymbolRef(in_grid_name), SymbolRef('global_index'))
                 ),
                 is_low_side=True
-            )
-        )
-        body.append(FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
+            ),
 
-        body.append(
+            FunctionCall(SymbolRef("barrier"), [SymbolRef("CLK_LOCAL_MEM_FENCE")]),
+
             AddAssign(
                 SymbolRef("global_index"),
                 Constant(self.shape[self.dimension] - self.halo[self.dimension])
-            )
-        )
-        body.append(
+            ),
+
             self.gen_index_in_bounds_conditional(
                 Assign(
                     ArrayRef(SymbolRef(out_grid_name), SymbolRef('global_index')),
@@ -136,7 +128,7 @@ class BoundaryCopyKernel(object):
                 ),
                 is_low_side=False
             )
-        )
+        ]
 
         return body
 
@@ -194,13 +186,18 @@ def boundary_kernel_factory(halo, grid, device=None):
 
 if __name__ == '__main__':
     import itertools
+    import random
 
     # grid = numpy.ones([11, 513])
     # halo = [1, 2]
     # for dim in range(len(halo)):
     #     bk = BoundaryCopyKernel(halo, grid, dimension=dim, device=None)
     #
-    #     print("gs {} ls {} code {}".format(bk.global_size, bk.local_size, [x.codegen() for x in bk.generate_ocl_kernel()]))
+    #     print(
+    #         "gs {} ls {} code {}".format(
+    #             bk.global_size, bk.local_size, [x.codegen() for x in bk.generate_ocl_kernel()]
+    #         )
+    #     )
     #     # ctree.browser_show_ast(bk.generate_ocl_kernel()[1])
     #     # print(bk.generate_ocl_kernel())
     # exit(0)
@@ -224,18 +221,17 @@ if __name__ == '__main__':
 
             print("Dimension {} {}".format(dims, "="*80))
             for shape in itertools.permutations(shape_list):
-                rand_shape = map(lambda x: numpy.random.randint(5, x), shape)
+                rand_shape = map(lambda x: random.randint(5, x), shape)
                 in_grid = numpy.zeros(rand_shape)
-                halo = map(lambda x: numpy.random.randint(1, (max(2, (x-1)/2))), rand_shape)
+                ghost_depth = map(lambda x: random.randint(1, (max(2, (x-1)/2))), rand_shape)
 
-                print("shape {} halo {}".format(rand_shape, halo))
-                boundary_kernels = boundary_kernel_factory(halo, in_grid)
+                print("shape {} halo {}".format(rand_shape, ghost_depth))
+                boundary_kernels = boundary_kernel_factory(ghost_depth, in_grid)
 
-                for dim, bk0 in enumerate(boundary_kernels):
+                for boundary_dimension, bk0 in enumerate(boundary_kernels):
                     print("dim {} {:16} {:16} ".format(
-                        dim, in_grid.shape, halo
+                        boundary_dimension, in_grid.shape, ghost_depth
                     ), end="")
                     print("global {:16} local {:16} {:16}".format(
                         bk0.global_size, bk0.local_size, bk0.global_offset
                     ))
-

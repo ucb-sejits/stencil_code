@@ -71,6 +71,10 @@ if __name__ == '__main__':
 
     ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
     ocl_out_grid = ocl_convolve_filter(in_grid)
+    for r in ocl_out_grid:
+        for c in r:
+            print("{:4.0f}".format(c), end="")
+        print()
     exit(0)
 
     python_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='python')
