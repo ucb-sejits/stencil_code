@@ -27,6 +27,7 @@ class StencilOclTransformer(StencilBackend):
         self.load_mem_block = []
         self.macro_defns = []
         self.project = None
+        self.boundary_kernels = None
 
     def visit_Project(self, node):
         self.project = node
@@ -64,14 +65,14 @@ class StencilOclTransformer(StencilBackend):
         # boundary kernels to handle the on-gpu boundary copy
         if self.is_copied:
             device = cl.clGetDeviceIDs()[-1]
-            boundary_handlers = boundary_kernel_factory(self.ghost_depth, self.output_grid, device)
+            self.boundary_handlers = boundary_kernel_factory(self.ghost_depth, self.output_grid, device)
             boundary_kernels = [
                 FunctionDecl(
                     name=boundary_handler.kernel_name,
                     params=node.params,
                     defn=boundary_handler.generate_ocl_kernel_body(),
                 )
-                for boundary_handler in boundary_handlers
+                for boundary_handler in self.boundary_handlers
             ]
 
             self.project.files.append(OclFile('kernel', [node]))
@@ -80,9 +81,11 @@ class StencilOclTransformer(StencilBackend):
                 boundary_kernel.set_kernel()
                 self.project.files.append(OclFile('kernel', [boundary_kernel]))
 
+            self.boundary_kernels = boundary_kernels
+
             # ctree.browser_show_ast(node)
-            import ctree
-            ctree.browser_show_ast(boundary_kernels[0])
+            # import ctree
+            # ctree.browser_show_ast(boundary_kernels[0])
         else:
             self.project.files.append(OclFile('kernel', [node]))
 
@@ -187,6 +190,16 @@ class StencilOclTransformer(StencilBackend):
                 NULL()
             )
         )
+
+        def kernel_dim_name(dim):
+            return "kernel_d{}".format(dim)
+
+        def global_for_dim_name(dim):
+            return "global_size_d{}".format(dim)
+
+        def local_for_dim_name(dim):
+            return "local_size_d{}".format(dim)
+
         defn.extend(setargs)
         enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
             SymbolRef('queue'), SymbolRef('kernel'),
@@ -194,12 +207,63 @@ class StencilOclTransformer(StencilBackend):
             SymbolRef('global'), SymbolRef('local'),
             Constant(0), NULL(), NULL()
         ])
+
         finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-        defn.extend((enqueue_call, finish_call))
+        defn.append(enqueue_call)
+
         params = [
             SymbolRef('queue', cl.cl_command_queue()),
             SymbolRef('kernel', cl.cl_kernel())
         ]
+        if self.is_copied:
+            for dim, boundary_kernel in enumerate(self.boundary_kernels):
+                boundary_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
+                    SymbolRef('queue'), SymbolRef('kernel'),
+                    Constant(self.kernel.dim), NULL(),
+                    SymbolRef('global'), SymbolRef('local'),
+                    Constant(0), NULL(), NULL()
+                ])
+
+                defn.extend([
+                    ArrayDef(
+                        SymbolRef(global_for_dim_name(dim), ct.c_ulong()), arg_cfg[0].ndim,
+                        [Constant(d)
+                         for d in self.boundary_handlers[dim].global_size]
+                    ),
+                    ArrayDef(
+                        SymbolRef(local_for_dim_name(dim), ct.c_ulong()), arg_cfg[0].ndim,
+                        [Constant(s) for s in self.boundary_handlers[dim].local_size]
+                    )
+                ])
+                setargs = [clSetKernelArg(
+                    SymbolRef(kernel_dim_name(dim)), Constant(d),
+                    FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
+                    Ref(SymbolRef('buf%d' % d))
+                ) for d in range(len(arg_cfg) + 1)]
+                setargs.append(
+                    clSetKernelArg(
+                        SymbolRef(kernel_dim_name(dim)), len(arg_cfg) + 1,
+                        local_mem_size,
+                        NULL()
+                    )
+                )
+                defn.extend(setargs)
+
+                enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
+                    SymbolRef('queue'), SymbolRef(kernel_dim_name(dim)),
+                    Constant(self.kernel.dim), NULL(),
+                    SymbolRef(global_for_dim_name(dim)), SymbolRef(local_for_dim_name(dim)),
+                    Constant(0), NULL(), NULL()
+                ])
+                defn.append(enqueue_call)
+
+                params.extend([
+                    SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
+                ])
+
+        finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        defn.append(finish_call)
+
         params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
                       for d in range(len(arg_cfg) + 1))
 
