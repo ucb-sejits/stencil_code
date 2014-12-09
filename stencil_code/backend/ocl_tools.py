@@ -34,18 +34,18 @@ class OclTools(object):
         penultimate_dim = last_dim - 1
         adjust = 0 if shape[last_dim] % 2 == 0 or dim_divisor == 1 else 1
         last_dim_size = max(1, min(
-            (shape[last_dim]/dim_divisor) + adjust,
+            int((shape[last_dim]/dim_divisor) + adjust),
             self.max_local_group_sizes[last_dim]
         ))
         penultimate_dim_size = min(
-            self.max_work_group_size / last_dim_size,
+            int(self.max_work_group_size / last_dim_size),
             self.max_local_group_sizes[penultimate_dim], shape[penultimate_dim]
         )
         if len(shape) == 2:
             return penultimate_dim_size, last_dim_size
 
         first_dim_size = min(
-            self.max_work_group_size / (last_dim_size * penultimate_dim_size),
+            int(self.max_work_group_size / (last_dim_size * penultimate_dim_size)),
             self.max_local_group_sizes[0], shape[0]
         )
         return first_dim_size, penultimate_dim_size, last_dim_size
@@ -54,7 +54,7 @@ class OclTools(object):
         dimensions = len(work_group_size)
 
         work_groups_per_dim = [
-            ((shape[n]-1)/work_group_size[n])+1
+            int((shape[n]-1)/work_group_size[n])+1
             for n in range(dimensions)
         ]
         total_work_groups = product(work_groups_per_dim)
@@ -80,7 +80,7 @@ class OclTools(object):
         :return:
         """
         if len(shape) == 1:
-            return (max(1, min(shape[0]/2, self.max_local_group_sizes[0])),)
+            return (max(1, min(int(shape[0]/2), self.max_local_group_sizes[0])),)
 
         best_work_group = None
         minimum_error = None
@@ -88,7 +88,7 @@ class OclTools(object):
             work_group = self.get_work_group_for_divisor(shape, divisor)
             error = self.compute_error(shape, work_group)
 
-            # print("shape {} work_group {} error {}".format(shape, work_group, error))
+            print("shape {} work_group {} error {}".format(shape, work_group, error))
 
             if error == 0.0:
                 return work_group

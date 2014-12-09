@@ -87,7 +87,7 @@ class OclBoundaryCopier(object):
         :return:
         """
         return [
-            size if size % self.local_size[dim] == 0 else ((size / self.local_size[dim]) + 1) * self.local_size[dim]
+            size if size % self.local_size[dim] == 0 else (int((size / self.local_size[dim]) + 1) * self.local_size[dim])
             for dim, size in enumerate(self.global_size)
         ]
 
