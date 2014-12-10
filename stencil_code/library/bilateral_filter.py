@@ -29,7 +29,7 @@ def gaussian(stdev, length):
     result = numpy.zeros(length).astype(numpy.float32)
     scale = 1.0/(stdev*math.sqrt(2.0*math.pi))
     divisor = -1.0 / (2.0 * stdev * stdev)
-    for x in xrange(length):
+    for x in range(length):
         result[x] = scale * math.exp(float(x) * float(x) * divisor)
     return result
 
@@ -54,8 +54,8 @@ if __name__ == '__main__':
 
     # convert input stream into 2d array
     in_grid = numpy.zeros([height, width], numpy.float32)
-    for i in xrange(height):
-        for j in xrange(width):
+    for i in range(height):
+        for j in range(width):
             in_grid[i, j] = pixels[i * width + j]
 
     gaussian1 = gaussian(stdev_d, radius*2)
@@ -64,8 +64,8 @@ if __name__ == '__main__':
     ocl_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
     c_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
 
-    for i in xrange(height):
-        for j in xrange(width):
+    for i in range(height):
+        for j in range(width):
             pixels[i * width + j] = (ocl_out_grid[i, j])
 
     # print(pixels)
