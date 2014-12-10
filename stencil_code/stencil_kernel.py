@@ -50,6 +50,13 @@ from hindemith.fusion.core import Fusable
 from stencil_code.halo_enumerator import HaloEnumerator
 
 
+def product(nums):
+    result = 1
+    for x in nums:
+        result *= x
+    return result
+
+
 class ConcreteStencil(ConcreteSpecializedFunction):
     """StencilFunction
 

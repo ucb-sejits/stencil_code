@@ -5,10 +5,9 @@ __author__ = 'chick'
 import unittest
 import numpy
 import itertools
-from operator import mul
 
 from stencil_code.halo_enumerator import HaloEnumerator
-from stencil_code.stencil_kernel import Stencil
+from stencil_code.stencil_kernel import Stencil, product
 
 
 class TestHaloEnumerator(unittest.TestCase):
@@ -22,7 +21,7 @@ class TestHaloEnumerator(unittest.TestCase):
         with self.assertRaises(AssertionError) as context:
             HaloEnumerator([1, 1], [5, 5, 5])
 
-        self.assertTrue("HaloEnumerator halo" in context.exception.message)
+        self.assertTrue("HaloEnumerator halo" in context.exception.args[0])
 
     def test_1_d(self):
         self._are_lists_equal(list(HaloEnumerator([1], [5])), [(0,), (4,)] )
@@ -34,7 +33,7 @@ class TestHaloEnumerator(unittest.TestCase):
                 shape = [5 for _ in range(dimension)]
                 halo = [halo_size for _ in range(dimension)]
                 matrix = numpy.zeros(shape)
-                elements = reduce(mul, shape, 1)
+                elements = product(shape)
                 dims = (range(0, dim) for dim in shape)
                 all_indices = set([x for x in itertools.product(*dims)])
 
@@ -72,7 +71,7 @@ class TestHaloEnumerator(unittest.TestCase):
                 shape = [5 for _ in range(dimension)]
                 halo = [halo_size for _ in range(dimension)]
                 matrix = numpy.zeros(shape)
-                elements = reduce(mul, shape, 1)
+                elements = product(shape)
                 dims = (range(0, dim) for dim in shape)
                 all_indices = set([x for x in itertools.product(*dims)])
 
