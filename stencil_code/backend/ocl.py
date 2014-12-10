@@ -75,7 +75,12 @@ class StencilOclTransformer(StencilBackend):
         # boundary kernels to handle the on-gpu boundary copy
         if self.is_copied:
             device = cl.clGetDeviceIDs()[-1]
-            self.boundary_handlers = boundary_kernel_factory(self.ghost_depth, self.output_grid, device)
+            self.boundary_handlers = boundary_kernel_factory(
+                self.ghost_depth, self.output_grid,
+                node.params[0].name,
+                node.params[-2].name, # second last parameter is output
+                device
+            )
             boundary_kernels = [
                 FunctionDecl(
                     name=boundary_handler.kernel_name,
