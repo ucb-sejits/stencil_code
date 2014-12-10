@@ -8,7 +8,6 @@ from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
-from hindemith.fusion.core import KernelCall
 import pycl as cl
 
 from stencil_code.stencil_exception import StencilException
@@ -277,12 +276,6 @@ class StencilOclTransformer(StencilBackend):
                                params=params,
                                defn=defn)
 
-        self.fusable_nodes.append(KernelCall(
-            control, node, arg_cfg[0].shape,
-            defn[0], tuple(local_size[i] for i in range(arg_cfg[0].ndim)),
-            defn[1], enqueue_call, finish_call, setargs, self.load_mem_block,
-            self.stencil_op, self.macro_defns, self.kernel.ghost_depth
-        ))
         return control
 
     def global_array_macro(self, point):
