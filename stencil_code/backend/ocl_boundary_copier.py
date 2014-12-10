@@ -18,7 +18,7 @@ class OclBoundaryCopier(object):
     that copies boundary points from input to output during stencil
     copy boundary handling option
     """
-    def __init__(self, halo, grid, dimension, device=None):
+    def __init__(self, halo, grid, dimension, in_grid_name="in_grid", out_grid_name="out_grid", device=None):
         """
 
         :param halo: the halo shape
@@ -29,6 +29,8 @@ class OclBoundaryCopier(object):
         self.halo = tuple(halo)
         self.grid = grid
         self.shape = grid.shape
+        self.in_grid_name = in_grid_name
+        self.out_grid_name = out_grid_name
 
         # check for some pathologies and raise exception if any are present
         if len(halo) != len(self.shape):
@@ -87,7 +89,7 @@ class OclBoundaryCopier(object):
         :return:
         """
         return [
-            size if size % self.local_size[dim] == 0 else ((size / self.local_size[dim]) + 1) * self.local_size[dim]
+            size if size % self.local_size[dim] == 0 else (int((size / self.local_size[dim]) + 1) * self.local_size[dim])
             for dim, size in enumerate(self.global_size)
         ]
 
@@ -100,16 +102,14 @@ class OclBoundaryCopier(object):
         """
 
         # copy boundary points from in_grid to out_grid
-        in_grid_name = 'input_grid'
-        out_grid_name = 'output_grid'
 
         body = [
             Assign(SymbolRef('global_index', ct.c_int()), self.gen_global_index()),
 
             self.gen_index_in_bounds_conditional(
                 Assign(
-                    ArrayRef(SymbolRef(out_grid_name), SymbolRef('global_index')),
-                    ArrayRef(SymbolRef(in_grid_name), SymbolRef('global_index'))
+                    ArrayRef(SymbolRef(self.out_grid_name), SymbolRef('global_index')),
+                    ArrayRef(SymbolRef(self.in_grid_name), SymbolRef('global_index'))
                 ),
                 is_low_side=True
             ),
@@ -123,8 +123,8 @@ class OclBoundaryCopier(object):
 
             self.gen_index_in_bounds_conditional(
                 Assign(
-                    ArrayRef(SymbolRef(out_grid_name), SymbolRef('global_index')),
-                    ArrayRef(SymbolRef(in_grid_name), SymbolRef('global_index'))
+                    ArrayRef(SymbolRef(self.out_grid_name), SymbolRef('global_index')),
+                    ArrayRef(SymbolRef(self.in_grid_name), SymbolRef('global_index'))
                 ),
                 is_low_side=False
             )
@@ -197,9 +197,9 @@ class OclBoundaryCopier(object):
             return If(conditional, body)
 
 
-def boundary_kernel_factory(halo, grid, device=None):
+def boundary_kernel_factory(halo, grid, in_grid_name="in_grid", out_grid_name="out_grid", device=None):
     return [
-        OclBoundaryCopier(halo, grid, dimension, device)
+        OclBoundaryCopier(halo, grid, dimension, in_grid_name=in_grid_name, out_grid_name=out_grid_name, device=device)
         for dimension in range(len(grid.shape))
     ]
 
