@@ -3,6 +3,7 @@ from nose.tools import assert_list_equal
 import numpy
 import numpy.testing
 from stencil_code.library.diagnostic_stencil import DiagnosticStencil
+from stencil_code.library.laplacian import LaplacianKernel
 from stencil_code.neighborhood import Neighborhood
 
 from stencil_code.stencil_kernel import Stencil
@@ -49,15 +50,14 @@ class TestBoundaryHandling(unittest.TestCase):
         zero boundary handling should just leave zero's in grid halo
         :return:
         """
-        #TODO: currently ocl backend does not support anything but clamped
         in_grid = numpy.ones([10, 10])
 
         python_clamped_kernel = DiagnosticStencil(backend='python', boundary_handling='clamp')
         c_clamped_kernel = DiagnosticStencil(backend='c', boundary_handling='clamp')
         python_clamped_out = python_clamped_kernel(in_grid)
 
-        import logging
-        logging.basicConfig(level=20)
+        # import logging
+        # logging.basicConfig(level=20)
         c_clamped_out = c_clamped_kernel(in_grid)
 
         numpy.testing.assert_array_almost_equal(python_clamped_out, c_clamped_out, decimal=4)
@@ -96,7 +96,7 @@ class TestBoundaryHandling(unittest.TestCase):
         # import logging
         # logging.basicConfig(level=20)
         in_grid = numpy.ones([5, 5]).astype(numpy.float32)
-        python_copy_boundary_kernel = DiagnosticStencil(backend='python', boundary_handling='copy')
+        python_copy_boundary_kernel = DiagnosticStencil(backend='c', boundary_handling='copy')
         copy_out_grid = python_copy_boundary_kernel(in_grid)
 
         compare_list = [1. for _ in range(5)]
@@ -119,8 +119,8 @@ class TestBoundaryHandling(unittest.TestCase):
         # logging.basicConfig(level=20)
         size = 8
         in_grid = numpy.ones([size, size]).astype(numpy.float32)
-        python_copy_boundary_kernel = DiagnosticStencil(backend='c', boundary_handling='copy')
-        copy_out_grid = python_copy_boundary_kernel(in_grid)
+        copy_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='copy')
+        copy_out_grid = copy_boundary_kernel(in_grid)
 
         compare_list = [1. for _ in range(size)]
         assert_list_equal(list(copy_out_grid[0]), compare_list)
@@ -128,13 +128,47 @@ class TestBoundaryHandling(unittest.TestCase):
         assert_list_equal(list(copy_out_grid[:][0]), compare_list)
         assert_list_equal(list(copy_out_grid[:][-1]), compare_list)
 
-        python_clamp_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='copy')
-        copy_out_grid = python_clamp_boundary_kernel(in_grid)
+        clamp_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='clamp')
+        copy_out_grid = clamp_boundary_kernel(in_grid)
 
-        compare_list = [1. for _ in range(size)]
+        compare_list = [30. for _ in range(size)]
         assert_list_equal(list(copy_out_grid[0]), compare_list)
         assert_list_equal(list(copy_out_grid[-1]), compare_list)
         assert_list_equal(list(copy_out_grid[:][0]), compare_list)
         assert_list_equal(list(copy_out_grid[:][-1]), compare_list)
 
-        print("done")
+    # def test_copied_for_ocl_1d(self):
+    #     import logging
+    #     logging.basicConfig(level=20)
+    #     class Stencil1d(Stencil):
+    #         neighborhoods = [[(-1,), (0,), (1,)]]
+    #
+    #         def kernel(self, in_grid, out_grid):
+    #             for x in self.interior_points(out_grid):
+    #                 for y in self.neighbors(x, 0):
+    #                     out_grid[x] += 2 * in_grid[y]
+    #
+    #     size = 8
+    #     input_grid = numpy.ones(size).astype(numpy.float32)
+    #     copy_boundary_kernel = Stencil1d(backend='ocl', boundary_handling='copy')
+    #     copy_out_grid = copy_boundary_kernel(input_grid)
+    #
+    #     self.assertEqual(copy_out_grid[0] == 1.0)
+    #     self.assertEqual(copy_out_grid[0] == 6.0)
+    #     self.assertEqual(copy_out_grid[-2] == 6.0)
+    #     self.assertEqual(copy_out_grid[-1] == 2.0)
+
+    def test_copied_for_ocl_3d(self):
+        # import logging
+        # logging.basicConfig(level=20)
+
+        size = [8, 8, 8]
+        input_grid = numpy.ones(size).astype(numpy.float32)
+        copy_boundary_kernel = LaplacianKernel(backend='ocl', boundary_handling='copy')
+        copy_out_grid = copy_boundary_kernel(input_grid)
+
+        for point in copy_boundary_kernel.interior_points(copy_out_grid):
+            self.assertEqual(copy_out_grid[point], 2.0)
+
+        for point in copy_boundary_kernel.halo_points(copy_out_grid):
+            self.assertEqual(copy_out_grid[point], 1.0)
