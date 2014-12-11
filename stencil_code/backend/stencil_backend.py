@@ -4,12 +4,19 @@ import ctree
 from ctree.c.nodes import *
 from ctypes import c_int
 from ctree.visitors import NodeTransformer
-from ..stencil_model import *
+from stencil_code.stencil_model import *
+from stencil_code.stencil_exception import StencilException
 
 
 class StencilBackend(NodeTransformer):
     def __init__(self, input_grids=None, output_grid=None, kernel=None, arg_cfg=None,
                  fusable_nodes=None, testing=False):
+        try:
+            dir(self).index("visit_InteriorPointsLoop")
+        except ValueError:
+            raise StencilException("Error: {} must define a visit_InteriorPointsLoop method".format(type(self)))
+
+
         self.input_grids = input_grids
         self.output_grid = output_grid
         self.kernel = kernel
@@ -49,8 +56,13 @@ class StencilBackend(NodeTransformer):
         self.next_fresh_var += 1
         return "x%d" % self.next_fresh_var
 
-    def visit_InteriorPointsLoop(self, node):
-        raise NotImplementedError('Subclass should implement this')
+    # def visit_InteriorPointsLoop(self, node):
+    #     """
+    #     must be implemented by subclass this is checked in __init__
+    #     :param node:
+    #     :return:
+    #     """
+    #     pass
 
     def visit_NeighborPointsLoop(self, node):
         """
@@ -78,7 +90,7 @@ class StencilBackend(NodeTransformer):
         return body
 
     # Handle array references
-    def visit_GridElement(self, node):
+    def visit_GridElement(self, node):  # pragma no cover
         grid_name = node.grid_name
         target = node.target
         if isinstance(target, SymbolRef):
@@ -113,7 +125,7 @@ class StencilBackend(NodeTransformer):
         name = "_%s_array_macro" % arg
         return FunctionCall(SymbolRef(name), point)
 
-    def visit_SymbolRef(self, node):
+    def visit_SymbolRef(self, node):  # pragma no cover
         if node.name in self.constants.keys():
             return Constant(self.constants[node.name])
         return node

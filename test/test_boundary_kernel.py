@@ -55,6 +55,16 @@ class TestBoundaryKernel(unittest.TestCase):
         self.assertEqual(bk.virtual_global_size, [2, 514])
 
     def test_gen_index_in_bounds_conditional(self):
+        bk = OclBoundaryCopier([2, 2, 2], numpy.ones([512, 512, 513]), 1)
+        bk.global_size = [3, 3, 3]
+        bk.local_size = [4, 4, 4]
+        self.assertTrue(
+            type(bk.gen_index_in_bounds_conditional(Constant(1))) == If
+        )
+        with self.assertRaises(StencilException) as context:
+            _ = OclBoundaryCopier([2, 2], numpy.ones([512, 512]), dimension=7)
+        self.assertTrue("too big" in context.exception.args[0])
+
         bk = OclBoundaryCopier([2, 2], numpy.ones([512, 512]), 0)
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
@@ -66,4 +76,11 @@ class TestBoundaryKernel(unittest.TestCase):
         bk = OclBoundaryCopier([2, 2], numpy.ones([512, 513]), 1)
         self.assertTrue(
             type(bk.gen_index_in_bounds_conditional(Constant(1))) == Constant
+        )
+
+        bk = OclBoundaryCopier([2, 2], numpy.ones([512, 513]), 1)
+        bk.global_size = [3, 3]
+        bk.local_size = [4, 4]
+        self.assertTrue(
+            type(bk.gen_index_in_bounds_conditional(Constant(1))) == If
         )

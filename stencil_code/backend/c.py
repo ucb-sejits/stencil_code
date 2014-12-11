@@ -184,4 +184,4 @@ class StencilCTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise StencilException("Found GridElement that is not supported")
+        raise StencilException("Found GridElement that is not supported")  # pragma no cover

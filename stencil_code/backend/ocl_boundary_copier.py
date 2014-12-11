@@ -204,7 +204,7 @@ def boundary_kernel_factory(halo, grid, in_grid_name="in_grid", out_grid_name="o
     ]
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     import itertools
     import random
 
