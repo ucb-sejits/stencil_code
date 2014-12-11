@@ -5,9 +5,10 @@ TODO: figure out if this works at all, seems like there is no guarantee
 that the time steps will be run in the correct order
 """
 from __future__ import print_function
-from stencil_code.stencil_kernel import Stencil
-
 import numpy
+import numpy.testing
+
+from stencil_code.stencil_kernel import Stencil
 from ctree.util import Timer
 
 width = 256
@@ -30,13 +31,14 @@ class TwoDHeatFlow(Stencil):
             for z in self.neighbors(x, 1):
                 out_grid[x] -= 0.25 * in_grid[z]
 
-if __name__ == '__main__':
+
+if __name__ == '__main__':  # pragma: no cover
     # import logging
     # logging.basicConfig(level=20)
 
     kernel = TwoDHeatFlow(backend='ocl')
     py_kernel = TwoDHeatFlow(backend='python')
-    simulation_space = numpy.random.rand(time_steps, width, height).astype(numpy.float32) * 1024
+    simulation_space = numpy.random.random(time_steps, width, height).astype(numpy.float32) * 1024
 
     with Timer() as t:
         a = kernel(simulation_space)

@@ -10,7 +10,7 @@ class StencilModelNode(ast.AST):
     def _to_dot(self):  # pragma: no cover
         return StencilModelDotGen.visit(self)
 
-    def label(self):
+    def label(self): # pragma: no cover
         return r"%s" % ""
 
 
