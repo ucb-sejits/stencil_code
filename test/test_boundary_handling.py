@@ -137,26 +137,26 @@ class TestBoundaryHandling(unittest.TestCase):
         assert_list_equal(list(copy_out_grid[:][0]), compare_list)
         assert_list_equal(list(copy_out_grid[:][-1]), compare_list)
 
-    # def test_copied_for_ocl_1d(self):
-    #     import logging
-    #     logging.basicConfig(level=20)
-    #     class Stencil1d(Stencil):
-    #         neighborhoods = [[(-1,), (0,), (1,)]]
-    #
-    #         def kernel(self, in_grid, out_grid):
-    #             for x in self.interior_points(out_grid):
-    #                 for y in self.neighbors(x, 0):
-    #                     out_grid[x] += 2 * in_grid[y]
-    #
-    #     size = 8
-    #     input_grid = numpy.ones(size).astype(numpy.float32)
-    #     copy_boundary_kernel = Stencil1d(backend='ocl', boundary_handling='copy')
-    #     copy_out_grid = copy_boundary_kernel(input_grid)
-    #
-    #     self.assertEqual(copy_out_grid[0] == 1.0)
-    #     self.assertEqual(copy_out_grid[0] == 6.0)
-    #     self.assertEqual(copy_out_grid[-2] == 6.0)
-    #     self.assertEqual(copy_out_grid[-1] == 2.0)
+    def test_copied_for_ocl_1d(self):
+        # import logging
+        # logging.basicConfig(level=20)
+        class Stencil1d(Stencil):
+            neighborhoods = [[(-1,), (0,), (1,)]]
+
+            def kernel(self, in_grid, out_grid):
+                for x in self.interior_points(out_grid):
+                    for y in self.neighbors(x, 0):
+                        out_grid[x] += 2 * in_grid[y]
+
+        size = 8
+        input_grid = numpy.ones(size).astype(numpy.float32)
+        copy_boundary_kernel = Stencil1d(backend='ocl', boundary_handling='copy')
+        copy_out_grid = copy_boundary_kernel(input_grid)
+
+        self.assertEqual(copy_out_grid[0], 1.0)
+        self.assertEqual(copy_out_grid[1], 6.0)
+        self.assertEqual(copy_out_grid[-2], 6.0)
+        self.assertEqual(copy_out_grid[-1], 1.0)
 
     def test_copied_for_ocl_3d(self):
         # import logging

@@ -29,7 +29,7 @@ class PythonToStencilModel(PyBasicConversions):
                     self.arg_name_map[arg.id] = new_name
                 arg.id = new_name
         else:
-            for index, arg in enumerate(node.args.args):
+            for index, arg in enumerate(node.args.args):  # pragma no cover
                 if sys.version_info >= (3, 0):
                     self.arg_name_map[arg.arg] = arg.arg
                 else:
