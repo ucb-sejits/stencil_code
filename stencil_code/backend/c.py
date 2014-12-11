@@ -111,7 +111,7 @@ class StencilCTransformer(StencilBackend):
 
             then_block = Assign(
                 ArrayRef(SymbolRef(self.output_grid_name), SymbolRef(self.output_index)),
-                ArrayRef(SymbolRef('in_grid'), SymbolRef(self.output_index)),
+                ArrayRef(SymbolRef(self.input_names[0]), SymbolRef(self.output_index)),
             )
             else_block = []
             for elem in map(self.visit, node.body):

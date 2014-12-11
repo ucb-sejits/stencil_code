@@ -53,7 +53,7 @@ class ConvolutionFilter(Stencil):
                 output_grid[point] += input_grid[n] * self.distance(point, n)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 
