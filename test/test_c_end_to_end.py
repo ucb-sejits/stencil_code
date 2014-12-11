@@ -8,6 +8,7 @@ from stencil_code.library.basic_convolution import ConvolutionFilter
 from stencil_code.library.bilateral_filter import BilateralFilter, gaussian
 from stencil_code.library.better_bilateral_filter import BetterBilateralFilter
 from stencil_code.library.diagnostic_stencil import DiagnosticStencil
+from stencil_code.library.jacobi_stencil import Jacobi
 from stencil_code.library.laplacian import LaplacianKernel
 from stencil_code.library.laplacian_27pt import SpecializedLaplacian27
 from stencil_code.library.two_d_heat import TwoDHeatFlow
@@ -67,6 +68,10 @@ class TestCEndToEnd(unittest.TestCase):
     def test_diagnostic_kernel(self):
         in_grid = numpy.random.random([16, 16]).astype(numpy.float32) * 1000
         self._check(DiagnosticStencil, in_grid)
+
+    def test_jacobi(self):
+        in_grid = numpy.random.random([128, 128]).astype(numpy.float32) * 1000
+        self._check(Jacobi, in_grid)
 
     def test_laplacian(self):
         in_grid = numpy.random.random([32, 32, 32]).astype(numpy.float32) * 1000

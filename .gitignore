@@ -8,3 +8,4 @@ MANIFEST
 dist
 *.egg-info
 *.sublime-*
+htmlcov
