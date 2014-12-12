@@ -46,7 +46,6 @@ import ast
 import itertools
 import abc
 
-from hindemith.fusion.core import Fusable
 from stencil_code.halo_enumerator import HaloEnumerator
 
 
@@ -191,7 +190,7 @@ StencilArgConfig = namedtuple(
 )
 
 
-class SpecializedStencil(LazySpecializedFunction, Fusable):
+class SpecializedStencil(LazySpecializedFunction):
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
                     "ocl": StencilOclTransformer,
@@ -216,8 +215,6 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         self.output = None
         self.args = None
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel))
-
-        Fusable.__init__(self)
 
     def args_to_subconfig(self, args):
         """
@@ -282,7 +279,7 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         for transformer in [
             PythonToStencilModel(),
             self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
-                         fusable_nodes=self.fusable_nodes,)
+                         fusable_nodes=None)
         ]:
             tree = transformer.visit(tree)
 
