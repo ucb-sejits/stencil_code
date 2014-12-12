@@ -73,9 +73,12 @@ class OclTools(object):
         ])
         return local_error
 
-    def compute_local_size(self, shape):
+    def compute_local_size_thin(self, shape):
         """
-        3d local size
+        compute a local size that leans toward maximizing the length
+        along the rightmost index of shape.
+        in that domain, try and minimize the overshoot when the local
+        size cannot be an exact multiple of the global_size
         :param shape:
         :return:
         """
@@ -98,5 +101,53 @@ class OclTools(object):
                 best_work_group = work_group
 
         return best_work_group
+
+    def get_a_bulky_range(self, dims_remaining, cur_max_size, max_local):
+        """
+        return a reasonable range of sizes to try for
+        :param cur_shape:
+        :param cur_max_size:
+        :return:
+        """
+        target_size = int(cur_max_size ** (1.0 / dims_remaining) + 0.5)
+
+        for size in range(max(2, target_size-10), min(max_local, target_size+10)):
+            yield size
+
+    def get_local_size(self, shape, dim, max_size, local_size=None):
+        if local_size is None:
+            local_size = []
+        for size in self.get_a_bulky_range(len(shape)-dim, max_size, self.max_local_group_sizes[dim]):
+            new_local_size = local_size + [size]
+            if dim >= len(shape)-1:
+                yield tuple(new_local_size)
+            else:
+                for x in self.get_local_size(shape, dim+1, max_size // size, new_local_size):
+                    yield x
+
+    def compute_local_size_bulky(self, shape):
+        """
+        compute a local size that leans toward minimizing the surface area to volume
+        ratio of the n-dimensional local_size shape.
+        in that domain, try and minimize the overshoot when the local
+        size cannot be an exact multiple of the global_size
+        :param shape:
+        :return:
+        """
+
+        best_local_size = None
+        largest_volume = 0
+        for candidate_local_size in self.get_local_size(shape, 0, self.max_work_group_size):
+            if product(candidate_local_size) > largest_volume:
+                largest_volume = product(candidate_local_size)
+                best_local_size = candidate_local_size
+
+        return best_local_size
+
+    def compute_local_size(self, shape, method=None):
+        if method is None or method == 'thin':
+            return self.compute_local_size_thin(shape)
+        else:
+            return self.compute_local_bulky(shape)
 
 

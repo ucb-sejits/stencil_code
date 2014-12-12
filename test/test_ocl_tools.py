@@ -85,3 +85,12 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(tools.compute_local_size([101, 1, 1]) == (101, 1, 1))
 
         self.assertTrue(tools.compute_local_size([100, 512, 101]) == (1, 19, 26))
+
+    def test_compute_local_size_bulky(self):
+        tools = OclTools(MockDevice(512, [512, 512, 512], 40))
+        print(list(tools.get_a_bulky_range(3, 256, 128)))
+
+        # for l in tools.get_local_size([512, 512, 512], 0, 512):
+        #     print("l={}".format(l))
+
+        print(tools.compute_local_size_bulky([512, 512, 512]))
