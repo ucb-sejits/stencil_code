@@ -1,4 +1,4 @@
-stencil_code -- A specializer built on the ASP SEJITS framework
+stencil_code -- A specializer built on the CTree SEJITS framework
 -------
 
 stencil_code is based on ctree
@@ -45,22 +45,14 @@ Examples
 ### A simple kernel
 ```python
 import numpy
-from stencil_code.stencil_grid import StencilKernel
+from stencil_code.stencil_kernel import Stencil
 
-class SimpleKernel(StencilKernel):
-    @property
-    def dim(self):
-        return 2
-
-    @property
-    def ghost_depth(self):
-        return 1
-
-    def neighbors(self, pt, defn=0):
-        if defn == 0:
-            for x in range(-radius, radius+1):
-                for y in range(-radius, radius+1):
-                    yield (pt[0] - x, pt[1] - y)
+class SimpleKernel(Stencil):
+    neighborhoods = [[
+        (-1, 1),  (0, 1),  (1, 1),
+        (-1, 0),  (0, 0),  (1, 0),
+        (-1, -1), (-1, 0), (-1, 1)
+    ]]
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
@@ -79,55 +71,80 @@ out_grid = kernel(in_grid)
 ### A bilateral filter
 ```python
 import numpy
-from stencil_code.stencil_kernel import StencilKernel
+from stencil_code.neighborhood import Neighborhood
+from stencil_code.stencil_kernel import Stencil
+import math
 
-width = int(sys.argv[2])
-height = int(sys.argv[3])
-image_in = open(sys.argv[1], 'rb')
-stdev_d = 3
-stdev_s = 70
-radius = stdev_d * 3
+# import logging
+# logging.basicConfig(level=20)
 
-class BilatKernel(StencilKernel):
-    @property
-    def dim(self):
-        return 2
 
-    @property
-    def ghost_depth(self):
-        return radius
+class BilateralFilter(Stencil):
+    def __init__(self, radius=3, backend='ocl'):
+        super(BilateralFilter, self).__init__(
+            neighborhoods=[Neighborhood.moore_neighborhood(radius=radius, dim=2)],
+            backend=backend,
+            should_unroll=False
+        )
 
-    def neighbors(self, pt, defn=0):
-        if defn == 1:
-            for x in range(-radius, radius+1):
-                for y in range(-radius, radius+1):
-                    yield (pt[0] - x, pt[1] - y)
+    def distance(self, x, y):
+        return math.sqrt(sum([(x[i]-y[i])**2 for i in range(0, len(x))]))
 
     def kernel(self, in_img, filter_d, filter_s, out_img):
-        for x in self.interior_points(out_img):
-            for y in self.neighbors(x, 1):
-                out_img[x] += in_img[y] * filter_d[
-                    int(distance(x, y))] * \
-                    filter_s[abs(int(in_img[x] - in_img[y]))]
+        for i in self.interior_points(out_img):
+            for j in self.neighbors(i, 0):
+                out_img[i] += in_img[j] * filter_d[int(self.distance(i, j))] *\
+                    filter_s[abs(int(in_img[i] - in_img[j]))]
 
 
 def gaussian(stdev, length):
-    result = StencilGrid([length])
+    result = numpy.zeros(length).astype(numpy.float32)
     scale = 1.0/(stdev*math.sqrt(2.0*math.pi))
     divisor = -1.0 / (2.0 * stdev * stdev)
-    for x in range(length):
+    for x in xrange(length):
         result[x] = scale * math.exp(float(x) * float(x) * divisor)
     return result
 
-# Instantiate a kernel
-kernel = BilatKernel()
 
-# Get some input data
-in_grid = numpy.random(width, height).astype(numpy.float32) * 255
+if __name__ == '__main__':
+    import sys
 
-# Create our filters
-gaussian1 = gaussian(stdev_d, radius*2)
-gaussian2 = gaussian(stdev_s, 256)
+    width = int(sys.argv[2])
+    height = int(sys.argv[3])
+    image_in = open(sys.argv[1], 'rb')
+    out_filename = "/dev/null" if len(sys.argv) < 5 else sys.argv[4]
+    stdev_d = 3
+    stdev_s = 70
+    radius = stdev_d * 3
 
-out_grid = kernel(in_grid, gaussian1, gaussian2)
+    pixels = map(ord, list(image_in.read(width * height))) # Read in grayscale values
+    intensity = float(sum(pixels))/len(pixels)
+    print("intensity {}".format(intensity))
+
+    ocl_bilateral_filter = BilateralFilter(radius, backend='ocl')
+
+    # convert input stream into 2d array
+    in_grid = numpy.zeros([height, width], numpy.float32)
+    for i in xrange(height):
+        for j in xrange(width):
+            in_grid[i, j] = pixels[i * width + j]
+
+    gaussian1 = gaussian(stdev_d, radius*2)
+    gaussian2 = gaussian(stdev_s, 256)
+
+    ocl_out_grid = ocl_bilateral_filter(in_grid, gaussian1, gaussian2)
+
+    for i in xrange(height):
+        for j in xrange(width):
+            pixels[i * width + j] = (ocl_out_grid[i, j])
+
+    # print(pixels)
+    print("sum pix sum {} len {}".format(sum(pixels), len(pixels)))
+    out_intensity = float(sum(pixels))/len(pixels)
+    for i in range(0, len(pixels)):
+        pixels[i] = min(255, max(0, int(pixels[i] * (intensity/out_intensity))))
+
+    image_out = open(out_filename, 'wb')
+    image_out.write(''.join(map(chr, pixels)))
+
 ```

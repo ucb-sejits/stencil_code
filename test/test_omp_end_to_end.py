@@ -1,51 +1,60 @@
-import numpy as np
+__author__ = 'chickmarkley'
 import unittest
-from nose.plugins.attrib import attr
-from kernels import SimpleKernel, TwoDHeatKernel, LaplacianKernel, \
-    BilatKernel, gaussian1, gaussian2
 
-stdev_d = 3
-stdev_s = 70
-radius = 1
-width = 64 + radius * 2
-height = width
+import numpy
+import numpy.testing
+from nose.plugins.attrib import attr
+
+from stencil_code.library.better_bilateral_filter import BetterBilateralFilter
+from stencil_code.library.laplacian import LaplacianKernel
+from stencil_code.library.laplacian_27pt import SpecializedLaplacian27
+from stencil_code.library.two_d_heat import TwoDHeatFlow
 
 
 class TestOmpEndToEnd(unittest.TestCase):
-    def setUp(self):
-        self.in_grid = np.random.rand(width, width).astype(np.float32) * 1000
+    backend_to_test = 'omp'
+    backend_to_compare = 'c'
 
-    def _check(self, test_kernel):
-        out_grid1 = test_kernel(backend='omp',
-                                testing=True)(self.in_grid)
-        out_grid2 = test_kernel(backend='python')(self.in_grid)
+    def _compare_grids(self, stencil, grid1, grid2):
+        interior_points_slice = stencil.interior_points_slice()
         try:
-            np.testing.assert_array_almost_equal(out_grid1, out_grid2)
-        except:
+            numpy.testing.assert_array_almost_equal(
+                grid1[interior_points_slice],
+                grid2[interior_points_slice]
+            )
+        except AssertionError:
             self.fail("Output grids not equal")
 
-    @attr('omp')
-    def test_simple_kernel(self):
-        self._check(SimpleKernel)
+    def _check(self, stencil_class_to_test, in_grid, coefficients=None):
+        hp_stencil = stencil_class_to_test(backend=TestOmpEndToEnd.backend_to_test)
+        compare_stencil = stencil_class_to_test(backend=TestOmpEndToEnd.backend_to_compare)
+
+        if coefficients is None:
+            hp_out_grid = hp_stencil(in_grid)
+            compare_grid = compare_stencil(in_grid)
+        else:
+            hp_out_grid = hp_stencil(in_grid, coefficients)
+            compare_grid = compare_stencil(in_grid, coefficients)
+
+        self._compare_grids(hp_stencil, hp_out_grid, compare_grid)
 
     @attr('omp')
     def test_2d_heat(self):
-        self._check(TwoDHeatKernel)
+        in_grid = numpy.random.random([16, 16, 16]).astype(numpy.float32) * 1000
+        self._check(TwoDHeatFlow, in_grid)
 
     @attr('omp')
     def test_laplacian(self):
-        self._check(LaplacianKernel)
+        in_grid = numpy.random.random([32, 32, 32]).astype(numpy.float32) * 1000
+        self._check(LaplacianKernel, in_grid)
+
+    @attr('omp')
+    def test_laplacian27(self):
+        in_grid = numpy.random.random([32, 32, 32]).astype(numpy.float32) * 255
+        coefficients = numpy.array([1.0, 0.5, 0.25, 0.125]).astype(numpy.float32)
+        self._check(SpecializedLaplacian27, in_grid, coefficients)
 
     @attr('omp')
     def test_bilateral_filter(self):
-        in_grid = np.random.rand(width, height).astype(np.float32) * 255
-        out_grid1 = BilatKernel(backend='omp', testing=True)(
-            in_grid, gaussian1, gaussian2
-        )
-        out_grid2 = BilatKernel(backend='python')(
-            in_grid, gaussian1, gaussian2
-        )
-        try:
-            np.testing.assert_array_almost_equal(out_grid1, out_grid2)
-        except:
-            self.fail("Output grids not equal")
+        in_grid = numpy.random.random([64, 32]).astype(numpy.float32) * 255
+        self._check(BetterBilateralFilter, in_grid)

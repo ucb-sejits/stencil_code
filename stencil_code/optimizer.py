@@ -4,11 +4,11 @@ from ctypes import c_int
 from copy import deepcopy
 
 
-def unroll(tree, for_node, factor):
+def unroll(tree, for_node, factor):  # pragma no cover
     Unroller(factor, for_node).visit(tree)
 
 
-class Unroller(NodeTransformer):
+class Unroller(NodeTransformer):  # pragma no cover
     def __init__(self, factor, for_node):
         self.factor = factor
         self.for_node = for_node
@@ -49,7 +49,7 @@ class Unroller(NodeTransformer):
         return for_node
 
 
-def block_loops(inner, unblocked, block_factor):
+def block_loops(inner, unblocked, block_factor):  # pragma no cover
     #factors = [self.block_factor for x in self.output_grid_shape]
     #factors[len(self.output_grid_shape)-1] = 1
 
@@ -60,11 +60,11 @@ def block_loops(inner, unblocked, block_factor):
     # need to update inner to point to the innermost in the new blocked version
     inner = FindInnerMostLoop().find(blocked)
 
-    assert (inner != None)
+    assert (inner is not None)
     return [inner, blocked]
 
 
-class FindInnerMostLoop(NodeVisitor):
+class FindInnerMostLoop(NodeVisitor):  # pragma no cover
     def __init__(self):
         self.inner_most = None
 
@@ -77,7 +77,7 @@ class FindInnerMostLoop(NodeVisitor):
         map(self.visit, node.body)
 
 
-class UnrollReplacer(NodeTransformer):
+class UnrollReplacer(NodeTransformer):  # pragma no cover
     def __init__(self, loopvar, incr):
         self.loopvar = loopvar
         self.incr = incr
@@ -90,7 +90,7 @@ class UnrollReplacer(NodeTransformer):
             return Add(node, Constant(self.incr))
         return SymbolRef(node.name)
 
-class StencilCacheBlocker(object):
+class StencilCacheBlocker(object):  # pragma no cover
     """
     Class that takes a tree of perfectly-nested For loops (as in a stencil) and performs standard cache blocking
     on them.  Usage: StencilCacheBlocker().block(tree, factors) where factors is a tuple, one for each loop nest
@@ -141,7 +141,7 @@ class StencilCacheBlocker(object):
             tree = LoopSwitcher().switch(tree, index-x-1, index-x)
         return tree
 
-class LoopBlocker(object):
+class LoopBlocker(object):  # pragma no cover
     def loop_block(self, node, block_size):
         outer_incr_name = SymbolRef(node.init.left.name + node.init.left.name)
 
@@ -171,7 +171,7 @@ class LoopBlocker(object):
 
         return new_outer_for
 
-class LoopSwitcher(NodeTransformer):
+class LoopSwitcher(NodeTransformer):  # pragma no cover
     """
     Class that switches two loops.  The user is responsible for making sure the switching
     is valid (i.e. that the code can still compile/run).  Given two integers i,j this

@@ -2,7 +2,10 @@
 .idea
 .ropeproject
 *.swp
+benchmarks/*.png
 build
 MANIFEST
 dist
 *.egg-info
+*.sublime-*
+htmlcov
