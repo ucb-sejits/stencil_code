@@ -88,9 +88,13 @@ class TestOclTools(unittest.TestCase):
 
     def test_compute_local_size_bulky(self):
         tools = OclTools(MockDevice(512, [512, 512, 512], 40))
-        print(list(tools.get_a_bulky_range(3, 256, 128)))
+        print(list(tools.get_a_bulky_range(2, 256, 128)))
 
         # for l in tools.get_local_size([512, 512, 512], 0, 512):
         #     print("l={}".format(l))
 
-        print(tools.compute_local_size_bulky([512, 512, 512]))
+        print(tools.compute_local_size_bulky([2560]))
+        print(tools.compute_local_size_bulky([256, 256]))
+        print(tools.compute_local_size_bulky([128, 128, 128]))
+        print(tools.compute_local_size_bulky([4, 128, 128]))
+

@@ -109,7 +109,7 @@ class OclTools(object):
         :param cur_max_size:
         :return:
         """
-        target_size = int(cur_max_size ** (1.0 / dims_remaining) + 0.5)
+        target_size = int((cur_max_size ** (1.0 / dims_remaining)) + 0.5)
 
         for size in range(max(2, target_size-10), min(max_local, target_size+10)):
             yield size
@@ -117,13 +117,16 @@ class OclTools(object):
     def get_local_size(self, shape, dim, max_size, local_size=None):
         if local_size is None:
             local_size = []
-        for size in self.get_a_bulky_range(len(shape)-dim, max_size, self.max_local_group_sizes[dim]):
-            new_local_size = local_size + [size]
-            if dim >= len(shape)-1:
-                yield tuple(new_local_size)
-            else:
-                for x in self.get_local_size(shape, dim+1, max_size // size, new_local_size):
-                    yield x
+        if dim >= len(shape)-1:
+            new_local_size = local_size + [max_size]
+            yield tuple(new_local_size)
+        else:
+            for size in self.get_a_bulky_range(len(shape)-dim, max_size, self.max_local_group_sizes[dim]):
+                new_local_size = local_size + [size]
+                for x in self.get_local_size(
+                        shape, dim+1, max_size // size, new_local_size):
+                    if product(x) > 0:
+                        yield x
 
     def compute_local_size_bulky(self, shape):
         """
@@ -138,10 +141,16 @@ class OclTools(object):
         best_local_size = None
         largest_volume = 0
         for candidate_local_size in self.get_local_size(shape, 0, self.max_work_group_size):
-            if product(candidate_local_size) > largest_volume:
-                largest_volume = product(candidate_local_size)
+            ratio = product(candidate_local_size) / (2.0 * sum(candidate_local_size))
+            # print("shape {:12} local_size {:12} product {:12} sum {:12} ratio {:12}".format(
+            #     shape, candidate_local_size,
+            #     product(candidate_local_size), 2 * sum(candidate_local_size), ratio
+            # ))
+            if ratio > largest_volume:
+                largest_volume = ratio
                 best_local_size = candidate_local_size
 
+        best_local_size = [min(shape[dim], value) for dim, value in enumerate(best_local_size)]
         return best_local_size
 
     def compute_local_size(self, shape, method=None):
