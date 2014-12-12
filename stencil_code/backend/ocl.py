@@ -62,14 +62,14 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].set_local()
         node.defn = node.defn[0]
 
-        def kernel_dim_name(dim):
-            return "kernel_d{}".format(dim)
+        def kernel_dim_name(cur_dim):
+            return "kernel_d{}".format(cur_dim)
 
-        def global_for_dim_name(dim):
-            return "global_size_d{}".format(dim)
+        def global_for_dim_name(cur_dim):
+            return "global_size_d{}".format(cur_dim)
 
-        def local_for_dim_name(dim):
-            return "local_size_d{}".format(dim)
+        def local_for_dim_name(cur_dim):
+            return "local_size_d{}".format(cur_dim)
 
         # if boundary handling is copy we have to generate a collection of
         # boundary kernels to handle the on-gpu boundary copy

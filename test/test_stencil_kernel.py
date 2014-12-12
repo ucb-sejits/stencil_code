@@ -1,4 +1,5 @@
 import unittest
+from stencil_code.library.jacobi_stencil import Jacobi
 
 from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_kernel import Stencil
@@ -47,6 +48,12 @@ class TestStencilKernel(unittest.TestCase):
 
         self.assertTrue("Undefined neighborhood identifier" in context.exception.args[0])
 
+    def test_default_distance(self):
+        jacobi = Jacobi()
+
+        self.assertEqual(jacobi.distance((0, 0), (10, 0)), 10.0)
+        self.assertEqual(jacobi.distance((0, 0), (0, 10)), 10.0)
+        self.assertEqual(jacobi.distance((3, 0), (0, 4)), 5.0)
 
 
 
