@@ -21,13 +21,6 @@ class ConvolutionFilter(Stencil):
             neighborhoods=[neighbors], backend=backend, boundary_handling='copy'
         )
 
-    @staticmethod
-    def clamped_add_tuple(point1, point2, grid):
-        def clamp(d1_d2_max):
-            return min(max(d1_d2_max[0] + d1_d2_max[1], 0), d1_d2_max[2]-1)
-
-        return tuple(map(clamp, zip(point1, point2, grid.shape)))
-
     def __call__(self, *args, **kwargs):
         """
         We had to override __call__ here because the kernel currently cannot directly reference
@@ -53,7 +46,7 @@ class ConvolutionFilter(Stencil):
                 output_grid[point] += input_grid[n] * self.distance(point, n)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 

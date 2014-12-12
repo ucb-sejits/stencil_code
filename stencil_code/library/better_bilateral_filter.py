@@ -1,5 +1,4 @@
-import random
-import string
+from __future__ import print_function
 
 __author__ = "chickmarkley"
 
@@ -9,9 +8,6 @@ import math
 
 from stencil_code.neighborhood import Neighborhood
 from stencil_code.stencil_kernel import Stencil
-
-# import logging
-# logging.basicConfig(level=20)
 
 
 class BetterBilateralFilter(Stencil):
@@ -75,7 +71,10 @@ class BetterBilateralFilter(Stencil):
                     filter_s[abs(int(in_img[i] - in_img[j]))]
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
+    # import logging
+    # logging.basicConfig(level=20)
+
     import sys
     import os
 
@@ -93,7 +92,7 @@ if __name__ == '__main__':
     stdev_d = 3 if len(sys.argv) < 6 else sys.argv[5]
     stdev_s = 70 if len(sys.argv) < 7 else int(sys.argv[6])
 
-    pixels = map(ord, list(image_in.read(width * height))) # Read in grayscale values
+    pixels = map(ord, list(image_in.read(width * height)))  # Read in grayscale values
     # for testing, put known junk in pixels
     # pixels = map(ord, [str(chr((x % 32)+65)) for x in range(width * height)])
     intensity = float(sum(pixels))/len(pixels)
@@ -104,9 +103,9 @@ if __name__ == '__main__':
 
     # convert input stream into 2d array
     in_grid = numpy.zeros([height, width], numpy.float32)
-    for i in range(height):
-        for j in range(width):
-            in_grid[i, j] = pixels[i * width + j]
+    for index1 in range(height):
+        for index2 in range(width):
+            in_grid[index1, index2] = pixels[index1 * width + index2]
 
     ocl_out_grid = ocl_bilateral_filter(in_grid)
     c_out_grid = c_bilateral_filter(in_grid)
@@ -116,15 +115,15 @@ if __name__ == '__main__':
         c_out_grid[ocl_bilateral_filter.interior_points_slice()]
     )
 
-    for i in range(height):
-        for j in range(width):
-            pixels[i * width + j] = (ocl_out_grid[i, j])
+    for index1 in range(height):
+        for index2 in range(width):
+            pixels[index1 * width + index2] = (ocl_out_grid[index1, index2])
 
     # print(pixels)
     print("sum pix sum {} len {}".format(sum(pixels), len(pixels)))
     out_intensity = float(sum(pixels))/len(pixels)
-    for i in range(0, len(pixels)):
-        pixels[i] = min(255, max(0, int(pixels[i] * (intensity/out_intensity))))
+    for index1 in range(0, len(pixels)):
+        pixels[index1] = min(255, max(0, int(pixels[index1] * (intensity/out_intensity))))
 
     image_out = open(out_filename, 'wb')
     image_out.write(''.join(map(chr, pixels)))

@@ -1,7 +1,8 @@
 __author__ = 'leonardtruong'
 from ctree.cpp.nodes import CppDefine
-from .stencil_backend import *
-from ctypes import c_int, POINTER, c_float
+from ctypes import POINTER, c_float
+from stencil_code.stencil_exception import StencilException
+from stencil_code.backend.stencil_backend import *
 
 
 class StencilCTransformer(StencilBackend):
@@ -111,13 +112,13 @@ class StencilCTransformer(StencilBackend):
 
             then_block = Assign(
                 ArrayRef(SymbolRef(self.output_grid_name), SymbolRef(self.output_index)),
-                ArrayRef(SymbolRef('in_grid'), SymbolRef(self.output_index)),
+                ArrayRef(SymbolRef(self.input_names[0]), SymbolRef(self.output_index)),
             )
             else_block = []
             for elem in map(self.visit, node.body):
                 if type(elem) == list:
                     else_block.extend(elem)
-                else:
+                else:  # pragma no cover
                     else_block.append(elem)
             if_boundary_block = If(
                 boundary_or(0),
@@ -161,7 +162,7 @@ class StencilCTransformer(StencilBackend):
                         pt = list(
                             map(lambda d: gen_clamped_index(
                                 self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
-                    else:
+                    else:  # pragma no cover
                         pt = list(map(lambda x: SymbolRef(x), self.var_list))
 
                     index = self.gen_array_macro(grid_name, pt)
@@ -183,4 +184,4 @@ class StencilCTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise Exception("Found GridElement that is not supported")
+        raise StencilException("Found GridElement that is not supported")  # pragma no cover

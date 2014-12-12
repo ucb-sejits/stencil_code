@@ -21,7 +21,7 @@ class DiagnosticStencil(Stencil):
                     out_grid[x] += 16.0 * in_grid[y]
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 
@@ -37,9 +37,9 @@ if __name__ == '__main__':
 
     print(ocl_out)
 
-    for x in range(height):
-        for y in range(width):
-            p = (x, y)
+    for index1 in range(height):
+        for index2 in range(width):
+            p = (index1, index2)
             if int(ocl_out[p]*1000) != int(python_out[p]*1000):
                 print("{} {} != {}".format(p, ocl_out[p], python_out[p]))
 

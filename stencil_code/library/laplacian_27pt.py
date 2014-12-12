@@ -5,9 +5,6 @@ import numpy.testing
 from stencil_code.stencil_kernel import Stencil
 from stencil_code.neighborhood import Neighborhood
 
-# import logging
-# logging.basicConfig(level=20)
-
 
 class SpecializedLaplacian27(Stencil):
     """
@@ -33,7 +30,7 @@ class SpecializedLaplacian27(Stencil):
                 output_data[x] += factors[self.distance(x, n)] * source_data[n]
 
 
-def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, source, destination):
+def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, source, destination):  # pragma: no cover
     """
     An actual hand written 27 point laplacian function, found in the field.  Not exactly as it was found
     in the field. Turns out this hand-written version was originally missing two of the gamma terms.
@@ -58,7 +55,10 @@ def laplacian_27pt(nx, ny, nz, alpha, beta, gamma, delta, source, destination):
                              source[i + 1, j - 1, k + 1] + source[i + 1, j + 1, k + 1])
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
+    # import logging
+    # logging.basicConfig(level=20)
+
     import sys
 
     x_size = 32 if len(sys.argv) <= 1 else int(sys.argv[1])

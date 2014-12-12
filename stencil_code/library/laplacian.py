@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from stencil_code.stencil_kernel import Stencil
 from ctree.util import Timer
 import numpy
@@ -19,17 +21,8 @@ class LaplacianKernel(Stencil):
             for y in self.neighbors(x, 0):
                 out_grid[x] += in_grid[y]
 
-    def kernel2(self, in_grid):
-        print(in_grid[1, :10, :10])
-        out_grid = numpy.empty_like(in_grid)
-        for x in self.interior_points(in_grid):
-            out_grid[x] = -6 * in_grid[x]
-            for y in self.neighbors(x, 0):
-                out_grid[x] += in_grid[y]
-        print(out_grid[1, :10, :10])
-        return out_grid
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     import logging
     logging.basicConfig(level=0)
 

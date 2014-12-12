@@ -14,7 +14,7 @@ class Jacobi(Stencil):
                 out_grid[x] += .3 * in_grid[y]
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     # import logging
     # logging.basicConfig(level=20)
 

@@ -20,7 +20,7 @@ class PythonToStencilModel(PyBasicConversions):
     def visit_FunctionDef(self, node):
         if node.name == 'kernel':
             node.args.args = node.args.args[1:]
-        if self.arg_names is not None:
+        if self.arg_names is not None:  # pragma no cover
             for index, arg in enumerate(node.args.args):
                 new_name = self.arg_names[index]
                 if sys.version_info >= (3, 0):
@@ -29,7 +29,7 @@ class PythonToStencilModel(PyBasicConversions):
                     self.arg_name_map[arg.id] = new_name
                 arg.id = new_name
         else:
-            for index, arg in enumerate(node.args.args):
+            for index, arg in enumerate(node.args.args):  # pragma no cover
                 if sys.version_info >= (3, 0):
                     self.arg_name_map[arg.arg] = arg.arg
                 else:
@@ -51,7 +51,7 @@ class PythonToStencilModel(PyBasicConversions):
                     neighbor_target=node.target.id,
                     body=node.body
                 )
-        return super(PythonToStencilModel, self).visit_For(node)
+        return super(PythonToStencilModel, self).visit_For(node)  # pragma no cover
 
     def visit_Call(self, node):
         node = super(PythonToStencilModel, self).visit_Call(node)
@@ -62,7 +62,7 @@ class PythonToStencilModel(PyBasicConversions):
         else:
             try:
                 func_name = node.func.attr
-            except Exception:
+            except Exception:  # pragma no cover
                 pass
 
         if func_name and func_name == 'distance' or func_name == 'int':

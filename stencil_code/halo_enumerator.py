@@ -86,6 +86,6 @@ class HaloEnumerator(object):
             yield next_point
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma no cover
     for halo_index in HaloEnumerator([1, 1], [5, 5]):
         print("border point {}".format(halo_index))

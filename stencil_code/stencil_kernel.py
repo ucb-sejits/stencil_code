@@ -96,7 +96,7 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         if self.output is not None:
             output = self.output
             self.output = None
-        else:
+        else:  # pragma no cover
             output = np.zeros_like(args[0])
         args += (output, byref(duration))
         self._c_function(*args)
@@ -148,7 +148,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         if self.output is not None:
             output = self.output
             self.output = None
-        else:
+        else:  # pragma no cover
             output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
@@ -378,42 +378,6 @@ class SpecializedStencil(LazySpecializedFunction, Fusable):
         return self.output
 
 
-class StencilCall(ast.AST):
-    _fields = ['params', 'body']
-
-    def __init__(self, function_decl, input_grids, output_grid, kernel):
-        super(StencilCall, self).__init__()
-        self.params = function_decl.params
-        self.body = function_decl.defn
-        self.function_decl = function_decl
-        self.input_grids = input_grids
-        self.output_grid = output_grid
-        self.kernel = kernel
-
-    def label(self):
-        return ""
-
-    def to_dot(self):
-        return "digraph mytree {\n%s}" % self._to_dot()
-
-    def _to_dot(self):
-        from ctree.dotgen import DotGenVisitor
-
-        return DotGenVisitor().visit(self)
-
-    def add_undef(self):
-        self.function_decl.defn[0].add_undef()
-
-    def remove_types_from_decl(self):
-        self.function_decl.defn[1].remove_types_from_decl()
-
-    def backend_transform(self, block_padding, local_input):
-        return StencilOclTransformer(
-            self.input_grids, self.output_grid, self.kernel,
-            block_padding
-        ).visit(self.function_decl)
-
-
 class Stencil(object):
     """
     Stencil is an abstract class that requires
@@ -447,13 +411,6 @@ class Stencil(object):
         :param boundary_handling: one of skip, clamped, copy; default is clamped
         :raise Exception: If no kernel method is defined.
         """
-
-        # we want to raise an exception if there is no kernel()
-        # method defined.
-        try:
-            dir(self).index("kernel")
-        except ValueError:
-            raise StencilException("Error: {} must define a kernel method".format(type(self)))
 
         if neighborhoods:
             self.neighborhood_definition = neighborhoods
@@ -594,13 +551,6 @@ class Stencil(object):
         :return: a tuple representing a numpy slice that selects the interior of a grid
         """
         return tuple([slice(x+extra, -(x+extra)) for x in self.ghost_depth])
-
-    def get_semantic_node(self, arg_names, *args):
-
-        func_decl = PythonToStencilModel(arg_names).visit(
-            get_ast(self.model)
-        ).files[0].body[0]
-        return StencilCall(func_decl, args[:-1], args[-1], self)
 
     def distance(self, x, y):
         """
