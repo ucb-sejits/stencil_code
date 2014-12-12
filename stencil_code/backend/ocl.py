@@ -29,6 +29,7 @@ class StencilOclTransformer(StencilBackend):
         self.macro_defns = []
         self.project = None
         self.boundary_kernels = None
+        self.boundary_handlers = None
 
     def visit_Project(self, node):
         self.project = node
@@ -78,7 +79,7 @@ class StencilOclTransformer(StencilBackend):
             self.boundary_handlers = boundary_kernel_factory(
                 self.ghost_depth, self.output_grid,
                 node.params[0].name,
-                node.params[-2].name, # second last parameter is output
+                node.params[-2].name,  # second last parameter is output
                 device
             )
             boundary_kernels = [
@@ -214,7 +215,6 @@ class StencilOclTransformer(StencilBackend):
             Constant(0), NULL(), NULL()
         ])
 
-        finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
         defn.append(enqueue_call)
 
         params = [
@@ -223,13 +223,6 @@ class StencilOclTransformer(StencilBackend):
         ]
         if self.is_copied:
             for dim, boundary_kernel in enumerate(self.boundary_kernels):
-                boundary_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
-                    SymbolRef('queue'), SymbolRef('kernel'),
-                    Constant(self.kernel.dim), NULL(),
-                    SymbolRef('global'), SymbolRef('local'),
-                    Constant(0), NULL(), NULL()
-                ])
-
                 defn.extend([
                     ArrayDef(
                         SymbolRef(global_for_dim_name(dim), ct.c_ulong()), arg_cfg[0].ndim,
@@ -308,22 +301,6 @@ class StencilOclTransformer(StencilBackend):
         return index
 
     def local_array_macro(self, point):
-        dim = len(self.output_grid.shape)
-        index = get_local_id(dim)
-        for d in reversed(range(dim)):
-            index = Add(
-                Mul(
-                    index,
-                    Add(
-                        get_local_size(d),
-                        Constant(2 * self.ghost_depth[d])
-                    ),
-                ),
-                point[d]
-            )
-        return FunctionCall(SymbolRef("local_array_macro"), point)
-
-    def gen_array_macro(self, arg, point):
         dim = len(self.output_grid.shape)
         index = get_local_id(dim)
         for d in reversed(range(dim)):
@@ -541,33 +518,19 @@ class StencilOclTransformer(StencilBackend):
                     return ArrayRef(SymbolRef(self.output_grid_name),
                                     SymbolRef(self.output_index))
                 elif grid_name in self.input_dict:
-                    # grid = self.input_dict[grid_name]
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
-                    # index = self.gen_array_macro(grid_name, pt)
                     index = self.local_array_macro(pt)
                     return ArrayRef(SymbolRef('block'), index)
             else:
                 pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
-                # index = self.gen_array_macro(grid_name, pt)
                 index = self.local_array_macro(pt)
-                # index = SymbolRef('out_index')
                 return ArrayRef(SymbolRef('block'), index)
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise Exception(
             "Unsupported GridElement encountered: {0}".format(grid_name))
-
-    def generate_copy_boundary_kernels(self):
-        """
-        boundary copy kernels copy values in the input_grid boundary to the same index on the
-        out_grid.  There is one kernel generated for each dimension, that kernel will process
-        a the left and right planes (a plane for a dimension index d, is all points for other dimensions
-        that have a fixed value in the halo of that dimension).  The work group size is the size of the
-        entire matrix.
-        """
-        pass
 
 
 def gen_decls(dim, ghost_depth):

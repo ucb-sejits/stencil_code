@@ -412,13 +412,6 @@ class Stencil(object):
         :raise Exception: If no kernel method is defined.
         """
 
-        # we want to raise an exception if there is no kernel()
-        # method defined.
-        try:
-            dir(self).index("kernel")
-        except ValueError:
-            raise StencilException("Error: {} must define a kernel method".format(type(self)))
-
         if neighborhoods:
             self.neighborhood_definition = neighborhoods
         else:

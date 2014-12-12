@@ -25,7 +25,7 @@ class Neighborhood(object):
         i = 0
         while i < len(l):
             while isinstance(l[i], list):
-                if not l[i]:
+                if not l[i]:  # pragma no cover
                     l.pop(i)
                     i -= 1
                     break
@@ -125,5 +125,6 @@ class Neighborhood(object):
         return neighbor_points, coefficients, halo
 
 
+Neighborhood.flatten([[None], None, [[1, 2], [3, 4], [5,6]]])
 
 
