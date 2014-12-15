@@ -2,7 +2,7 @@ __author__ = 'chick'
 
 import unittest
 
-from stencil_code.backend.ocl_tools import product, OclTools
+from stencil_code.backend.ocl_tools import product, OclTools, LocalSizeComputer
 
 
 class MockDevice(object):
@@ -11,6 +11,9 @@ class MockDevice(object):
         self.max_work_group_size = max_work_group_size
         self.max_local_group_sizes = max_local_group_sizes if max_local_group_sizes is not None else [512, 512, 512]
         self.max_compute_units = max_compute_units
+
+MockCPU = MockDevice(1024, [1024, 1, 1], 8)
+MockIrisPro = MockDevice(512, [512, 512, 512], 40)
 
 
 class TestOclTools(unittest.TestCase):
@@ -59,7 +62,7 @@ class TestOclTools(unittest.TestCase):
         # minimization of unused cycles
         # TODO: fix both generator and number to reflect optimality
 
-        tools = OclTools(MockDevice(512, [512, 512, 512], 40))
+        tools = OclTools(MockIrisPro)
 
         self.assertTrue(tools.compute_local_size([1, 101]) == (1, 101))
         self.assertTrue(tools.compute_local_size([101, 1]) == (101, 1))
@@ -78,7 +81,7 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 1, 1))
         self.assertTrue(tools.compute_local_size([101, 1, 1]) == (101, 1, 1))
 
-        tools = OclTools(MockDevice(512, [512, 512, 512], 40))
+        tools = OclTools(MockIrisPro)
 
         self.assertTrue(tools.compute_local_size([1, 1, 101]) == (1, 1, 101))
         self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 101, 1))
@@ -87,14 +90,50 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(tools.compute_local_size([100, 512, 101]) == (1, 19, 26))
 
     def test_compute_local_size_bulky(self):
-        tools = OclTools(MockDevice(512, [512, 512, 512], 40))
+        tools = OclTools(MockIrisPro)
         print(list(tools.get_a_bulky_range(2, 256, 128)))
 
         # for l in tools.get_local_size([512, 512, 512], 0, 512):
         #     print("l={}".format(l))
 
-        print(tools.compute_local_size_bulky([2560]))
-        print(tools.compute_local_size_bulky([256, 256]))
-        print(tools.compute_local_size_bulky([128, 128, 128]))
-        print(tools.compute_local_size_bulky([4, 128, 128]))
+        sizes = [
+            [4], [5], [16], [17], [255], [256], [257], [2599], [2560], [2561], [2000],
+            [1, 4], [4, 1], [1, 5], [5, 1],
+            [4, 4], [5, 5],
+            [4, 128], [128, 4], [128, 7], [7, 128], [128, 128],
+        ]
+        for grid_size in sizes:
+            print("size {:20} lenny {:20} thin {:20} bulky {:20}".format(
+                grid_size,
+                tools.compute_local_size_lenny_style(grid_size),
+                tools.compute_local_size_thin(grid_size),
+                tools.compute_local_size_bulky(grid_size),
+            ))
 
+    def test_local_size_computer(self):
+        lsc = LocalSizeComputer([512, 512], MockCPU)
+        print(lsc.dimension_processing_priority_key(0))
+        print(lsc.dimension_processing_priority_key(1))
+
+        sizes = [
+            [4], [5], [16], [17], [255], [256], [257], [2599], [2560], [2561], [2000],
+            [1, 4], [4, 1], [1, 5], [5, 1],
+            [4, 4], [5, 5],
+            [4, 128], [128, 4], [128, 7], [7, 128], [128, 128],
+            [4, 4, 4], [4, 4, 512], [512, 512, 4],
+            [512, 512, 512], [512, 511, 511], [512, 513, 513],
+        ]
+        for grid_shape in sizes:
+            c1 = LocalSizeComputer(grid_shape, MockCPU)
+            c2 = LocalSizeComputer(grid_shape, MockIrisPro)
+            dims_to_do = [d for d in range(len(grid_shape))]
+            print("size {:16} d0 indices {:40} d1 indices {:40}".format(
+                grid_shape,
+                c1.max_indices,
+                c2.max_indices,
+            ))
+            # print("size {:16} d0 keys {:40} d1 keys {:40}".format(
+            #     grid_shape,
+            #     [c1.dimension_processing_priority_key(d) for d in range(len(grid_shape))],
+            #     [c2.dimension_processing_priority_key(d) for d in range(len(grid_shape))],
+            # ))
