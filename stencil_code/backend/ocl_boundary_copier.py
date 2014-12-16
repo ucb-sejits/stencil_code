@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy
 import numpy.random
 from stencil_code.stencil_exception import StencilException
-from stencil_code.backend.ocl_tools import OclTools
+from stencil_code.backend.ocl_tools import LocalSizeComputer
 
 __author__ = 'chick'
 
@@ -56,7 +56,7 @@ class OclBoundaryCopier(object):
         self.device = device
 
         self.global_size, self.global_offset = self.compute_global_size()
-        self.local_size = OclTools(device=None).compute_local_size(self.global_size)
+        self.local_size = LocalSizeComputer(self.global_size, device=device).compute_local_size_thin()
         self.virtual_global_size = self.compute_virtual_global_size()
 
         self.kernel_name = OclBoundaryCopier.kernel_name(self.dimension)

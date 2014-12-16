@@ -7,10 +7,10 @@ from stencil_code.backend.ocl_tools import product, OclTools, LocalSizeComputer
 
 
 class MockDevice(object):
-    def __init__(self, max_work_group_size=512, max_local_group_sizes=None,
+    def __init__(self, max_work_group_size=512, max_work_item_sizes=None,
                  max_compute_units=40):
         self.max_work_group_size = max_work_group_size
-        self.max_local_group_sizes = max_local_group_sizes if max_local_group_sizes is not None else [512, 512, 512]
+        self.max_work_item_sizes = max_work_item_sizes if max_work_item_sizes is not None else [512, 512, 512]
         self.max_compute_units = max_compute_units
 
 MockCPU = MockDevice(1024, [1024, 1, 1], 8)
@@ -76,7 +76,7 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(tools.compute_local_size([102, 7]) == (102, 4))
 
     def test_compute_local_group_size_3d(self):
-        tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
+        tools = OclTools(MockCPU)
 
         self.assertTrue(tools.compute_local_size([1, 1, 101]) == (1, 1, 1))
         self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 1, 1))
@@ -170,7 +170,7 @@ class TestOclTools(unittest.TestCase):
 
             [[4, 4, 4], (4, 1, 1), (4, 4, 4)],
             [[4, 4, 512], (4, 1, 1), (4, 4, 14)],
-            [[512, 512 ,4], (512, 1, 1), (8, 8, 4)],
+            [[512, 512, 4], (512, 1, 1), (8, 8, 4)],
             [[512, 512, 512], (512, 1, 1), (8, 8, 8)],
 
             [[3, 3, 633], (3, 1, 1), (3, 3, 32)],

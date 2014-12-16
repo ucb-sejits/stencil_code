@@ -18,12 +18,12 @@ class OclTools(object):
     def __init__(self, device=None):
         if device is not None:
             self.max_work_group_size = device.max_work_group_size
-            self.max_local_group_sizes = device.max_local_group_sizes
+            self.max_work_item_sizes = device.max_work_item_sizes
             self.max_compute_units = device.max_compute_units
         else:
             # these settings are for testing only
             self.max_work_group_size = 512
-            self.max_local_group_sizes = [512, 512, 512]
+            self.max_work_item_sizes = [512, 512, 512]
             self.max_compute_units = 40
 
     def get_work_group_for_divisor(self, shape, dim_divisor):
@@ -40,18 +40,18 @@ class OclTools(object):
         adjust = 0 if shape[last_dim] % 2 == 0 or dim_divisor == 1 else 1
         last_dim_size = max(1, min(
             int((shape[last_dim]/dim_divisor) + adjust),
-            self.max_local_group_sizes[last_dim]
+            self.max_work_item_sizes[last_dim]
         ))
         penultimate_dim_size = min(
             int(self.max_work_group_size / last_dim_size),
-            self.max_local_group_sizes[penultimate_dim], shape[penultimate_dim]
+            self.max_work_item_sizes[penultimate_dim], shape[penultimate_dim]
         )
         if len(shape) == 2:
             return penultimate_dim_size, last_dim_size
 
         first_dim_size = min(
             int(self.max_work_group_size / (last_dim_size * penultimate_dim_size)),
-            self.max_local_group_sizes[0], shape[0]
+            self.max_work_item_sizes[0], shape[0]
         )
         return first_dim_size, penultimate_dim_size, last_dim_size
 
@@ -88,7 +88,7 @@ class OclTools(object):
         :return:
         """
         if len(shape) == 1:
-            return (max(1, min(int(shape[0]/2), self.max_local_group_sizes[0])),)
+            return (max(1, min(int(shape[0]/2), self.max_work_item_sizes[0])),)
 
         best_work_group = None
         minimum_error = None
@@ -108,7 +108,7 @@ class OclTools(object):
         return best_work_group
 
     def compute_local_size_lenny_style(self, shape):
-        max_sizes = self.max_local_group_sizes
+        max_sizes = self.max_work_item_sizes
         max_total = self.max_work_group_size
 
         if sum([x % 2 for x in shape]) == len(shape):
@@ -189,7 +189,7 @@ class OclTools(object):
             new_local_size = local_size + [max_size]
             yield tuple(new_local_size)
         else:
-            for size in self.get_a_bulky_range(len(shape)-dim, max_size, self.max_local_group_sizes[dim]):
+            for size in self.get_a_bulky_range(len(shape)-dim, max_size, self.max_work_item_sizes[dim]):
                 new_local_size = local_size + [size]
                 for x in self.get_local_size(
                         shape, dim+1, max_size // size, new_local_size):
@@ -233,7 +233,7 @@ class OclTools(object):
         if method is None or method == 'thin':
             return self.compute_local_size_thin(shape)
         else:
-            return self.compute_local_bulky(shape)
+            return self.compute_local_size_bulky(shape)
 
 
 class LocalSizeComputer(object):
@@ -255,7 +255,7 @@ class LocalSizeComputer(object):
                 self.max_local_group_sizes = [512, 512, 512]
                 self.compute_units = 40
         else:
-            self.max_local_group_sizes = device.max_local_group_sizes
+            self.max_local_group_sizes = device.max_work_item_sizes
             self.max_work_group_size = device.max_work_group_size
             self.compute_units = device.max_compute_units
 
@@ -266,7 +266,7 @@ class LocalSizeComputer(object):
         self.root_size = int((self.max_work_group_size ** (1.0 / self.dimensions)) + 0.5)
         self.max_indices = [
             int(self.root_size * overshoot)
-            for dim in range(self.dimensions)
+            for _ in range(self.dimensions)
         ]
         #
         # adjust each dimension downward if it exceeds the max_local_size for that dimension
@@ -323,7 +323,7 @@ class LocalSizeComputer(object):
         """
         return a key that indicates the priority for processing a particular dimensions
         dimensions that have more constraints should be processed before
-        :param shape:
+        :param dimension:
         :return:
         """
         if self.shape[dimension] > self.max_local_group_sizes[dimension]:
@@ -358,13 +358,12 @@ class LocalSizeComputer(object):
         ratio of the n-dimensional local_size shape.
         in that domain, try and minimize the overshoot when the local
         size cannot be an exact multiple of the global_size
-        :param shape:
         :return:
         """
         best_local_size = None
         largest_volume = 0
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size):
-            ratio = ( LocalSizeComputer.volume(candidate_local_size)) / \
+            ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
                 float(LocalSizeComputer.surface_area(candidate_local_size))
             # print("shape {:12} local_size {:12} product {:12} sum {:12} ratio {:12}".format(
             #     self.shape, candidate_local_size,
