@@ -113,7 +113,8 @@ class OclTools(object):
             return tuple([1 for _ in shape])
         if len(shape) == 3:
             x_len, y_len, z_len = 1, 1, 1
-            while True:
+            last_tuple = (0, 0, 0)
+            while (x_len, y_len, z_len) != last_tuple:
                 if shape[0] % 2 == 1:
                     x_len = 1
                 else:
@@ -136,11 +137,13 @@ class OclTools(object):
                         y_len == shape[1] or \
                         z_len == shape[2]:
                     break
+                last_tuple = (x_len, y_len, z_len)
 
             local_size = (x_len, y_len, z_len)
         elif len(shape) == 2:
             x_len, y_len = 1, 1
-            while True:
+            last_tuple = (0, 0)
+            while (x_len, y_len) != last_tuple:
                 if shape[0] % 2 == 1:
                     x_len = 1
                 else:
@@ -156,6 +159,7 @@ class OclTools(object):
                 if x_len == shape[0] or \
                         y_len == shape[1]:
                     break
+                last_tuple = (x_len, y_len)
 
             local_size = (x_len, y_len)
         else:
@@ -311,17 +315,18 @@ class LocalSizeComputer(object):
         for size in range(max(2, target_size-10), min(max_local, target_size+10)):
             yield size
 
-    def get_local_size(self, shape, dim, max_size, local_size=None):
+    def get_local_size(self, dim, max_size, local_size=None):
         if local_size is None:
             local_size = []
-        if dim >= len(shape)-1:
-            new_local_size = local_size + [max_size]
+        if dim >= len(self.shape)-1:
+            new_local_size = local_size + [min(max_size, self.max_local_group_sizes[dim])]
             yield tuple(new_local_size)
         else:
-            for size in self.get_a_bulky_range(len(shape)-dim, max_size, self.max_local_group_sizes[dim]):
+            # for size in self.get_a_bulky_range(len(self.shape)-dim, max_size, self.max_local_group_sizes[dim]):
+            for size in range(max(1, self.max_indices[dim] - 20), self.max_indices[dim]+1):
                 new_local_size = local_size + [size]
                 for x in self.get_local_size(
-                        shape, dim+1, max_size // size, new_local_size):
+                        dim+1, max_size // size, new_local_size):
                     if product(x) > 0:
                         yield x
 
@@ -344,7 +349,7 @@ class LocalSizeComputer(object):
         dims = [d for d in range(self.dimensions)]
         return sorted(dims, key=get_key)
 
-    def compute_local_size_bulky(self, shape):
+    def compute_local_size_bulky(self):
         """
         compute a local size that leans toward minimizing the surface area to volume
         ratio of the n-dimensional local_size shape.
@@ -355,7 +360,7 @@ class LocalSizeComputer(object):
         """
         best_local_size = None
         largest_volume = 0
-        for candidate_local_size in self.get_local_size(shape, 0, self.max_work_group_size):
+        for candidate_local_size in self.get_local_size(0, self.max_work_group_size):
             ratio = product(candidate_local_size) / (2.0 * sum(candidate_local_size))
             # print("shape {:12} local_size {:12} product {:12} sum {:12} ratio {:12}".format(
             #     shape, candidate_local_size,
@@ -365,5 +370,5 @@ class LocalSizeComputer(object):
                 largest_volume = ratio
                 best_local_size = candidate_local_size
 
-        best_local_size = [min(shape[dim], value) for dim, value in enumerate(best_local_size)]
+        best_local_size = [min(self.shape[dim], value) for dim, value in enumerate(best_local_size)]
         return tuple(best_local_size)

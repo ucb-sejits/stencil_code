@@ -1,3 +1,4 @@
+from __future__ import print_function
 __author__ = 'chick'
 
 import unittest
@@ -111,7 +112,8 @@ class TestOclTools(unittest.TestCase):
             ))
 
     def test_local_size_computer(self):
-        lsc = LocalSizeComputer([512, 512], MockCPU)
+        lsc = LocalSizeComputer([1, 4], MockCPU)
+        print("[1, 4] ls {}".format(lsc.compute_local_size_bulky()))
         print(lsc.dimension_processing_priority_key(0))
         print(lsc.dimension_processing_priority_key(1))
 
@@ -124,13 +126,18 @@ class TestOclTools(unittest.TestCase):
             [512, 512, 512], [512, 511, 511], [512, 513, 513],
         ]
         for grid_shape in sizes:
+            print("size {:16}".format(grid_shape), end="")
             c1 = LocalSizeComputer(grid_shape, MockCPU)
             c2 = LocalSizeComputer(grid_shape, MockIrisPro)
-            dims_to_do = [d for d in range(len(grid_shape))]
-            print("size {:16} d0 indices {:40} d1 indices {:40}".format(
-                grid_shape,
+            l1 = OclTools(MockCPU)
+            l2 = OclTools(MockIrisPro)
+            print(" d0 ind {:15} ls {:15} len {:15} d1 ind {:15} ls {:15} len {:15}".format(
                 c1.max_indices,
+                c1.compute_local_size_bulky(),
+                l1.compute_local_size_lenny_style(grid_shape),
                 c2.max_indices,
+                c2.compute_local_size_bulky(),
+                l2.compute_local_size_lenny_style(grid_shape)
             ))
             # print("size {:16} d0 keys {:40} d1 keys {:40}".format(
             #     grid_shape,
