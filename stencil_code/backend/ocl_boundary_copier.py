@@ -2,7 +2,7 @@ from __future__ import print_function
 import numpy
 import numpy.random
 from stencil_code.stencil_exception import StencilException
-from stencil_code.backend.ocl_tools import LocalSizeComputer
+from stencil_code.backend.local_size_computer import LocalSizeComputer
 
 __author__ = 'chick'
 

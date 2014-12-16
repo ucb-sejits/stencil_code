@@ -3,7 +3,7 @@ __author__ = 'chick'
 
 import unittest
 
-from stencil_code.backend.ocl_tools import product, LocalSizeComputer
+from stencil_code.backend.local_size_computer import product, LocalSizeComputer
 
 
 class MockDevice(object):
@@ -17,7 +17,7 @@ MockCPU = MockDevice(1024, [1024, 1, 1], 8)
 MockIrisPro = MockDevice(512, [512, 512, 512], 40)
 
 
-class TestOclTools(unittest.TestCase):
+class TestLocalSizeComputer(unittest.TestCase):
     def _are_lists_equal(self, list1, list2):
         self.assertEqual(sorted(list1), sorted(list2))
 
