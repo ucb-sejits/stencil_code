@@ -3,7 +3,7 @@ __author__ = 'chick'
 
 import unittest
 
-from stencil_code.backend.ocl_tools import product, OclTools, LocalSizeComputer
+from stencil_code.backend.ocl_tools import product, LocalSizeComputer
 
 
 class MockDevice(object):
@@ -29,124 +29,69 @@ class TestOclTools(unittest.TestCase):
         self.assertTrue(product([2, 3, 4]) == 24)
 
     def test_compute_local_group_size_1d(self):
-        tools = OclTools(MockDevice())
-
         # chooses the minimum of shape / 2 and max local group size
         self.assertTrue(
-            tools.compute_local_size([100]) == (50,),
+            LocalSizeComputer([100], MockIrisPro).compute_local_size_thin() == (50,),
             "when smaller than work group divide by 2"
-            " compute_local_size {} != 50".format(tools.compute_local_size([100]))
         )
         # print("ls1d {}".format(tools.compute_local_size([1000])))
 
         self.assertTrue(
-            tools.compute_local_size([1000]) == (500,),
+            LocalSizeComputer([1000], MockIrisPro).compute_local_size_thin() == (500,),
             "when smaller than work group divide by 2"
         )
 
         self.assertTrue(
-            tools.compute_local_size([10000]) == (512,),
+            LocalSizeComputer([10000], MockIrisPro).compute_local_size_thin() == (512,),
             "when smaller than work group divide by 2"
         )
 
     def test_compute_local_group_size_2d(self):
-        # return the same kernel for MPU style device, macbookpro 2014
-
-        tools = OclTools(MockDevice(1024, [1024, 1, 1], 40))
-
-        self.assertTrue(tools.compute_local_size([1, 101]) == (1, 1))
-        self.assertTrue(tools.compute_local_size([101, 1]) == (101, 1))
-
         # this device looks like a 2014 Iris Pro
         # the following numbers have not yet been tested for optimality
         # they are mostly a product of a desire for consistency and
         # minimization of unused cycles
         # TODO: fix both generator and number to reflect optimality
 
-        tools = OclTools(MockIrisPro)
+        test_cases = [
+            [[1, 101], (1, 101)],
+            [[101, 1], (101, 1)],
+            [[512, 101], (19, 26)],
+            [[512, 513], (1, 257)],
+            [[300, 1025], (1, 342)],
+            [[5120, 32], (16, 32)],
+            [[5120011, 320001], (1, 512)],
+            [[102, 7], (102, 4)]
+        ]
 
-        self.assertTrue(tools.compute_local_size([1, 101]) == (1, 101))
-        self.assertTrue(tools.compute_local_size([101, 1]) == (101, 1))
-
-        self.assertTrue(tools.compute_local_size([512, 101]) == (19, 26))
-        self.assertTrue(tools.compute_local_size([512, 513]) == (1, 257))
-        self.assertTrue(tools.compute_local_size([300, 1025]) == (1, 342))
-        self.assertTrue(tools.compute_local_size([5120, 32]) == (16, 32))
-        self.assertTrue(tools.compute_local_size([5120011, 320001]) == (1, 512))
-        self.assertTrue(tools.compute_local_size([102, 7]) == (102, 4))
+        for grid_size, predicted_local_size in test_cases:
+            local_size = LocalSizeComputer(grid_size, MockIrisPro).compute_local_size_thin()
+            self.assertListEqual(list(local_size), list(predicted_local_size))
 
     def test_compute_local_group_size_3d(self):
-        tools = OclTools(MockCPU)
-
-        self.assertTrue(tools.compute_local_size([1, 1, 101]) == (1, 1, 1))
-        self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 1, 1))
-        self.assertTrue(tools.compute_local_size([101, 1, 1]) == (101, 1, 1))
-
-        tools = OclTools(MockIrisPro)
-
-        self.assertTrue(tools.compute_local_size([1, 1, 101]) == (1, 1, 101))
-        self.assertTrue(tools.compute_local_size([1, 101, 1]) == (1, 101, 1))
-        self.assertTrue(tools.compute_local_size([101, 1, 1]) == (101, 1, 1))
-
-        self.assertTrue(tools.compute_local_size([100, 512, 101]) == (1, 19, 26))
-
-    def test_compute_local_size_bulky(self):
-        tools = OclTools(MockIrisPro)
-        print(list(tools.get_a_bulky_range(2, 256, 128)))
-
-        # for l in tools.get_local_size([512, 512, 512], 0, 512):
-        #     print("l={}".format(l))
-
-        sizes = [
-            [4], [5], [16], [17], [255], [256], [257], [2599], [2560], [2561], [2000],
-            [1, 4], [4, 1], [1, 5], [5, 1],
-            [4, 4], [5, 5],
-            [4, 128], [128, 4], [128, 7], [7, 128], [128, 128],
+        test_cases = [
+            [[1, 1, 101], (1, 1, 1)],
+            [[1, 101, 1], (1, 1, 1)],
+            [[101, 1, 1], (101, 1, 1)],
+            [[100, 512, 101], (100, 1, 1)]
         ]
-        for grid_size in sizes:
-            print("size {:20} lenny {:20} thin {:20} bulky {:20}".format(
-                grid_size,
-                tools.compute_local_size_lenny_style(grid_size),
-                tools.compute_local_size_thin(grid_size),
-                tools.compute_local_size_bulky(grid_size),
-            ))
 
-    def test_local_size_computer_old(self):
-        lsc = LocalSizeComputer([1, 4], MockCPU)
-        print("[1, 4] ls {}".format(lsc.compute_local_size_bulky()))
-        print(lsc.dimension_processing_priority_key(0))
-        print(lsc.dimension_processing_priority_key(1))
+        for grid_size, predicted_local_size in test_cases:
+            local_size = LocalSizeComputer(grid_size, MockCPU).compute_local_size_thin()
+            self.assertListEqual(list(local_size), list(predicted_local_size))
 
-        sizes = [
-            [4], [5], [16], [17], [255], [256], [257], [2599], [2560], [2561], [2000],
-            [1, 4], [4, 1], [1, 5], [5, 1],
-            [4, 4], [5, 5],
-            [4, 128], [128, 4], [128, 7], [7, 128], [128, 128],
-            [4, 4, 4], [4, 4, 512], [512, 512, 4],
-            [512, 512, 512], [512, 511, 511], [512, 513, 513],
-            [3, 3, 633], [1, 3, 633], [99, 99, 99]
+        test_cases = [
+            [[1, 1, 101], (1, 1, 101)],
+            [[1, 101, 1], (1, 101, 1)],
+            [[101, 1, 1], (101, 1, 1)],
+            [[100, 512, 101], (1, 19, 26)]
         ]
-        for grid_shape in sizes:
-            print("size {:16}".format(grid_shape), end="")
-            c1 = LocalSizeComputer(grid_shape, MockCPU)
-            c2 = LocalSizeComputer(grid_shape, MockIrisPro)
-            l1 = OclTools(MockCPU)
-            l2 = OclTools(MockIrisPro)
-            print(" d0 ind {:15} ls {:15} len {:15} d1 ind {:15} ls {:15} len {:15}".format(
-                c1.max_indices,
-                c1.compute_local_size_bulky(),
-                l1.compute_local_size_lenny_style(grid_shape),
-                c2.max_indices,
-                c2.compute_local_size_bulky(),
-                l2.compute_local_size_lenny_style(grid_shape)
-            ))
-            # print("size {:16} d0 keys {:40} d1 keys {:40}".format(
-            #     grid_shape,
-            #     [c1.dimension_processing_priority_key(d) for d in range(len(grid_shape))],
-            #     [c2.dimension_processing_priority_key(d) for d in range(len(grid_shape))],
-            # ))
 
-    def test_local_size_computer(self):
+        for grid_size, predicted_local_size in test_cases:
+            local_size = LocalSizeComputer(grid_size, MockIrisPro).compute_local_size_thin()
+            self.assertListEqual(list(local_size), list(predicted_local_size))
+
+    def test_local_size_computer_bulky(self):
         lsc = LocalSizeComputer([1, 4], MockCPU)
         print("[1, 4] ls {}".format(lsc.compute_local_size_bulky()))
         print(lsc.dimension_processing_priority_key(0))
