@@ -122,11 +122,11 @@ class TestLocalSizeComputer(unittest.TestCase):
             [[99, 99, 99], (99, 1, 1), (8, 8, 8)],
         ]
         for grid_shape, cpu_local_size, gpu_local_size in sizes:
-            print("size {:16}".format(grid_shape), end="")
+            print("size {!s:16s}".format(grid_shape), end="")
             c1 = LocalSizeComputer(grid_shape, MockCPU).compute_local_size_bulky()
             c2 = LocalSizeComputer(grid_shape, MockIrisPro).compute_local_size_bulky()
 
-            print(" d0 cpu local_size {:15} gpu local_size {:15}".format(c1, c2))
+            print(" d0 cpu local_size {!s:15s} gpu local_size {!s:15s}".format(c1, c2))
 
             self.assertListEqual(list(c1), list(cpu_local_size))
             self.assertListEqual(list(c2), list(gpu_local_size))
