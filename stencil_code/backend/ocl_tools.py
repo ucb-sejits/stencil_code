@@ -4,6 +4,8 @@ __author__ = 'chick'
 import math
 import pycl
 
+import itertools
+
 
 def product(vector):
     result = 1
@@ -259,7 +261,7 @@ class LocalSizeComputer(object):
 
         overshoot = 1.5
         #
-        # make a first estimate of the largest indice to consider in each dimension
+        # make a first estimate of the largest index to consider in each dimension
         # that will be the n-th root of the max work group size in order to minimize surface area to volume ratio
         self.root_size = int((self.max_work_group_size ** (1.0 / self.dimensions)) + 0.5)
         self.max_indices = [
@@ -303,18 +305,6 @@ class LocalSizeComputer(object):
                             self.max_local_group_sizes[2]
                         )
 
-    def get_a_bulky_range(self, dims_remaining, cur_max_size, max_local):
-        """
-        return a reasonable range of sizes to try for
-        :param cur_shape:
-        :param cur_max_size:
-        :return:
-        """
-        target_size = int((cur_max_size ** (1.0 / dims_remaining)) + 0.5)
-
-        for size in range(max(2, target_size-10), min(max_local, target_size+10)):
-            yield size
-
     def get_local_size(self, dim, max_size, local_size=None):
         if local_size is None:
             local_size = []
@@ -322,7 +312,6 @@ class LocalSizeComputer(object):
             new_local_size = local_size + [min(max_size, self.max_local_group_sizes[dim])]
             yield tuple(new_local_size)
         else:
-            # for size in self.get_a_bulky_range(len(self.shape)-dim, max_size, self.max_local_group_sizes[dim]):
             for size in range(max(1, self.max_indices[dim] - 20), self.max_indices[dim]+1):
                 new_local_size = local_size + [size]
                 for x in self.get_local_size(
@@ -349,6 +338,20 @@ class LocalSizeComputer(object):
         dims = [d for d in range(self.dimensions)]
         return sorted(dims, key=get_key)
 
+    @staticmethod
+    def volume(vector):
+        if len(vector) == 1:
+            return vector[0] ** 2
+        return product(vector)
+
+    @staticmethod
+    def surface_area(vector):
+        if len(vector) == 1:
+            return vector[0]
+        elif len(vector) == 2:
+            return sum(vector) * 2
+        return sum([product([f * 2 for f in face]) for face in itertools.permutations(vector, len(vector)-1)])
+
     def compute_local_size_bulky(self):
         """
         compute a local size that leans toward minimizing the surface area to volume
@@ -361,10 +364,13 @@ class LocalSizeComputer(object):
         best_local_size = None
         largest_volume = 0
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size):
-            ratio = product(candidate_local_size) / (2.0 * sum(candidate_local_size))
+            ratio = ( LocalSizeComputer.volume(candidate_local_size)) / \
+                float(LocalSizeComputer.surface_area(candidate_local_size))
             # print("shape {:12} local_size {:12} product {:12} sum {:12} ratio {:12}".format(
-            #     shape, candidate_local_size,
-            #     product(candidate_local_size), 2 * sum(candidate_local_size), ratio
+            #     self.shape, candidate_local_size,
+            #     LocalSizeComputer.volume(candidate_local_size),
+            #     LocalSizeComputer.surface_area(candidate_local_size),
+            #     ratio
             # ))
             if ratio > largest_volume:
                 largest_volume = ratio
