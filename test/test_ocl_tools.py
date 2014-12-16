@@ -111,7 +111,7 @@ class TestOclTools(unittest.TestCase):
                 tools.compute_local_size_bulky(grid_size),
             ))
 
-    def test_local_size_computer(self):
+    def test_local_size_computer_old(self):
         lsc = LocalSizeComputer([1, 4], MockCPU)
         print("[1, 4] ls {}".format(lsc.compute_local_size_bulky()))
         print(lsc.dimension_processing_priority_key(0))
@@ -145,3 +145,43 @@ class TestOclTools(unittest.TestCase):
             #     [c1.dimension_processing_priority_key(d) for d in range(len(grid_shape))],
             #     [c2.dimension_processing_priority_key(d) for d in range(len(grid_shape))],
             # ))
+
+    def test_local_size_computer(self):
+        lsc = LocalSizeComputer([1, 4], MockCPU)
+        print("[1, 4] ls {}".format(lsc.compute_local_size_bulky()))
+        print(lsc.dimension_processing_priority_key(0))
+        print(lsc.dimension_processing_priority_key(1))
+
+        sizes = [
+            [[4], (4,), (4,)],
+            [[5], (5,), (5,)],
+            [[255], (255,), (255,)],
+            [[1023], (1023,), (512,)],
+            [[1024], (1024,), (512,)],
+            [[1025], (1024,), (512,)],
+
+            [[1, 4], (1, 1), (1, 4)],
+            [[4, 1], (4, 1), (4, 1)],
+            [[4, 4], (4, 1), (4, 4)],
+            [[4, 128], (4, 1), (4, 85)],
+            [[128, 4], (128, 1), (22, 4)],
+            [[128, 7], (128, 1), (22, 7)],
+            [[128, 128], (128, 1), (22, 23)],
+
+            [[4, 4, 4], (4, 1, 1), (4, 4, 4)],
+            [[4, 4, 512], (4, 1, 1), (4, 4, 14)],
+            [[512, 512 ,4], (512, 1, 1), (8, 8, 4)],
+            [[512, 512, 512], (512, 1, 1), (8, 8, 8)],
+
+            [[3, 3, 633], (3, 1, 1), (3, 3, 32)],
+            [[99, 99, 99], (99, 1, 1), (8, 8, 8)],
+        ]
+        for grid_shape, cpu_local_size, gpu_local_size in sizes:
+            print("size {:16}".format(grid_shape), end="")
+            c1 = LocalSizeComputer(grid_shape, MockCPU).compute_local_size_bulky()
+            c2 = LocalSizeComputer(grid_shape, MockIrisPro).compute_local_size_bulky()
+
+            print(" d0 cpu local_size {:15} gpu local_size {:15}".format(c1, c2))
+
+            self.assertListEqual(list(c1), list(cpu_local_size))
+            self.assertListEqual(list(c2), list(gpu_local_size))
