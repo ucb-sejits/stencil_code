@@ -56,8 +56,9 @@ class OclBoundaryCopier(object):
         self.device = device
 
         self.global_size, self.global_offset = self.compute_global_size()
-        self.local_size = LocalSizeComputer(self.global_size, device=device).compute_local_size_thin()
-        self.virtual_global_size = self.compute_virtual_global_size()
+        lcs = LocalSizeComputer(self.global_size, device=device)
+        self.local_size = lcs.compute_local_size_thin()
+        self.virtual_global_size = lcs.compute_virtual_global_size(self.local_size)
 
         self.kernel_name = OclBoundaryCopier.kernel_name(self.dimension)
 

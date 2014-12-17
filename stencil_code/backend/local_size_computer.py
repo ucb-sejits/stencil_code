@@ -225,7 +225,7 @@ class LocalSizeComputer(object):
             work_group = self.get_work_group_for_divisor(divisor)
             error = self.compute_error(work_group)
 
-            # print("self.shape {} work_group {} error {}".format(self.shape, work_group, error))
+            print("self.shape {} work_group {} error {}".format(self.shape, work_group, error))
 
             if error == 0.0:
                 return work_group
@@ -235,3 +235,9 @@ class LocalSizeComputer(object):
                 best_work_group = work_group
 
         return best_work_group
+
+    def compute_virtual_global_size(self, local_size):
+        return [
+            size if size % local_size[dim] == 0 else (int((size / local_size[dim]) + 1) * local_size[dim])
+            for dim, size in enumerate(self.shape)
+        ]

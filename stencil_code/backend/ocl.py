@@ -1,6 +1,6 @@
 import ctypes as ct
 
-from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
+from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
     FunctionDecl, GtE, Sub, Cast
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
@@ -9,6 +9,7 @@ from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 import pycl as cl
+from stencil_code.backend.local_size_computer import LocalSizeComputer
 
 from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_model import MathFunction
@@ -27,6 +28,9 @@ class StencilOclTransformer(StencilBackend):
         self.load_mem_block = []
         self.macro_defns = []
         self.project = None
+        self.local_size = None
+        self.global_size = None
+        self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
 
@@ -49,6 +53,22 @@ class StencilOclTransformer(StencilBackend):
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
         # generate the proper array macros.
+        arg_cfg = self.arg_cfg
+
+        global_size = arg_cfg[0].shape
+
+        if self.testing:
+            local_size = (1, 1, 1)
+        else:
+            desired_device_number = -1
+            device = cl.clGetDeviceIDs()[desired_device_number]
+            lcs = LocalSizeComputer(global_size, device)
+            local_size = lcs.compute_local_size_bulky()
+            virtual_global_size = lcs.compute_virtual_global_size(local_size)
+            self.global_size = global_size
+            self.local_size = local_size
+            self.virtual_global_size = virtual_global_size
+
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
         for index, param in enumerate(node.params[:-1]):
             # TODO: Transform numpy type to ctype
@@ -107,78 +127,10 @@ class StencilOclTransformer(StencilBackend):
         # print(self.project.files[0])
         # print(self.project.files[-1])
 
-        arg_cfg = self.arg_cfg
-        if self.testing:
-            local_size = (1, 1, 1)
-        else:
-            devices = cl.clGetDeviceIDs()
-            max_sizes = cl.clGetDeviceInfo(
-                devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_ITEM_SIZES)
-            max_total = cl.clGetDeviceInfo(
-                devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_GROUP_SIZE)
-
-            if len(arg_cfg[0].shape) == 3:
-                x_len, y_len, z_len = 1, 1, 1
-                while True:
-                    if arg_cfg[0].shape[0] % 2 == 1:
-                        x_len = 1
-                    else:
-                        x_len = min(max_sizes[0], x_len * 2)
-                    if max_total - z_len * x_len * y_len <= 0:
-                        break
-                    if arg_cfg[0].shape[1] % 2 == 1:
-                        y_len = 1
-                    else:
-                        y_len = min(max_sizes[1], y_len * 2)
-                    if max_total - z_len * x_len * y_len <= 0:
-                        break
-                    if arg_cfg[0].shape[2] % 2 == 1:
-                        z_len = 1
-                    else:
-                        z_len = min(max_sizes[2], z_len * 2)
-                    if max_total - z_len * x_len * y_len <= 0:
-                        break
-                    if x_len == arg_cfg[0].shape[0] or \
-                            y_len == arg_cfg[0].shape[1] or \
-                            z_len == arg_cfg[0].shape[2]:
-                        break
-
-                local_size = (x_len, y_len, z_len)
-            elif len(arg_cfg[0].shape) == 2:
-                x_len, y_len = 1, 1
-                while True:
-                    if arg_cfg[0].shape[0] % 2 == 1:
-                        x_len = 1
-                    else:
-                        x_len = min(max_sizes[0], x_len * 2)
-                    if max_total - x_len * y_len <= 0:
-                        break
-                    if arg_cfg[0].shape[1] % 2 == 1:
-                        y_len = 1
-                    else:
-                        y_len = min(max_sizes[1], y_len * 2)
-                    if max_total - x_len * y_len <= 0:
-                        break
-                    if x_len == arg_cfg[0].shape[0] or \
-                            y_len == arg_cfg[0].shape[1]:
-                        break
-
-                local_size = (x_len, y_len)
-                if arg_cfg[0].shape[0] % x_len != 0 or \
-                   arg_cfg[0].shape[1] % y_len != 0:
-                    raise StencilException(
-                        'opencl backend must have sizes that are multiples of {}'.format(
-                            local_size
-                        ))
-            else:
-                local_size = (min(
-                    max_total, max_sizes[0], arg_cfg[0].shape[0] / 2),)
-
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(d)
-                 for d in arg_cfg[0].shape]
+                [Constant(d) for d in self.virtual_global_size]
             ),
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
@@ -497,7 +449,19 @@ class StencilOclTransformer(StencilBackend):
                 self.stencil_op.extend(child)
             else:
                 self.stencil_op.append(child)
-        body.extend(self.stencil_op)
+
+        conditional = None
+        for dim in range(len(self.output_grid.shape)):
+            if self.virtual_global_size[dim] != self.global_size[dim]:
+                if conditional is None:
+                    conditional = Lt(get_global_id(dim), Constant(self.global_size[dim]))
+                else:
+                    conditional = And(conditional, Lt(get_global_id(dim), Constant(self.global_size[dim])))
+
+        if conditional is not None:
+            body.append(If(conditional, self.stencil_op))
+        else:
+            body.extend(self.stencil_op)
         return body
 
     # Handle array references
@@ -522,8 +486,8 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise Exception(
-            "Unsupported GridElement encountered: {0}".format(grid_name))
+        raise StencilException(
+            "Unsupported GridElement encountered: {0} type {1}".format(grid_name, type(target)))
 
 
 def gen_decls(dim, ghost_depth):
