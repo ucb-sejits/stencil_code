@@ -15,10 +15,14 @@ class Jacobi(Stencil):
 
 
 if __name__ == '__main__':  # pragma no cover
+    import sys
     import logging
     logging.basicConfig(level=20)
 
-    in_img = numpy.random.random([22, 25]).astype(numpy.float32) * 100
+    height = 22 if len(sys.argv) < 2 else int(sys.argv[1])
+    width = 25 if len(sys.argv) < 3 else int(sys.argv[2])
+
+    in_img = numpy.random.random([height, width]).astype(numpy.float32) * 100
 
     jacobi_stencil = Jacobi(backend='ocl')
     py = Jacobi(backend='python')

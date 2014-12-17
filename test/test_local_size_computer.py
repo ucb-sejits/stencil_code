@@ -92,41 +92,41 @@ class TestLocalSizeComputer(unittest.TestCase):
             self.assertListEqual(list(local_size), list(predicted_local_size))
 
     def test_local_size_computer_bulky(self):
-        lsc = LocalSizeComputer([1, 4], MockCPU)
-        print("[1, 4] ls {}".format(lsc.compute_local_size_bulky()))
-        print(lsc.dimension_processing_priority_key(0))
-        print(lsc.dimension_processing_priority_key(1))
+        test_grid_shape = [128, 7]
+        lsc = LocalSizeComputer(test_grid_shape, MockCPU)
+        local_size = lsc.compute_local_size_bulky()
+        print("{} ls {}".format(test_grid_shape, local_size))
 
         sizes = [
             [[4], (4,), (4,)],
             [[5], (5,), (5,)],
             [[255], (255,), (255,)],
-            [[1023], (1023,), (512,)],
+            [[1023], (1023,), (341,)],
             [[1024], (1024,), (512,)],
-            [[1025], (1024,), (512,)],
+            [[1025], (205,), (205,)],
 
             [[1, 4], (1, 1), (1, 4)],
             [[4, 1], (4, 1), (4, 1)],
             [[4, 4], (4, 1), (4, 4)],
-            [[4, 128], (4, 1), (4, 85)],
-            [[128, 4], (128, 1), (22, 4)],
-            [[128, 7], (128, 1), (22, 7)],
-            [[128, 128], (128, 1), (22, 23)],
+            [[4, 128], (4, 1), (4, 64)],
+            [[128, 4], (128, 1), (32, 4)],
+            [[128, 7], (128, 1), (32, 7)],
+            [[128, 128], (128, 1), (32, 32)],
 
             [[4, 4, 4], (4, 1, 1), (4, 4, 4)],
-            [[4, 4, 512], (4, 1, 1), (4, 4, 14)],
+            [[4, 4, 512], (4, 1, 1), (4, 4, 512)],
             [[512, 512, 4], (512, 1, 1), (8, 8, 4)],
             [[512, 512, 512], (512, 1, 1), (8, 8, 8)],
 
-            [[3, 3, 633], (3, 1, 1), (3, 3, 32)],
-            [[99, 99, 99], (99, 1, 1), (8, 8, 8)],
+            [[3, 3, 633], (3, 1, 1), (3, 3, 211)],
+            [[99, 99, 99], (99, 1, 1), (11, 11, 11)],
         ]
-        for grid_shape, cpu_local_size, gpu_local_size in sizes:
+        for grid_shape, expected_cpu_local_size, expected_gpu_local_size in sizes:
             print("size {!s:16s}".format(grid_shape), end="")
-            c1 = LocalSizeComputer(grid_shape, MockCPU).compute_local_size_bulky()
-            c2 = LocalSizeComputer(grid_shape, MockIrisPro).compute_local_size_bulky()
+            cpu_local_size = LocalSizeComputer(grid_shape, MockCPU).compute_local_size_bulky()
+            gpu_local_size = LocalSizeComputer(grid_shape, MockIrisPro).compute_local_size_bulky()
 
-            print(" d0 cpu local_size {!s:15s} gpu local_size {!s:15s}".format(c1, c2))
+            print(" d0 cpu local_size {!s:15s} gpu local_size {!s:15s}".format(cpu_local_size, gpu_local_size))
 
-            self.assertListEqual(list(c1), list(cpu_local_size))
-            self.assertListEqual(list(c2), list(gpu_local_size))
+            self.assertListEqual(list(cpu_local_size), list(expected_cpu_local_size))
+            self.assertListEqual(list(gpu_local_size), list(expected_gpu_local_size))

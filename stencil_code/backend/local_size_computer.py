@@ -64,11 +64,11 @@ class LocalSizeComputer(object):
         # if the indices we have selected so far are significantly larger than the size of the target matrix
         # then adjust them that dimensions index downward and adjust upward any trailing indices
         for dim in range(self.dimensions):
-            if self.shape[dim] * overshoot < self.max_indices[dim]: #  and self.shape[dim] < self.max_local_group_sizes[dim]:
+            if self.shape[dim] * overshoot < self.max_indices[dim]:
                 self.max_indices[dim] = min(self.max_local_group_sizes[dim], int(self.shape[dim] * overshoot))
                 if dim == 0:  # increase the size of the other dimensions
                     if self.dimensions == 2:
-                        self.max_indices[1] = max(
+                        self.max_indices[1] = min(
                             int((self.max_work_group_size / self.max_indices[0]) * overshoot),
                             self.max_local_group_sizes[1]
                         )
@@ -83,38 +83,26 @@ class LocalSizeComputer(object):
                             self.max_local_group_sizes[2]
                         )
 
-    def get_local_size(self, dim, max_size, local_size=None):
+    def get_local_size(self, dim, max_size, local_size=None, perfect_fit_only=False):
         if local_size is None:
             local_size = []
         if dim >= self.dimensions-1:
-            new_local_size = local_size + [min(max_size, self.max_local_group_sizes[dim])]
-            yield tuple(new_local_size)
+            if not perfect_fit_only:
+                new_local_size = local_size + [min(max_size, self.max_local_group_sizes[dim])]
+                yield tuple(new_local_size)
+            else:
+                for size in range(1, self.max_indices[dim]+1):
+                    if self.shape[dim] % size == 0:
+                        new_local_size = local_size + [size]
+                        yield tuple(new_local_size)
         else:
-            for size in range(max(1, self.max_indices[dim] - 20), self.max_indices[dim]+1):
-                new_local_size = local_size + [size]
-                for x in self.get_local_size(
-                        dim+1, max_size // size, new_local_size):
-                    if product(x) > 0:
-                        yield x
-
-    def dimension_processing_priority_key(self, dimension):
-        """
-        return a key that indicates the priority for processing a particular dimensions
-        dimensions that have more constraints should be processed before
-        :param dimension:
-        :return:
-        """
-        if self.shape[dimension] > self.max_local_group_sizes[dimension]:
-            return self.shape[dimension] + dimension
-        if self.shape[dimension] < 10 * self.max_local_group_sizes[dimension]:
-            return int(self.shape[dimension] + 1e6)
-        return int(self.shape[dimension] / self.max_local_group_sizes[dimension] + 2e6)
-
-    def get_ordered_dims(self):
-        def get_key(dim):
-            return self.dimension_processing_priority_key(dim)
-        dims = [d for d in range(self.dimensions)]
-        return sorted(dims, key=get_key)
+            start = 1 if perfect_fit_only else max(1, self.max_indices[dim] - 20)
+            for size in range(start, self.max_indices[dim]+1):
+                if not perfect_fit_only or self.shape[dim] % size == 0:
+                    new_local_size = local_size + [size]
+                    for x in self.get_local_size(dim+1, max_size // size, new_local_size, perfect_fit_only):
+                        if product(x) > 0:
+                            yield x
 
     @staticmethod
     def volume(vector):
@@ -140,6 +128,25 @@ class LocalSizeComputer(object):
         """
         best_local_size = None
         largest_volume = 0
+        for candidate_local_size in self.get_local_size(0, self.max_work_group_size, perfect_fit_only=True):
+            ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
+                float(LocalSizeComputer.surface_area(candidate_local_size))
+            # print("shape {:12} local_size {:12} product {:12} sum {:12} ratio {:12}".format(
+            #     self.shape, candidate_local_size,
+            #     LocalSizeComputer.volume(candidate_local_size),
+            #     LocalSizeComputer.surface_area(candidate_local_size),
+            #     ratio
+            # ))
+            if ratio > largest_volume:
+                largest_volume = ratio
+                best_local_size = candidate_local_size
+
+        if best_local_size is not None:
+            best_local_size = [min(self.shape[dim], value) for dim, value in enumerate(best_local_size)]
+            return tuple(best_local_size)
+
+        best_local_size = None
+        largest_volume = 0
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size):
             ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
                 float(LocalSizeComputer.surface_area(candidate_local_size))
@@ -153,7 +160,10 @@ class LocalSizeComputer(object):
                 largest_volume = ratio
                 best_local_size = candidate_local_size
 
-        best_local_size = [min(self.shape[dim], value) for dim, value in enumerate(best_local_size)]
+        if best_local_size is None:
+            best_local_size = [1 for _ in self.shape]
+        else:
+            best_local_size = [min(self.shape[dim], value) for dim, value in enumerate(best_local_size)]
         return tuple(best_local_size)
 
     def get_work_group_for_divisor(self, dim_divisor):
