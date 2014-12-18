@@ -19,8 +19,8 @@ if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 
-    height = 22 if len(sys.argv) < 2 else int(sys.argv[1])
-    width = 25 if len(sys.argv) < 3 else int(sys.argv[2])
+    height = 23 if len(sys.argv) < 2 else int(sys.argv[1])
+    width = 23 if len(sys.argv) < 3 else int(sys.argv[2])
 
     in_img = numpy.random.random([height, width]).astype(numpy.float32) * 100
 

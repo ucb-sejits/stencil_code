@@ -137,7 +137,7 @@ class LocalSizeComputer(object):
             #     LocalSizeComputer.surface_area(candidate_local_size),
             #     ratio
             # ))
-            if ratio > largest_volume:
+            if ratio > largest_volume and product(candidate_local_size) <= self.max_work_group_size:
                 largest_volume = ratio
                 best_local_size = candidate_local_size
 
@@ -156,7 +156,7 @@ class LocalSizeComputer(object):
             #     LocalSizeComputer.surface_area(candidate_local_size),
             #     ratio
             # ))
-            if ratio > largest_volume:
+            if ratio > largest_volume and product(candidate_local_size) <= self.max_work_group_size:
                 largest_volume = ratio
                 best_local_size = candidate_local_size
 
