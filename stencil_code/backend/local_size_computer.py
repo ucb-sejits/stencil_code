@@ -15,10 +15,9 @@ def product(vector):
 
 
 class LocalSizeComputer(object):
-    def __init__(self, shape, device=None, even_multiples_only=True):
+    def __init__(self, shape, device=None):
         self.shape = shape[:]
         self.dimensions = len(shape)
-        self.even_multiples_only = even_multiples_only
         if device is None:
             try:
                 device = pycl.clGetDeviceIDs()[-1]
@@ -69,19 +68,20 @@ class LocalSizeComputer(object):
                 if dim == 0:  # increase the size of the other dimensions
                     if self.dimensions == 2:
                         self.max_indices[1] = min(
-                            int((self.max_work_group_size / self.max_indices[0]) * overshoot),
+                            int((self.max_work_group_size / float(self.max_indices[0])) * overshoot),
                             self.max_local_group_sizes[1]
                         )
                     if self.dimensions == 3:
-                        temp_root = int(math.sqrt(self.max_work_group_size / self.max_indices[0]) * overshoot)
+                        temp_root = int(math.sqrt(self.max_work_group_size / float(self.max_indices[0])) * overshoot)
                         self.max_indices[1] = min(temp_root, self.max_local_group_sizes[1])
                         self.max_indices[2] = min(temp_root, self.max_local_group_sizes[2])
                 elif dim == 1:  # increase the size of the remaining direction
                     if self.dimensions == 3:
                         self.max_indices[2] = max(
-                            int((self.max_work_group_size / (self.max_indices[0] * self.max_indices[1])) * overshoot),
+                            int((self.max_work_group_size / float(self.max_indices[0] * self.max_indices[1])) * overshoot),
                             self.max_local_group_sizes[2]
                         )
+        self.max_indices
 
     def get_local_size(self, dim, max_size, local_size=None, perfect_fit_only=False):
         if local_size is None:
@@ -96,7 +96,8 @@ class LocalSizeComputer(object):
                         new_local_size = local_size + [size]
                         yield tuple(new_local_size)
         else:
-            start = 1 if perfect_fit_only else max(1, self.max_indices[dim] - 20)
+            start = 1 if self.max_local_group_sizes[dim] == 1 else 2
+            start = start if perfect_fit_only else max(1, self.max_indices[dim] - 20)
             for size in range(start, self.max_indices[dim]+1):
                 if not perfect_fit_only or self.shape[dim] % size == 0:
                     new_local_size = local_size + [size]
@@ -131,12 +132,12 @@ class LocalSizeComputer(object):
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size, perfect_fit_only=True):
             ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
                 float(LocalSizeComputer.surface_area(candidate_local_size))
-            # print("shape {:12} local_size {:12} product {:12} sum {:12} ratio {:12}".format(
-            #     self.shape, candidate_local_size,
-            #     LocalSizeComputer.volume(candidate_local_size),
-            #     LocalSizeComputer.surface_area(candidate_local_size),
-            #     ratio
-            # ))
+            print("shape {!s:12s} local_size {!s:12} product {!s:12s} sum {!s:12s} ratio {!s:12s}".format(
+                self.shape, candidate_local_size,
+                LocalSizeComputer.volume(candidate_local_size),
+                LocalSizeComputer.surface_area(candidate_local_size),
+                ratio
+            ))
             if ratio > largest_volume and product(candidate_local_size) <= self.max_work_group_size:
                 largest_volume = ratio
                 best_local_size = candidate_local_size
@@ -183,14 +184,14 @@ class LocalSizeComputer(object):
             self.max_local_group_sizes[last_dim]
         ))
         penultimate_dim_size = min(
-            int(self.max_work_group_size / last_dim_size),
+            int(self.max_work_group_size / float(last_dim_size)),
             self.max_local_group_sizes[penultimate_dim], self.shape[penultimate_dim]
         )
         if self.dimensions == 2:
             return penultimate_dim_size, last_dim_size
 
         first_dim_size = min(
-            int(self.max_work_group_size / (last_dim_size * penultimate_dim_size)),
+            int(self.max_work_group_size / float(last_dim_size * penultimate_dim_size)),
             self.max_local_group_sizes[0], self.shape[0]
         )
         return first_dim_size, penultimate_dim_size, last_dim_size
@@ -235,7 +236,7 @@ class LocalSizeComputer(object):
             work_group = self.get_work_group_for_divisor(divisor)
             error = self.compute_error(work_group)
 
-            print("self.shape {} work_group {} error {}".format(self.shape, work_group, error))
+            # print("self.shape {} work_group {} error {}".format(self.shape, work_group, error))
 
             if error == 0.0:
                 return work_group
@@ -248,6 +249,6 @@ class LocalSizeComputer(object):
 
     def compute_virtual_global_size(self, local_size):
         return [
-            size if size % local_size[dim] == 0 else (int((size / local_size[dim]) + 1) * local_size[dim])
+            size if size % local_size[dim] == 0 else (int((size / float(local_size[dim])) + 1) * local_size[dim])
             for dim, size in enumerate(self.shape)
         ]

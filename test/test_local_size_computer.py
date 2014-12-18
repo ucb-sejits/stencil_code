@@ -92,8 +92,8 @@ class TestLocalSizeComputer(unittest.TestCase):
             self.assertListEqual(list(local_size), list(predicted_local_size))
 
     def test_local_size_computer_bulky(self):
-        test_grid_shape = [128, 7]
-        lsc = LocalSizeComputer(test_grid_shape, MockCPU)
+        test_grid_shape = [4, 128]
+        lsc = LocalSizeComputer(test_grid_shape, MockIrisPro)
         local_size = lsc.compute_local_size_bulky()
         print("{} ls {}".format(test_grid_shape, local_size))
 
@@ -108,18 +108,18 @@ class TestLocalSizeComputer(unittest.TestCase):
             [[1, 4], (1, 1), (1, 4)],
             [[4, 1], (4, 1), (4, 1)],
             [[4, 4], (4, 1), (4, 4)],
-            [[4, 128], (4, 1), (4, 64)],
+            [[4, 128], (4, 1), (4, 128)],
             [[128, 4], (128, 1), (32, 4)],
             [[128, 7], (128, 1), (32, 7)],
-            [[128, 128], (128, 1), (32, 32)],
+            [[128, 128], (128, 1), (16, 32)],
 
             [[4, 4, 4], (4, 1, 1), (4, 4, 4)],
-            [[4, 4, 512], (4, 1, 1), (4, 4, 512)],
+            [[4, 4, 512], (4, 1, 1), (4, 4, 32)],
             [[512, 512, 4], (512, 1, 1), (8, 8, 4)],
             [[512, 512, 512], (512, 1, 1), (8, 8, 8)],
 
-            [[3, 3, 633], (3, 1, 1), (3, 3, 211)],
-            [[99, 99, 99], (99, 1, 1), (11, 11, 11)],
+            [[3, 3, 666], (3, 1, 1), (3, 3, 37)],
+            [[99, 99, 99], (99, 1, 1), (3, 11, 11)],
         ]
         for grid_shape, expected_cpu_local_size, expected_gpu_local_size in sizes:
             print("size {!s:16s}".format(grid_shape), end="")
