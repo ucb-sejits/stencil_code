@@ -1,10 +1,10 @@
 import ctypes as ct
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
-    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
+    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
     FunctionDecl, GtE, Sub, Cast
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
-    clSetKernelArg, NULL
+    clSetKernelArg, get_group_id, NULL
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
@@ -462,6 +462,23 @@ class StencilOclTransformer(StencilBackend):
             body.append(If(conditional, self.stencil_op))
         else:
             body.extend(self.stencil_op)
+
+        # this does not help fix the failure
+        # body.append(FunctionCall(SymbolRef("barrier"),
+        #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
+        body.append(
+            FunctionCall(
+                SymbolRef("printf"),
+                [
+                    String("grpid %2d %2d gid %2d %2d %2d\\n"),
+                    get_global_id(0),
+                    get_group_id(1),
+                    get_global_id(0),
+                    get_global_id(1),
+                    SymbolRef('global_index'),
+                ]
+            )
+        )
         return body
 
     # Handle array references
