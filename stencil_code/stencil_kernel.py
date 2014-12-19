@@ -36,10 +36,10 @@ from .backend.ocl import StencilOclTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
-from ctypes import byref, c_float, CFUNCTYPE, c_void_p, c_int32, POINTER
+from ctypes import byref, c_float, CFUNCTYPE, c_int32, POINTER
 import pycl as cl
 from pycl import (
-    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem, cl_errnum
+    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
 )
 import numpy as np
 # import ast
@@ -423,6 +423,7 @@ class Stencil(object):
         else:
             try:
                 # self.neighborhoods below actually references the subclass variable
+                # noinspection PyUnresolvedReferences
                 self.neighborhood_definition = self.neighborhoods
             except Exception:
                 raise StencilException(

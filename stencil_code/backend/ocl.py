@@ -4,7 +4,7 @@ from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
     FunctionDecl, GtE, NotEq, Sub, Cast, Return
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
-    clSetKernelArg, get_group_id, NULL
+    clSetKernelArg, NULL
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
@@ -34,11 +34,13 @@ class StencilOclTransformer(StencilBackend):
         self.boundary_kernels = None
         self.boundary_handlers = None
 
-    def visit_Project(self, node):
+    # noinspection PyPep8Naming
+    def visitProject(self, node):
         self.project = node
         node.files[0] = self.visit(node.files[0])
         return node
 
+    # noinspection PyPep8Naming
     def visit_CFile(self, node):
         node.body = list(map(self.visit, node.body))
         node.body.insert(0, StringTemplate("""
@@ -446,18 +448,19 @@ class StencilOclTransformer(StencilBackend):
         )
         return body
 
+    # noinspection PyPep8Naming
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
-        cond = And(
+        condition = And(
             Lt(get_global_id(0),
                Constant(self.arg_cfg[0].shape[0] - self.ghost_depth[0])),
             GtE(get_global_id(0),
                 Constant(self.ghost_depth[0]))
         )
         for d in range(1, len(self.arg_cfg[0].shape)):
-            cond = And(
-                cond,
+            condition = And(
+                condition,
                 And(
                     Lt(get_global_id(d),
                        Constant(self.arg_cfg[0].shape[d] - self.ghost_depth[d])),
@@ -517,7 +520,7 @@ class StencilOclTransformer(StencilBackend):
         #     FunctionCall(
         #         SymbolRef("printf"),
         #         [
-        #             String("grpid %2d %2d gid %2d %2d %2d\\n"),
+        #             String("group_id %2d %2d gid %2d %2d %2d\\n"),
         #             get_global_id(0),
         #             get_group_id(1),
         #             get_global_id(0),
