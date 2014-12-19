@@ -2,7 +2,7 @@ import ctypes as ct
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
-    FunctionDecl, GtE, Sub, Cast
+    FunctionDecl, GtE, NotEq, Sub, Cast
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
     clSetKernelArg, get_group_id, NULL
 from ctree.cpp.nodes import CppDefine
@@ -47,6 +47,7 @@ class StencilOclTransformer(StencilBackend):
             #else
             #include <CL/cl.h>
             #endif
+            #include <stdio.h>
             """))
         return node
 
@@ -90,6 +91,24 @@ class StencilOclTransformer(StencilBackend):
 
         def local_for_dim_name(cur_dim):
             return "local_size_d{}".format(cur_dim)
+
+        def check_error(code_block):
+            return [
+                Assign(
+                    SymbolRef("error_code"),
+                    code_block
+                ),
+                If(
+                    NotEq(SymbolRef("error_code"), Constant(0)),
+                    FunctionCall(
+                        SymbolRef("printf"),
+                        [
+                            String("OPENCL KERNEL RETURNED ERROR CODE %d"),
+                            SymbolRef("error_code")
+                        ]
+                    )
+                )
+            ]
 
         # if boundary handling is copy we have to generate a collection of
         # boundary kernels to handle the on-gpu boundary copy
@@ -135,7 +154,8 @@ class StencilOclTransformer(StencilBackend):
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
                 [Constant(s) for s in local_size]
-            )
+            ),
+            Assign(SymbolRef("error_code", ct.c_int()), Constant(0)),
         ]
         setargs = [clSetKernelArg(
             SymbolRef('kernel'), Constant(d),
@@ -166,7 +186,7 @@ class StencilOclTransformer(StencilBackend):
             Constant(0), NULL(), NULL()
         ])
 
-        defn.append(enqueue_call)
+        defn.extend(check_error(enqueue_call))
 
         params = [
             SymbolRef('queue', cl.cl_command_queue()),
@@ -211,8 +231,29 @@ class StencilOclTransformer(StencilBackend):
                     SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
                 ])
 
-        finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-        defn.append(finish_call)
+        # finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        # defn.append(finish_call)
+        # finish_call = [
+        #     Assign(
+        #         SymbolRef("error_code", ct.c_int()),
+        #         FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        #     ),
+        #     If(
+        #         NotEq(SymbolRef("error_code"), Constant(0)),
+        #         FunctionCall(
+        #             SymbolRef("printf"),
+        #             [
+        #                 String("OPENCL KERNEL RETURNED ERROR CODE %d"),
+        #                 SymbolRef("error_code")
+        #             ]
+        #         )
+        #     )
+        # ]
+
+        finish_call = check_error(
+            FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        )
+        defn.extend(finish_call)
 
         params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
                       for d in range(len(arg_cfg) + 1))
@@ -466,18 +507,21 @@ class StencilOclTransformer(StencilBackend):
         # this does not help fix the failure
         # body.append(FunctionCall(SymbolRef("barrier"),
         #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
+        # body.append(
+        #     FunctionCall(
+        #         SymbolRef("printf"),
+        #         [
+        #             String("grpid %2d %2d gid %2d %2d %2d\\n"),
+        #             get_global_id(0),
+        #             get_group_id(1),
+        #             get_global_id(0),
+        #             get_global_id(1),
+        #             SymbolRef('global_index'),
+        #         ]
+        #     )
+        # )
         body.append(
-            FunctionCall(
-                SymbolRef("printf"),
-                [
-                    String("grpid %2d %2d gid %2d %2d %2d\\n"),
-                    get_global_id(0),
-                    get_group_id(1),
-                    get_global_id(0),
-                    get_global_id(1),
-                    SymbolRef('global_index'),
-                ]
-            )
+            Assign(SymbolRef("xxx", ct.c_int()), Div(Constant(8), Constant(0)))
         )
         return body
 
