@@ -516,6 +516,7 @@ class StencilOclTransformer(StencilBackend):
         # this does not help fix the failure
         # body.append(FunctionCall(SymbolRef("barrier"),
         #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
+        # from ctree.ocl.macros import get_group_id
         # body.append(
         #     FunctionCall(
         #         SymbolRef("printf"),
