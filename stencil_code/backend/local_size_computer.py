@@ -81,7 +81,6 @@ class LocalSizeComputer(object):
                             int((self.max_work_group_size / float(self.max_indices[0] * self.max_indices[1])) * overshoot),
                             self.max_local_group_sizes[2]
                         )
-        self.max_indices
 
     def get_local_size(self, dim, max_size, local_size=None, perfect_fit_only=False):
         if local_size is None:

@@ -36,13 +36,13 @@ from .backend.ocl import StencilOclTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
-from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
+from ctypes import byref, c_float, CFUNCTYPE, c_void_p, c_int32, POINTER
 import pycl as cl
 from pycl import (
-    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
+    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem, cl_errnum
 )
 import numpy as np
-import ast
+# import ast
 import itertools
 import abc
 
@@ -161,18 +161,27 @@ class OclStencilFunction(ConcreteSpecializedFunction):
             buffers.append(buf)
             # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
+        cl_error = 0
         if isinstance(self.kernel, list):
             kernels = len(self.kernel)
             if kernels == 2:
-                self._c_function(self.queue, self.kernel[0], self.kernel[1], *buffers)
+                cl_error = self._c_function(self.queue, self.kernel[0], self.kernel[1], *buffers)
             if kernels == 3:
-                self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], *buffers)
+                cl_error = self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], *buffers)
             if kernels == 4:
-                self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], self.kernel[3], *buffers)
+                cl_error = self._c_function(
+                    self.queue, self.kernel[0], self.kernel[1], self.kernel[2], self.kernel[3], *buffers
+                )
         else:
-            self._c_function(self.queue, self.kernel,
-                             *buffers)
+            cl_error = self._c_function(self.queue, self.kernel, *buffers)
 
+        if cl.cl_errnum(cl_error) != cl.cl_errnum.CL_SUCCESS:
+            raise StencilException(
+                "Error executing stencil kernel: opencl {} {}".format(
+                    cl_error,
+                    cl.cl_errnum(cl_error)
+                )
+            )
         buf, evt = buffer_to_ndarray(
             self.queue, buffers[-1], output
         )
@@ -299,7 +308,7 @@ class SpecializedStencil(LazySpecializedFunction):
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
             entry_point = 'stencil_control'
-            entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
+            entry_type = [c_int32, cl.cl_command_queue, cl.cl_kernel]
             if self.kernel.is_copied:
                 for _ in range(self.kernel.dim):
                     entry_type.append(cl.cl_kernel)
@@ -328,7 +337,7 @@ class SpecializedStencil(LazySpecializedFunction):
         ]
         entry_point = 'stencil_kernel'
         param_types.append(POINTER(c_float))
-        entry_type = CFUNCTYPE(c_void_p, *param_types)
+        entry_type = CFUNCTYPE(c_int32, *param_types)
         return tree, entry_type, entry_point
 
     def finalize(self, tree, entry_type, entry_point):

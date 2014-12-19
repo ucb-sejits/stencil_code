@@ -2,7 +2,7 @@ import ctypes as ct
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
-    FunctionDecl, GtE, NotEq, Sub, Cast
+    FunctionDecl, GtE, NotEq, Sub, Cast, Return
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
     clSetKernelArg, get_group_id, NULL
 from ctree.cpp.nodes import CppDefine
@@ -92,21 +92,24 @@ class StencilOclTransformer(StencilBackend):
         def local_for_dim_name(cur_dim):
             return "local_size_d{}".format(cur_dim)
 
-        def check_error(code_block):
+        def check_ocl_error(code_block, message="kernel"):
             return [
                 Assign(
                     SymbolRef("error_code"),
                     code_block
                 ),
                 If(
-                    NotEq(SymbolRef("error_code"), Constant(0)),
-                    FunctionCall(
-                        SymbolRef("printf"),
-                        [
-                            String("OPENCL KERNEL RETURNED ERROR CODE %d"),
-                            SymbolRef("error_code")
-                        ]
-                    )
+                    NotEq(SymbolRef("error_code"), SymbolRef("CL_SUCCESS")),
+                    [
+                        FunctionCall(
+                            SymbolRef("printf"),
+                            [
+                                String("OPENCL ERROR: {}:error code %d\\n".format(message)),
+                                SymbolRef("error_code")
+                            ]
+                        ),
+                        Return(SymbolRef("error_code")),
+                    ]
                 )
             ]
 
@@ -154,6 +157,7 @@ class StencilOclTransformer(StencilBackend):
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
                 [Constant(s) for s in local_size]
+                # [Constant(s) for s in [512, 512]]  # use this line to force a opencl local size error
             ),
             Assign(SymbolRef("error_code", ct.c_int()), Constant(0)),
         ]
@@ -186,7 +190,7 @@ class StencilOclTransformer(StencilBackend):
             Constant(0), NULL(), NULL()
         ])
 
-        defn.extend(check_error(enqueue_call))
+        defn.extend(check_ocl_error(enqueue_call, "clEnqueueNDRangeKernel"))
 
         params = [
             SymbolRef('queue', cl.cl_command_queue()),
@@ -250,15 +254,17 @@ class StencilOclTransformer(StencilBackend):
         #     )
         # ]
 
-        finish_call = check_error(
-            FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        finish_call = check_ocl_error(
+            FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
+            "clFinish"
         )
         defn.extend(finish_call)
+        defn.append(Return(SymbolRef("error_code")))
 
         params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
                       for d in range(len(arg_cfg) + 1))
 
-        control = FunctionDecl(None, "stencil_control",
+        control = FunctionDecl(ct.c_int32(), "stencil_control",
                                params=params,
                                defn=defn)
 
@@ -520,9 +526,6 @@ class StencilOclTransformer(StencilBackend):
         #         ]
         #     )
         # )
-        body.append(
-            Assign(SymbolRef("xxx", ct.c_int()), Div(Constant(8), Constant(0)))
-        )
         return body
 
     # Handle array references
