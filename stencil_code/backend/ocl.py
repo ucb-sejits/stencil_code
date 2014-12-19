@@ -35,7 +35,7 @@ class StencilOclTransformer(StencilBackend):
         self.boundary_handlers = None
 
     # noinspection PyPep8Naming
-    def visitProject(self, node):
+    def visit_Project(self, node):
         self.project = node
         node.files[0] = self.visit(node.files[0])
         return node
