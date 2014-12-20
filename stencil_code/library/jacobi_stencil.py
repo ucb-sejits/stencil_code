@@ -47,7 +47,8 @@ if __name__ == '__main__':  # pragma no cover
     for i, r in enumerate(out_img):
         print("grid {:3d}  ".format(i), end="")
         for j, c in enumerate(r):
-            print("{!s:3s}".format(int(c)), end="")
+            if j < 60:
+                print("{!s:3s}".format(int(c)), end="")
         print()
 
     check = py(in_img)
