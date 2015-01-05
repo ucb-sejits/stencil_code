@@ -41,15 +41,16 @@ if __name__ == '__main__':  # pragma no cover
     in_img = numpy.ones([height, width]).astype(numpy.float32)
 
     jacobi_stencil = Jacobi(backend='ocl')
-    py = Jacobi(backend='python')
+    py = Jacobi(backend='c')
 
     out_img = jacobi_stencil(in_img)
     for i, r in enumerate(out_img):
-        print("grid {:3d}  ".format(i), end="")
-        for j, c in enumerate(r):
-            if j < 60:
-                print("{!s:3s}".format(int(c)), end="")
-        print()
+        if i > len(out_img)-22:
+            print("grid {:3d}  ".format(i), end="")
+            for j, c in enumerate(r):
+                if j < 60:
+                    print("{!s:3s}".format(int(c)), end="")
+            print()
 
     check = py(in_img)
     numpy.testing.assert_array_almost_equal(out_img, check, decimal=3)

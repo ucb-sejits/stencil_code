@@ -516,6 +516,15 @@ class StencilOclTransformer(StencilBackend):
         # this does not help fix the failure
         # body.append(FunctionCall(SymbolRef("barrier"),
         #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
+        # body.extend(self.stencil_op)
+        #
+        # this line does seem to fix the problem, seems to suggest some timing issue
+        #
+        # body.append(If(conditional, [StringTemplate("out_grid[global_index]+=0;")]))
+        #
+        # the following fixes the problem too, suggests timing issues
+        #
+        # body.append(FunctionCall(SymbolRef("printf"), [String("gid %d\\n"), SymbolRef("global_index")]))
         # from ctree.ocl.macros import get_group_id
         # body.append(
         #     FunctionCall(
