@@ -144,22 +144,29 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
-        if self.output is not None:
-            output = self.output
-            self.output = None
-        else:  # pragma no cover
-            output = np.zeros_like(args[0])
+        from hindemith.types.hmarray import hmarray
+        if isinstance(args[0], hmarray):
+            output = hmarray(np.zeros_like(args[0]))
+        else:
+            if self.output is not None:
+                output = self.output
+                self.output = None
+            else:  # pragma no cover
+                output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
         buffers = []
         events = []
         for index, arg in enumerate(args + (output, )):
-            buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
-            # evt.wait()
-            events.append(evt)
-            buffers.append(buf)
-            # self.kernel.setarg(index, buf, sizeof(cl_mem))
+            if isinstance(arg, hmarray):
+                buffers.append(arg.ocl_buf)
+            else:
+                buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
+                # evt.wait()
+                events.append(evt)
+                buffers.append(buf)
+                # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         if isinstance(self.kernel, list):
             kernels = len(self.kernel)
@@ -172,6 +179,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         else:
             self._c_function(self.queue, self.kernel,
                              *buffers)
+        if isinstance(output, hmarray):
+            return output
 
         buf, evt = buffer_to_ndarray(
             self.queue, buffers[-1], output
