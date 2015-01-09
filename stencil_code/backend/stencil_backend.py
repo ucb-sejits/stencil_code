@@ -89,7 +89,6 @@ class StencilBackend(NodeTransformer):
         self.neighbor_target = None
         return body
 
-    # Handle array references
     def visit_GridElement(self, node):  # pragma no cover
         grid_name = node.grid_name
         target = node.target

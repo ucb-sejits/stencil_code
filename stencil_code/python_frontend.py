@@ -30,10 +30,13 @@ class PythonToStencilModel(PyBasicConversions):
                 arg.id = new_name
         else:
             for index, arg in enumerate(node.args.args):  # pragma no cover
+                name = SymbolRef.unique().name
                 if sys.version_info >= (3, 0):
-                    self.arg_name_map[arg.arg] = arg.arg
+                    self.arg_name_map[arg.arg] = name
+                    arg.arg = name
                 else:
-                    self.arg_name_map[arg.id] = arg.id
+                    self.arg_name_map[arg.id] = name
+                    arg.id = name
         return super(PythonToStencilModel, self).visit_FunctionDef(node)
 
     def visit_For(self, node):

@@ -48,6 +48,7 @@ class StencilOclTransformer(StencilBackend):
 
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
+        self.local_block = SymbolRef.unique()
         # generate the proper array macros.
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
         for index, param in enumerate(node.params[:-1]):
@@ -58,7 +59,8 @@ class StencilOclTransformer(StencilBackend):
         node.set_kernel()
         node.params[-1].set_global()
         node.params[-1].type = ct.POINTER(ct.c_float)()
-        node.params.append(SymbolRef('block', ct.POINTER(ct.c_float)()))
+        node.params.append(SymbolRef(self.local_block.name,
+                                     ct.POINTER(ct.c_float)()))
         node.params[-1].set_local()
         node.defn = node.defn[0]
 
@@ -482,7 +484,7 @@ class StencilOclTransformer(StencilBackend):
                     self.gen_global_index()))
 
         self.load_mem_block = self.load_shared_memory_block(
-            SymbolRef('block'), self.ghost_depth)
+            self.local_block, self.ghost_depth)
         body.extend(self.load_mem_block)
         body.append(FunctionCall(SymbolRef("barrier"),
                                  [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
@@ -513,12 +515,12 @@ class StencilOclTransformer(StencilBackend):
                 elif grid_name in self.input_dict:
                     pt = list(map(lambda x: SymbolRef(x), self.var_list))
                     index = self.local_array_macro(pt)
-                    return ArrayRef(SymbolRef('block'), index)
+                    return ArrayRef(self.local_block, index)
             else:
                 pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                               self.var_list, self.offset_list))
                 index = self.local_array_macro(pt)
-                return ArrayRef(SymbolRef('block'), index)
+                return ArrayRef(self.local_block, index)
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
