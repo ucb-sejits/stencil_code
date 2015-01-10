@@ -22,8 +22,8 @@ from collections import namedtuple
 from numpy import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
-from ctree.c.nodes import FunctionDecl
 # from ctree.ocl.nodes import OclFile
+from ctree.c.nodes import FunctionDecl, For
 import ctree.np
 from stencil_code.stencil_exception import StencilException
 
@@ -47,7 +47,7 @@ import itertools
 import abc
 
 from stencil_code.halo_enumerator import HaloEnumerator
-# from hindemith.types.hmarray import hmarray, empty_like, Loop
+from hindemith.types.hmarray import hmarray, empty_like, Loop
 import copy
 
 
@@ -387,31 +387,31 @@ class SpecializedStencil(LazySpecializedFunction):
     def get_placeholder_output(self, args):
         return empty_like(args[0])
 
-    # def get_ir_nodes(self, args):
-    #     tree = copy.deepcopy(self.original_tree)
-    #     arg_cfg = self.args_to_subconfig(args)
+    def get_ir_nodes(self, args):
+        tree = copy.deepcopy(self.original_tree)
+        arg_cfg = self.args_to_subconfig(args)
 
-    #     output = self.generate_output((arg_cfg, None))
-    #     shape = output.shape
-        
-    #     param_types = [
-    #         np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
-    #         for arg in arg_cfg + (output, )
-    #     ]
+        output = empty_like(args[0])
+        shape = output.shape
+        param_types = [
+            np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
+            for arg in arg_cfg + (output, )
+        ]
 
-    #     for transformer in [
-    #         PythonToStencilModel(),
-    #         self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
-    #                      fusable_nodes=None)]:
-    #         tree = transformer.visit(tree)
-    #     ocl_file = tree.find(OclFile)
-    #     loop_body = ocl_file.body[0].defn
-    #     params = ocl_file.body[0].params
-    #     print(tree.files[0])
-    #     for index, _type in enumerate(param_types):
-    #         params[index].type = _type()
+        for transformer in [
+            PythonToStencilModel(),
+            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
+                         fusable_nodes=None)]:
+            tree = transformer.visit(tree)
+        func = tree.find(FunctionDecl, name="stencil_kernel")
+        params = func.params
+        loop_body = func.find(For).body[0].body
+        params.pop()
+        for index, _type in enumerate(param_types):
+            params[index].type = _type()
+        # print(func)
 
-    #     return [Loop(shape, params[:-2], [params[-2]], param_types, loop_body, [params[-1]])]
+        return [Loop(shape, params[:-1], [params[-1]], param_types, loop_body)]
 
 
 class Stencil(object):

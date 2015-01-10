@@ -18,7 +18,9 @@ class StencilCTransformer(StencilBackend):
                 calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
-            node.defn.insert(0, CppDefine(defname, params, calc))
+            for_node = node.find(For)
+            for_node = for_node.body[0]
+            for_node.body.insert(0, CppDefine(defname, params, calc))
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
@@ -29,6 +31,7 @@ class StencilCTransformer(StencilBackend):
             "clamp", [SymbolRef('_a'), SymbolRef('_min_a'), SymbolRef('_max_a')],
             StringTemplate("(_a>_max_a?_max_a:_a)<_min_a?_min_a:(_a>_max_a?_max_a:_a)"),
         )
+        for_node.body.insert(0, clamp_macro)
         node.params.append(SymbolRef('duration', POINTER(c_float)))
         start_time = Assign(StringTemplate('clock_t start_time'), FunctionCall(
             SymbolRef('clock')))
