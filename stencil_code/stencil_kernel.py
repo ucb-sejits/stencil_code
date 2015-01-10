@@ -47,7 +47,7 @@ import itertools
 import abc
 
 from stencil_code.halo_enumerator import HaloEnumerator
-from hindemith.types.hmarray import hmarray, empty_like, Loop
+# from hindemith.types.hmarray import hmarray, empty_like, Loop
 import copy
 
 
