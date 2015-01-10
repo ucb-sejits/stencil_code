@@ -23,21 +23,21 @@ from numpy import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.c.nodes import FunctionDecl
-from ctree.ocl.nodes import OclFile
+# from ctree.ocl.nodes import OclFile
 import ctree.np
 from stencil_code.stencil_exception import StencilException
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
-import ctree.ocl
-from ctree.ocl import get_context_and_queue_from_devices
+# import ctree.ocl
+# from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
-from .backend.ocl import StencilOclTransformer
+# from .backend.ocl import StencilOclTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
-import pycl as cl
+# import pycl as cl
 from pycl import (
     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
 )
@@ -104,95 +104,95 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         return output
 
 
-class OclStencilFunction(ConcreteSpecializedFunction):
-    """OclStencilFunction
+# class OclStencilFunction(ConcreteSpecializedFunction):
+#     """OclStencilFunction
 
-    The ConcreteSpecializedFunction used by the OpenCL backend.  Allows us to
-    leverage pycl for handling numpy arrays and buffers cleanly.
-    """
-    def __init__(self):
-        """__init__
-        Creates a context and queue that can be reused across calls to this
-        function.
-        """
-        # TODO: Need dependency injection to control ocl device selection
-        self.desired_ocl_device = -1
-        devices = cl.clGetDeviceIDs()
-        self.context, self.queue = get_context_and_queue_from_devices([devices[self.desired_ocl_device]])
-        self.max_work_group_size = devices[self.desired_ocl_device].max_work_group_size
+#     The ConcreteSpecializedFunction used by the OpenCL backend.  Allows us to
+#     leverage pycl for handling numpy arrays and buffers cleanly.
+#     """
+#     def __init__(self):
+#         """__init__
+#         Creates a context and queue that can be reused across calls to this
+#         function.
+#         """
+#         # TODO: Need dependency injection to control ocl device selection
+#         self.desired_ocl_device = -1
+#         devices = cl.clGetDeviceIDs()
+#         self.context, self.queue = get_context_and_queue_from_devices([devices[self.desired_ocl_device]])
+#         self.max_work_group_size = devices[self.desired_ocl_device].max_work_group_size
 
-        # some variables that will be used that PEP-8 wants to see initialized in __init__
-        self.kernel = None
-        self.output = None
-        self._c_function = None
+#         # some variables that will be used that PEP-8 wants to see initialized in __init__
+#         self.kernel = None
+#         self.output = None
+#         self._c_function = None
 
-    def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
-        """
-        finalize
-        :param tree: the transformed tree
-        :param entry_type:
-        :param entry_name:
-        :param kernel: the kernel generated that will be used in __call__
-        :param output_grid:
-        :return: a specialized function
-        """
-        self.kernel = kernel
-        self.output = output_grid
-        self._c_function = self._compile(entry_name, tree, entry_type)
-        return self
+#     def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
+#         """
+#         finalize
+#         :param tree: the transformed tree
+#         :param entry_type:
+#         :param entry_name:
+#         :param kernel: the kernel generated that will be used in __call__
+#         :param output_grid:
+#         :return: a specialized function
+#         """
+#         self.kernel = kernel
+#         self.output = output_grid
+#         self._c_function = self._compile(entry_name, tree, entry_type)
+#         return self
 
-    def __call__(self, *args):
-        """__call__
+#     def __call__(self, *args):
+#         """__call__
 
-        :param *args:
-        """
-        if isinstance(args[0], hmarray):
-            output = empty_like(args[0])
-        else:
-            if self.output is not None:
-                output = self.output
-                self.output = None
-            else:  # pragma no cover
-                output = np.zeros_like(args[0])
-        # self.kernel.argtypes = tuple(
-        #     cl_mem for _ in args + (output, )
-        # ) + (localmem, )
-        buffers = []
-        events = []
-        for index, arg in enumerate(args + (output, )):
-            if isinstance(arg, hmarray):
-                buffers.append(arg.ocl_buf)
-            else:
-                buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
-                # evt.wait()
-                events.append(evt)
-                buffers.append(buf)
-                # self.kernel.setarg(index, buf, sizeof(cl_mem))
-        cl.clWaitForEvents(*events)
-        if isinstance(self.kernel, list):
-            kernels = len(self.kernel)
-            if kernels == 2:
-                self._c_function(self.queue, self.kernel[0], self.kernel[1], *buffers)
-            if kernels == 3:
-                self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], *buffers)
-            if kernels == 4:
-                self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], self.kernel[3], *buffers)
-        else:
-            self._c_function(self.queue, self.kernel,
-                             *buffers)
-        if isinstance(output, hmarray):
-            return output
+#         :param *args:
+#         """
+#         if isinstance(args[0], hmarray):
+#             output = empty_like(args[0])
+#         else:
+#             if self.output is not None:
+#                 output = self.output
+#                 self.output = None
+#             else:  # pragma no cover
+#                 output = np.zeros_like(args[0])
+#         # self.kernel.argtypes = tuple(
+#         #     cl_mem for _ in args + (output, )
+#         # ) + (localmem, )
+#         buffers = []
+#         events = []
+#         for index, arg in enumerate(args + (output, )):
+#             if isinstance(arg, hmarray):
+#                 buffers.append(arg.ocl_buf)
+#             else:
+#                 buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
+#                 # evt.wait()
+#                 events.append(evt)
+#                 buffers.append(buf)
+#                 # self.kernel.setarg(index, buf, sizeof(cl_mem))
+#         cl.clWaitForEvents(*events)
+#         if isinstance(self.kernel, list):
+#             kernels = len(self.kernel)
+#             if kernels == 2:
+#                 self._c_function(self.queue, self.kernel[0], self.kernel[1], *buffers)
+#             if kernels == 3:
+#                 self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], *buffers)
+#             if kernels == 4:
+#                 self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], self.kernel[3], *buffers)
+#         else:
+#             self._c_function(self.queue, self.kernel,
+#                              *buffers)
+#         if isinstance(output, hmarray):
+#             return output
 
-        buf, evt = buffer_to_ndarray(
-            self.queue, buffers[-1], output
-        )
-        evt.wait()
+#         buf, evt = buffer_to_ndarray(
+#             self.queue, buffers[-1], output
+#         )
+#         evt.wait()
 
-        return buf
+#         return buf
 
-    def __del__(self):
-        del self.context
-        del self.queue
+#     def __del__(self):
+#         del self.context
+#         del self.queue
 
 
 StencilArgConfig = namedtuple(
@@ -202,9 +202,9 @@ StencilArgConfig = namedtuple(
 
 class SpecializedStencil(LazySpecializedFunction):
     backend_dict = {"c": StencilCTransformer,
-                    "omp": StencilOmpTransformer,
-                    "ocl": StencilOclTransformer,
-                    "opencl": StencilOclTransformer}
+                    "omp": StencilOmpTransformer}
+                    # "ocl": StencilOclTransformer,
+                    # "opencl": StencilOclTransformer}
 
     def __init__(self, stencil_kernel, backend, ):
         """
@@ -276,10 +276,10 @@ class SpecializedStencil(LazySpecializedFunction):
             for arg in arg_cfg + (output,)
         ]
 
-        if self.backend == StencilOclTransformer:
-            param_types.append(param_types[0])
-        else:
-            param_types.append(POINTER(c_float))
+        # if self.backend == StencilOclTransformer:
+        #     param_types.append(param_types[0])
+        # else:
+        param_types.append(POINTER(c_float))
 
         # block_factors = [2**tune_cfg['block_factor_%s' % d] for d in
         #                  range(len(self.input_grids[0].shape) - 1)]
@@ -307,26 +307,26 @@ class SpecializedStencil(LazySpecializedFunction):
             entry_point.params[index].type = _type()
         # entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
-        if self.backend == StencilOclTransformer:
-            entry_point = 'stencil_control'
-            entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
-            if self.kernel.is_copied:
-                for _ in range(self.kernel.dim):
-                    entry_type.append(cl.cl_kernel)
-            entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
-            entry_type = CFUNCTYPE(*entry_type)
-            return tree, entry_type, entry_point
-        else:
-            if self.args[0].shape[len(self.args[0].shape) - 1] \
-                    >= unroll_factor:
-                # FIXME: Lack of parent pointers breaks current loop unrolling
-                # first_For = tree.find(For)
-                # inner_For = optimizer.FindInnerMostLoop().find(first_For)
-                # inner, first = optimizer.block_loops(inner_For, tree,
-                #                                      block_factors + [1])
-                # first_For.replace(first)
-                # optimizer.unroll(tree, inner_For, unroll_factor)
-                pass
+        # if self.backend == StencilOclTransformer:
+        #     entry_point = 'stencil_control'
+        #     entry_type = [None, cl.cl_command_queue, cl.cl_kernel]
+        #     if self.kernel.is_copied:
+        #         for _ in range(self.kernel.dim):
+        #             entry_type.append(cl.cl_kernel)
+        #     entry_type.extend(cl_mem for _ in range(len(arg_cfg) + 1))
+        #     entry_type = CFUNCTYPE(*entry_type)
+        #     return tree, entry_type, entry_point
+        # else:
+            # if self.args[0].shape[len(self.args[0].shape) - 1] \
+            #         >= unroll_factor:
+            #     # FIXME: Lack of parent pointers breaks current loop unrolling
+            #     # first_For = tree.find(For)
+            #     # inner_For = optimizer.FindInnerMostLoop().find(first_For)
+            #     # inner, first = optimizer.block_loops(inner_For, tree,
+            #     #                                      block_factors + [1])
+            #     # first_For.replace(first)
+            #     # optimizer.unroll(tree, inner_For, unroll_factor)
+            #     pass
 
         # import ast
         # print(ast.dump(tree))
@@ -342,38 +342,38 @@ class SpecializedStencil(LazySpecializedFunction):
         return tree, entry_type, entry_point
 
     def finalize(self, tree, entry_type, entry_point):
-        if self.backend == StencilOclTransformer:
-            fn = OclStencilFunction()
-            if self.kernel.is_copied:
-                args = [
-                    tree, entry_type, entry_point,
-                ]
-                kernels = []
-                for index, kernel in enumerate(tree.find_all(OclFile)):
-                    # print("XXX index {} kernel {}".format(index, kernel.name))
-                    # print(kernel.codegen())
-                    program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
-                    ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
-                    kernel_ptr = program[ocl_kernel_name]
-                    kernels.append(kernel_ptr)
-                args.append(kernels)
-                args.append(self.output)
+        # if self.backend == StencilOclTransformer:
+        #     fn = OclStencilFunction()
+        #     if self.kernel.is_copied:
+        #         args = [
+        #             tree, entry_type, entry_point,
+        #         ]
+        #         kernels = []
+        #         for index, kernel in enumerate(tree.find_all(OclFile)):
+        #             # print("XXX index {} kernel {}".format(index, kernel.name))
+        #             # print(kernel.codegen())
+        #             program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
+        #             ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
+        #             kernel_ptr = program[ocl_kernel_name]
+        #             kernels.append(kernel_ptr)
+        #         args.append(kernels)
+        #         args.append(self.output)
 
-                finalized = fn.finalize(*args)
-            else:
-                kernel = tree.find(OclFile)
-                program = clCreateProgramWithSource(fn.context,
-                                                    kernel.codegen()).build()
-                stencil_kernel_ptr = program['stencil_kernel']
-                finalized = fn.finalize(
-                    tree, entry_type, entry_point,
-                    stencil_kernel_ptr,
-                    self.output
-                )
-        else:
-            fn = ConcreteStencil()
-            finalized = fn.finalize(tree, entry_point, entry_type,
-                                    self.output)
+        #         finalized = fn.finalize(*args)
+        #     else:
+        #         kernel = tree.find(OclFile)
+        #         program = clCreateProgramWithSource(fn.context,
+        #                                             kernel.codegen()).build()
+        #         stencil_kernel_ptr = program['stencil_kernel']
+        #         finalized = fn.finalize(
+        #             tree, entry_type, entry_point,
+        #             stencil_kernel_ptr,
+        #             self.output
+        #         )
+        # else:
+        fn = ConcreteStencil()
+        finalized = fn.finalize(tree, entry_point, entry_type,
+                                self.output)
         self.output = None
         self.fusable_nodes = []
         return finalized
@@ -387,31 +387,31 @@ class SpecializedStencil(LazySpecializedFunction):
     def get_placeholder_output(self, args):
         return empty_like(args[0])
 
-    def get_ir_nodes(self, args):
-        tree = copy.deepcopy(self.original_tree)
-        arg_cfg = self.args_to_subconfig(args)
+    # def get_ir_nodes(self, args):
+    #     tree = copy.deepcopy(self.original_tree)
+    #     arg_cfg = self.args_to_subconfig(args)
 
-        output = self.generate_output((arg_cfg, None))
-        shape = output.shape
+    #     output = self.generate_output((arg_cfg, None))
+    #     shape = output.shape
         
-        param_types = [
-            np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
-            for arg in arg_cfg + (output, )
-        ]
+    #     param_types = [
+    #         np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
+    #         for arg in arg_cfg + (output, )
+    #     ]
 
-        for transformer in [
-            PythonToStencilModel(),
-            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
-                         fusable_nodes=None)]:
-            tree = transformer.visit(tree)
-        ocl_file = tree.find(OclFile)
-        loop_body = ocl_file.body[0].defn
-        params = ocl_file.body[0].params
-        print(tree.files[0])
-        for index, _type in enumerate(param_types):
-            params[index].type = _type()
+    #     for transformer in [
+    #         PythonToStencilModel(),
+    #         self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
+    #                      fusable_nodes=None)]:
+    #         tree = transformer.visit(tree)
+    #     ocl_file = tree.find(OclFile)
+    #     loop_body = ocl_file.body[0].defn
+    #     params = ocl_file.body[0].params
+    #     print(tree.files[0])
+    #     for index, _type in enumerate(param_types):
+    #         params[index].type = _type()
 
-        return [Loop(shape, params[:-2], [params[-2]], param_types, loop_body, [params[-1]])]
+    #     return [Loop(shape, params[:-2], [params[-2]], param_types, loop_body, [params[-1]])]
 
 
 class Stencil(object):
@@ -423,8 +423,8 @@ class Stencil(object):
     """
     backend_dict = {"c": StencilCTransformer,
                     "omp": StencilOmpTransformer,
-                    "ocl": StencilOclTransformer,
-                    "opencl": StencilOclTransformer,
+                    # "ocl": StencilOclTransformer,
+                    # "opencl": StencilOclTransformer,
                     "python": None}
 
     boundary_handling_list = ['clamp', 'zero', 'copy', 'wrap']
@@ -433,7 +433,7 @@ class Stencil(object):
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
 
-    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling='clamp', **kwargs):
+    def __init__(self, backend='c', neighborhoods=None, boundary_handling='clamp', **kwargs):
         """
         Our Stencil class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -484,7 +484,7 @@ class Stencil(object):
 
         if backend == 'python':
             self.specializer = self.python_kernel_wrapper
-        elif backend in ['c', 'omp', 'ocl']:
+        elif backend in ['c', 'omp']:
             self.specializer = SpecializedStencil(self, backend,)
         self.model = self.kernel
 
