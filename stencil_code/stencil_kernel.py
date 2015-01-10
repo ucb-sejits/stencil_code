@@ -38,9 +38,9 @@ from .python_frontend import PythonToStencilModel
 # import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
 # import pycl as cl
-from pycl import (
-    clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
-)
+# from pycl import (
+#     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
+# )
 import numpy as np
 import ast
 import itertools
