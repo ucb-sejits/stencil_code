@@ -2,7 +2,7 @@ import ast
 from ctree.dotgen import DotGenVisitor
 from ctree.templates.nodes import StringTemplate
 from ctree.c.nodes import *
-from ctree.ocl.macros import *
+# from ctree.ocl.macros import *
 import ctypes as ct
 
 
