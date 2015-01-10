@@ -391,7 +391,7 @@ class SpecializedStencil(LazySpecializedFunction):
         tree = copy.deepcopy(self.original_tree)
         arg_cfg = self.args_to_subconfig(args)
 
-        output = self.generate_output((arg_cfg, None))
+        output = np.zeros_like(args[0])
         shape = output.shape
         
         param_types = [
