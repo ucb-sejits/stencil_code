@@ -1,14 +1,15 @@
 import ctypes as ct
 
-from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
-    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, ArrayDef, Ref, \
-    FunctionDecl, GtE, Sub, Cast
+from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
+    Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
+    FunctionDecl, GtE, NotEq, Sub, Cast, Return
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
     clSetKernelArg, NULL
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
 import pycl as cl
+from stencil_code.backend.local_size_computer import LocalSizeComputer
 
 from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_model import MathFunction
@@ -27,14 +28,19 @@ class StencilOclTransformer(StencilBackend):
         self.load_mem_block = []
         self.macro_defns = []
         self.project = None
+        self.local_size = None
+        self.global_size = None
+        self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
 
+    # noinspection PyPep8Naming
     def visit_Project(self, node):
         self.project = node
         node.files[0] = self.visit(node.files[0])
         return node
 
+    # noinspection PyPep8Naming
     def visit_CFile(self, node):
         node.body = list(map(self.visit, node.body))
         node.body.insert(0, StringTemplate("""
@@ -43,12 +49,29 @@ class StencilOclTransformer(StencilBackend):
             #else
             #include <CL/cl.h>
             #endif
+            #include <stdio.h>
             """))
         return node
 
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
         # generate the proper array macros.
+        arg_cfg = self.arg_cfg
+
+        global_size = arg_cfg[0].shape
+
+        if self.testing:
+            local_size = (1, 1, 1)
+        else:
+            desired_device_number = -1
+            device = cl.clGetDeviceIDs()[desired_device_number]
+            lcs = LocalSizeComputer(global_size, device)
+            local_size = lcs.compute_local_size_bulky()
+            virtual_global_size = lcs.compute_virtual_global_size(local_size)
+            self.global_size = global_size
+            self.local_size = local_size
+            self.virtual_global_size = virtual_global_size
+
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
         for index, param in enumerate(node.params[:-1]):
             # TODO: Transform numpy type to ctype
@@ -70,6 +93,27 @@ class StencilOclTransformer(StencilBackend):
 
         def local_for_dim_name(cur_dim):
             return "local_size_d{}".format(cur_dim)
+
+        def check_ocl_error(code_block, message="kernel"):
+            return [
+                Assign(
+                    SymbolRef("error_code"),
+                    code_block
+                ),
+                If(
+                    NotEq(SymbolRef("error_code"), SymbolRef("CL_SUCCESS")),
+                    [
+                        FunctionCall(
+                            SymbolRef("printf"),
+                            [
+                                String("OPENCL ERROR: {}:error code %d\\n".format(message)),
+                                SymbolRef("error_code")
+                            ]
+                        ),
+                        Return(SymbolRef("error_code")),
+                    ]
+                )
+            ]
 
         # if boundary handling is copy we have to generate a collection of
         # boundary kernels to handle the on-gpu boundary copy
@@ -107,83 +151,17 @@ class StencilOclTransformer(StencilBackend):
         # print(self.project.files[0])
         # print(self.project.files[-1])
 
-        arg_cfg = self.arg_cfg
-        if self.testing:
-            local_size = (1, 1, 1)
-        else:
-            devices = cl.clGetDeviceIDs()
-            max_sizes = cl.clGetDeviceInfo(
-                devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_ITEM_SIZES)
-            max_total = cl.clGetDeviceInfo(
-                devices[-1], cl.cl_device_info.CL_DEVICE_MAX_WORK_GROUP_SIZE)
-
-            if len(arg_cfg[0].shape) == 3:
-                x_len, y_len, z_len = 1, 1, 1
-                while True:
-                    if arg_cfg[0].shape[0] % 2 == 1:
-                        x_len = 1
-                    else:
-                        x_len = min(max_sizes[0], x_len * 2)
-                    if max_total - z_len * x_len * y_len <= 0:
-                        break
-                    if arg_cfg[0].shape[1] % 2 == 1:
-                        y_len = 1
-                    else:
-                        y_len = min(max_sizes[1], y_len * 2)
-                    if max_total - z_len * x_len * y_len <= 0:
-                        break
-                    if arg_cfg[0].shape[2] % 2 == 1:
-                        z_len = 1
-                    else:
-                        z_len = min(max_sizes[2], z_len * 2)
-                    if max_total - z_len * x_len * y_len <= 0:
-                        break
-                    if x_len == arg_cfg[0].shape[0] or \
-                            y_len == arg_cfg[0].shape[1] or \
-                            z_len == arg_cfg[0].shape[2]:
-                        break
-
-                local_size = (x_len, y_len, z_len)
-            elif len(arg_cfg[0].shape) == 2:
-                x_len, y_len = 1, 1
-                while True:
-                    if arg_cfg[0].shape[0] % 2 == 1:
-                        x_len = 1
-                    else:
-                        x_len = min(max_sizes[0], x_len * 2)
-                    if max_total - x_len * y_len <= 0:
-                        break
-                    if arg_cfg[0].shape[1] % 2 == 1:
-                        y_len = 1
-                    else:
-                        y_len = min(max_sizes[1], y_len * 2)
-                    if max_total - x_len * y_len <= 0:
-                        break
-                    if x_len == arg_cfg[0].shape[0] or \
-                            y_len == arg_cfg[0].shape[1]:
-                        break
-
-                local_size = (x_len, y_len)
-                if arg_cfg[0].shape[0] % x_len != 0 or \
-                   arg_cfg[0].shape[1] % y_len != 0:
-                    raise StencilException(
-                        'opencl backend must have sizes that are multiples of {}'.format(
-                            local_size
-                        ))
-            else:
-                local_size = (min(
-                    max_total, max_sizes[0], arg_cfg[0].shape[0] / 2),)
-
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(d)
-                 for d in arg_cfg[0].shape]
+                [Constant(d) for d in self.virtual_global_size]
             ),
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
                 [Constant(s) for s in local_size]
-            )
+                # [Constant(s) for s in [512, 512]]  # use this line to force a opencl local size error
+            ),
+            Assign(SymbolRef("error_code", ct.c_int()), Constant(0)),
         ]
         setargs = [clSetKernelArg(
             SymbolRef('kernel'), Constant(d),
@@ -214,7 +192,7 @@ class StencilOclTransformer(StencilBackend):
             Constant(0), NULL(), NULL()
         ])
 
-        defn.append(enqueue_call)
+        defn.extend(check_ocl_error(enqueue_call, "clEnqueueNDRangeKernel"))
 
         params = [
             SymbolRef('queue', cl.cl_command_queue()),
@@ -259,13 +237,36 @@ class StencilOclTransformer(StencilBackend):
                     SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
                 ])
 
-        finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-        defn.append(finish_call)
+        # finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        # defn.append(finish_call)
+        # finish_call = [
+        #     Assign(
+        #         SymbolRef("error_code", ct.c_int()),
+        #         FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        #     ),
+        #     If(
+        #         NotEq(SymbolRef("error_code"), Constant(0)),
+        #         FunctionCall(
+        #             SymbolRef("printf"),
+        #             [
+        #                 String("OPENCL KERNEL RETURNED ERROR CODE %d"),
+        #                 SymbolRef("error_code")
+        #             ]
+        #         )
+        #     )
+        # ]
+
+        finish_call = check_ocl_error(
+            FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
+            "clFinish"
+        )
+        defn.extend(finish_call)
+        defn.append(Return(SymbolRef("error_code")))
 
         params.extend(SymbolRef('buf%d' % d, cl.cl_mem())
                       for d in range(len(arg_cfg) + 1))
 
-        control = FunctionDecl(None, "stencil_control",
+        control = FunctionDecl(ct.c_int32(), "stencil_control",
                                params=params,
                                defn=defn)
 
@@ -447,18 +448,19 @@ class StencilOclTransformer(StencilBackend):
         )
         return body
 
+    # noinspection PyPep8Naming
     def visit_InteriorPointsLoop(self, node):
         dim = len(self.output_grid.shape)
         self.kernel_target = node.target
-        cond = And(
+        condition = And(
             Lt(get_global_id(0),
                Constant(self.arg_cfg[0].shape[0] - self.ghost_depth[0])),
             GtE(get_global_id(0),
                 Constant(self.ghost_depth[0]))
         )
         for d in range(1, len(self.arg_cfg[0].shape)):
-            cond = And(
-                cond,
+            condition = And(
+                condition,
                 And(
                     Lt(get_global_id(d),
                        Constant(self.arg_cfg[0].shape[d] - self.ghost_depth[d])),
@@ -497,7 +499,46 @@ class StencilOclTransformer(StencilBackend):
                 self.stencil_op.extend(child)
             else:
                 self.stencil_op.append(child)
-        body.extend(self.stencil_op)
+
+        conditional = None
+        for dim in range(len(self.output_grid.shape)):
+            if self.virtual_global_size[dim] != self.global_size[dim]:
+                if conditional is None:
+                    conditional = Lt(get_global_id(dim), Constant(self.global_size[dim]))
+                else:
+                    conditional = And(conditional, Lt(get_global_id(dim), Constant(self.global_size[dim])))
+
+        if conditional is not None:
+            body.append(If(conditional, self.stencil_op))
+        else:
+            body.extend(self.stencil_op)
+
+        # this does not help fix the failure
+        # body.append(FunctionCall(SymbolRef("barrier"),
+        #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
+        # body.extend(self.stencil_op)
+        #
+        # this line does seem to fix the problem, seems to suggest some timing issue
+        #
+        # body.append(If(conditional, [StringTemplate("out_grid[global_index]+=0;")]))
+        #
+        # the following fixes the problem too, suggests timing issues
+        #
+        # body.append(FunctionCall(SymbolRef("printf"), [String("gid %d\\n"), SymbolRef("global_index")]))
+        # from ctree.ocl.macros import get_group_id
+        # body.append(
+        #     FunctionCall(
+        #         SymbolRef("printf"),
+        #         [
+        #             String("group_id %2d %2d gid %2d %2d %2d\\n"),
+        #             get_global_id(0),
+        #             get_group_id(1),
+        #             get_global_id(0),
+        #             get_global_id(1),
+        #             SymbolRef('global_index'),
+        #         ]
+        #     )
+        # )
         return body
 
     # Handle array references
@@ -522,8 +563,8 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise Exception(
-            "Unsupported GridElement encountered: {0}".format(grid_name))
+        raise StencilException(
+            "Unsupported GridElement encountered: {0} type {1}".format(grid_name, type(target)))
 
 
 def gen_decls(dim, ghost_depth):

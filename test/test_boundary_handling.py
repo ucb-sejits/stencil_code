@@ -115,12 +115,14 @@ class TestBoundaryHandling(unittest.TestCase):
         assert_list_equal(list(copy_out_grid[:][4]), compare_list)
 
     def test_copied_for_ocl(self):
-        # import logging
-        # logging.basicConfig(level=20)
+        import logging
+        logging.basicConfig(level=20)
         size = 8
         in_grid = numpy.ones([size, size]).astype(numpy.float32)
         copy_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='copy')
         copy_out_grid = copy_boundary_kernel(in_grid)
+
+        print(copy_out_grid)
 
         compare_list = [1. for _ in range(size)]
         assert_list_equal(list(copy_out_grid[0]), compare_list)

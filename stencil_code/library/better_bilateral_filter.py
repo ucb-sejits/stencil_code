@@ -72,8 +72,8 @@ class BetterBilateralFilter(Stencil):
 
 
 if __name__ == '__main__':  # pragma no cover
-    # import logging
-    # logging.basicConfig(level=20)
+    import logging
+    logging.basicConfig(level=20)
 
     import sys
     import os
