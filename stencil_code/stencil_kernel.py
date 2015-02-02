@@ -36,8 +36,8 @@ from .backend.omp import StencilOmpTransformer
 from .backend.ocl import StencilOclTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
-import optimizer as optimizer
-from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
+import stencil_code.optimizer as optimizer
+from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER, c_int32
 import pycl as cl
 from pycl import (
     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
