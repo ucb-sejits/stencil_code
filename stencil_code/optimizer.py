@@ -13,6 +13,7 @@ class Unroller(NodeTransformer):  # pragma no cover
         self.factor = factor
         self.for_node = for_node
 
+    # noinspection PyPep8Naming
     def visit_For(self, for_node):
         if for_node is not self.for_node:
             map(self.visit, for_node.body)
@@ -30,15 +31,17 @@ class Unroller(NodeTransformer):  # pragma no cover
         new_body = for_node.body[:]
         for x in range(1, factor):
             new_extension = deepcopy(for_node.body)
-            new_extension = map(UnrollReplacer(for_node.init.left.name,
-                                            x).visit, new_extension)
+            new_extension = map(
+                UnrollReplacer(for_node.init.left.name, x).visit, new_extension
+            )
             new_body.extend(new_extension)
 
-        leftover_For = For(Assign(for_node.init.left,
-                                Constant(leftover_begin)),
-                        for_node.test,
-                        for_node.incr,
-                        for_node.body)
+        leftover_For = For(
+            Assign(for_node.init.left, Constant(leftover_begin)),
+            for_node.test,
+            for_node.incr,
+            for_node.body
+        )
         # TODO: Handling LT vs LTE cases?
         for_node.test = Lt(for_node.init.left.name, new_end)
         for_node.incr = new_incr
@@ -52,7 +55,6 @@ class Unroller(NodeTransformer):  # pragma no cover
 def block_loops(inner, unblocked, block_factor):  # pragma no cover
     #factors = [self.block_factor for x in self.output_grid_shape]
     #factors[len(self.output_grid_shape)-1] = 1
-
 
     # use the helper class below to do the actual blocking.
     blocked = StencilCacheBlocker().block(unblocked, block_factor)
@@ -72,6 +74,7 @@ class FindInnerMostLoop(NodeVisitor):  # pragma no cover
         self.visit(node)
         return self.inner_most
 
+    # noinspection PyPep8Naming
     def visit_For(self, node):
         self.inner_most = node
         map(self.visit, node.body)
@@ -85,10 +88,12 @@ class UnrollReplacer(NodeTransformer):  # pragma no cover
         self.inside_for = False
         super(UnrollReplacer, self).__init__()
 
+    # noinspection PyPep8Naming
     def visit_SymbolRef(self, node):
         if node.name == self.loopvar:
             return Add(node, Constant(self.incr))
         return SymbolRef(node.name)
+
 
 class StencilCacheBlocker(object):  # pragma no cover
     """
@@ -104,6 +109,7 @@ class StencilCacheBlocker(object):  # pragma no cover
             self.factor = factor
             super(StencilCacheBlocker.StripMineLoopByIndex, self).__init__()
 
+        # noinspection PyPep8Naming
         def visit_For(self, node):
             self.current_idx += 1
 
@@ -115,7 +121,6 @@ class StencilCacheBlocker(object):  # pragma no cover
                            node.incr,
                            list(map(self.visit, node.body)))
 
-
     def block(self, tree, factors):
         """Main method in StencilCacheBlocker.  Used to block the loops in the tree."""
         # first we apply strip mining to the loops given in factors
@@ -126,7 +131,7 @@ class StencilCacheBlocker(object):  # pragma no cover
                 tree = StencilCacheBlocker.StripMineLoopByIndex(x*2, factors[x]).visit(tree)
 
         # now we move all the outer strip-mined loops to be outermost
-        for x in range(1,len(factors)):
+        for x in range(1, len(factors)):
             if factors[x] > 1:
                 tree = self.bubble(tree, 2*x, x)
 
@@ -137,9 +142,10 @@ class StencilCacheBlocker(object):  # pragma no cover
         Helper function to 'bubble up' a loop at index to be at new_index (new_index < index)
         while preserving the ordering of the loops between index and new_index.
         """
-        for x in xrange(index-new_index):
+        for x in range(index-new_index):
             tree = LoopSwitcher().switch(tree, index-x-1, index-x)
         return tree
+
 
 class LoopBlocker(object):  # pragma no cover
     def loop_block(self, node, block_size):
@@ -147,9 +153,9 @@ class LoopBlocker(object):  # pragma no cover
 
         new_inner_test = deepcopy(node.test)
         new_inner_test.right = FunctionCall("min", [
-                Add(outer_incr_name, Constant(block_size - 1)),
-                node.test.right
-            ])
+            Add(outer_incr_name, Constant(block_size - 1)),
+            node.test.right
+        ])
         new_inner_for = For(
             Assign(node.init.left, SymbolRef(outer_incr_name)),
             new_inner_test,
@@ -161,15 +167,16 @@ class LoopBlocker(object):  # pragma no cover
 
         old_incr = 1 if type(node.incr) is UnaryOp else node.incr.arg
         new_outer_for = For(
-            Assign(SymbolRef(node.init.left.name + node.init.left.name,
-                             c_int()),
-                             node.init.right),
+            Assign(SymbolRef(node.init.left.name + node.init.left.name, c_int()), node.init.right),
             newtest,
-            AddAssign(SymbolRef(node.init.left.name + node.init.left.name),
-                Mul(Constant(old_incr), SymbolRef(block_size))),
+            AddAssign(
+                SymbolRef(node.init.left.name + node.init.left.name),
+                Mul(Constant(old_incr), SymbolRef(block_size))
+            ),
             [new_inner_for])
 
         return new_outer_for
+
 
 class LoopSwitcher(NodeTransformer):  # pragma no cover
     """
@@ -178,11 +185,12 @@ class LoopSwitcher(NodeTransformer):  # pragma no cover
     class switches the ith and jth loops encountered.
     """
 
-
     def __init__(self):
         self.current_loop = -1
         self.saved_first_loop = None
         self.saved_second_loop = None
+        self.original_ast = None
+        self.first_target, self.second_target = 0, 0
         super(LoopSwitcher, self).__init__()
 
     def switch(self, tree, i, j):
@@ -194,6 +202,7 @@ class LoopSwitcher(NodeTransformer):  # pragma no cover
 
         return self.visit(tree)
 
+    # noinspection PyPep8Naming
     def visit_For(self, node):
         self.current_loop += 1
 
@@ -201,7 +210,8 @@ class LoopSwitcher(NodeTransformer):  # pragma no cover
             # save the loop
             self.saved_first_loop = node
             new_body = list(map(self.visit, node.body))
-            assert self.second_target < self.current_loop + 1, 'Tried to switch loops %d and %d but only %d loops available' % (
+            assert self.second_target < self.current_loop + 1, \
+                'Tried to switch loops %d and %d but only %d loops available' % (
                 self.first_target, self.second_target, self.current_loop + 1)
             # replace with the second loop (which has now been saved)
             return For(self.saved_second_loop.init,
