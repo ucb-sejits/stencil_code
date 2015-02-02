@@ -43,7 +43,7 @@ class Unroller(NodeTransformer):  # pragma no cover
             for_node.body
         )
         # TODO: Handling LT vs LTE cases?
-        for_node.test = Lt(for_node.init.left.name, new_end)
+        for_node.test = Lt(SymbolRef(for_node.init.left.name), Constant(new_end))
         for_node.incr = new_incr
         for_node.body = new_body
 

@@ -29,14 +29,15 @@ from stencil_code.stencil_exception import StencilException
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
 import ctree.ocl
+from ctree.c.nodes import For
 from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from .backend.omp import StencilOmpTransformer
 from .backend.ocl import StencilOclTransformer
 from .backend.c import StencilCTransformer
 from .python_frontend import PythonToStencilModel
-# import optimizer as optimizer
-from ctypes import byref, c_float, CFUNCTYPE, c_int32, POINTER
+import optimizer as optimizer
+from ctypes import byref, c_float, CFUNCTYPE, c_void_p, POINTER
 import pycl as cl
 from pycl import (
     clCreateProgramWithSource, buffer_from_ndarray, buffer_to_ndarray, cl_mem
@@ -47,6 +48,7 @@ import itertools
 import abc
 
 from stencil_code.halo_enumerator import HaloEnumerator
+from ctree.templates.nodes import StringTemplate
 
 
 def product(nums):
@@ -63,7 +65,7 @@ class ConcreteStencil(ConcreteSpecializedFunction):
     C or OpenMP backend.
     """
 
-    def finalize(self, tree, entry_name, entry_type, output):
+    def finalize(self, tree, entry_name, entry_type, output, lsf):
         """
 
         :param tree: A project node containing any files to be compiled for
@@ -79,7 +81,20 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         :return:
         """
         self.output = output
+        tree.files[0].body.insert(0, StringTemplate("""
+        #include <sys/time.h>
+        double wall_time () {
+          struct timeval t;
+          gettimeofday (&t, NULL);
+          return 1.*t.tv_sec + 1.e-6*t.tv_usec;
+        }
+
+        """, {})
+        )
+        tree.files[0].body[-1].defn.insert(0, StringTemplate("double start_time2 = wall_time();"))
+        tree.files[0].body[-1].defn.append(StringTemplate("*duration = wall_time() - start_time2;"))
         self._c_function = self._compile(entry_name, tree, entry_type)
+        self.lsf = lsf
         return self
 
     def __call__(self, *args):
@@ -99,6 +114,8 @@ class ConcreteStencil(ConcreteSpecializedFunction):
             output = np.zeros_like(args[0])
         args += (output, byref(duration))
         self._c_function(*args)
+        print("Time {:0.10f}".format(duration.value))
+        self.lsf.report(time=duration.value)
         return output
 
 
@@ -239,25 +256,35 @@ class SpecializedStencil(LazySpecializedFunction):
             for arg in args
         )
 
-    # def get_tuning_driver(self):
-    #     """
-    #     Returns the tuning driver used for this Specialized Function.
-    #     Initializes a brute force tuning driver that explores the space of
-    #     loop unrolling factors as well as cache blocking factors for each
-    #     dimension of our input StencilGrids.
+    def get_tuning_driver(self):
+        """
+        Returns the tuning driver used for this Specialized Function.
+        Initializes a brute force tuning driver that explores the space of
+        loop unrolling factors as well as cache blocking factors for each
+        dimension of our input StencilGrids.
 
-    #     :return: A BruteForceTuning driver instance
-    #     """
-    #     from ctree.tune import (
-    #         BruteForceTuningDriver,
-    #         IntegerParameter,
-    #         MinimizeTime
-    #     )
+        :return: A BruteForceTuning driver instance
+        """
+        # from ctree.tune import (
+        #     BruteForceTuningDriver,
+        #     IntegerParameter,
+        #     MinimizeTime
+        # )
+        #
+        # params = [IntegerParameter("unroll_factor", 1, 4)]
+        # for d in range(len(self.input_grids[0].shape) - 1):
+        #     params.append(IntegerParameter("block_factor_%s" % d, 4, 8))
+        # return BruteForceTuningDriver(params, MinimizeTime())
+        from ctree.opentuner.driver import OpenTunerDriver
+        from opentuner.search.manipulator import ConfigurationManipulator
+        from opentuner.search.manipulator import IntegerParameter
+        from opentuner.search.manipulator import PowerOfTwoParameter
+        from opentuner.search.objective import MinimizeTime
 
-    #     params = [IntegerParameter("unroll_factor", 1, 4)]
-    #     for d in range(len(self.input_grids[0].shape) - 1):
-    #         params.append(IntegerParameter("block_factor_%s" % d, 4, 8))
-    #     return BruteForceTuningDriver(params, MinimizeTime())
+        manip = ConfigurationManipulator()
+        manip.add_parameter(PowerOfTwoParameter("unroll_factor", 1, 4))
+
+        return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
 
     def transform(self, tree, program_config):
         """
@@ -282,8 +309,8 @@ class SpecializedStencil(LazySpecializedFunction):
 
         # block_factors = [2**tune_cfg['block_factor_%s' % d] for d in
         #                  range(len(self.input_grids[0].shape) - 1)]
-        # unroll_factor = 2**tune_cfg['unroll_factor']
-        unroll_factor = 0
+        unroll_factor = 2**tune_cfg['unroll_factor']
+        # unroll_factor = 0
 
         for transformer in [
             PythonToStencilModel(),
@@ -318,14 +345,14 @@ class SpecializedStencil(LazySpecializedFunction):
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
                     >= unroll_factor:
+                print("unroll factor: ", unroll_factor)
                 # FIXME: Lack of parent pointers breaks current loop unrolling
-                # first_For = tree.find(For)
-                # inner_For = optimizer.FindInnerMostLoop().find(first_For)
+                first_For = tree.find(For)
+                inner_For = optimizer.FindInnerMostLoop().find(first_For)
                 # inner, first = optimizer.block_loops(inner_For, tree,
                 #                                      block_factors + [1])
                 # first_For.replace(first)
-                # optimizer.unroll(tree, inner_For, unroll_factor)
-                pass
+                optimizer.unroll(tree, inner_For, unroll_factor)
 
         # import ast
         # print(ast.dump(tree))
@@ -372,7 +399,7 @@ class SpecializedStencil(LazySpecializedFunction):
         else:
             fn = ConcreteStencil()
             finalized = fn.finalize(tree, entry_point, entry_type,
-                                    self.output)
+                                    self.output, self)
         self.output = None
         self.fusable_nodes = []
         return finalized

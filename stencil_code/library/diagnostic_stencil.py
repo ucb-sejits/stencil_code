@@ -25,22 +25,23 @@ if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 
-    height = 8
-    width = 8
+    height = 2**10
+    width = 2**10
     in_img = numpy.ones([height, height]).astype(numpy.float32)
 
-    ocl_stencil = DiagnosticStencil(backend='ocl', boundary_handling='copy')
-    python_stencil = DiagnosticStencil(backend='python', boundary_handling='copy')
+    # ocl_stencil = DiagnosticStencil(backend='ocl', boundary_handling='copy')
+    python_stencil = DiagnosticStencil(backend='c', boundary_handling='copy')
 
-    ocl_out = ocl_stencil(in_img)
-    python_out = python_stencil(in_img)
-
-    print(ocl_out)
-
-    for index1 in range(height):
-        for index2 in range(width):
-            p = (index1, index2)
-            if int(ocl_out[p]*1000) != int(python_out[p]*1000):
-                print("{} {} != {}".format(p, ocl_out[p], python_out[p]))
-
-    numpy.testing.assert_array_almost_equal(ocl_out, python_out, decimal=4)
+    for i in range(4):
+        # ocl_out = ocl_stencil(in_img)
+        python_out = python_stencil(in_img)
+        #
+        # print(ocl_out)
+        #
+        # for index1 in range(height):
+        #     for index2 in range(width):
+        #         p = (index1, index2)
+        #         if int(ocl_out[p]*1000) != int(python_out[p]*1000):
+        #             print("{} {} != {}".format(p, ocl_out[p], python_out[p]))
+        #
+        # numpy.testing.assert_array_almost_equal(ocl_out, python_out, decimal=4)
