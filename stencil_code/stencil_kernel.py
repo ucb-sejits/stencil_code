@@ -283,6 +283,7 @@ class SpecializedStencil(LazySpecializedFunction):
 
         manip = ConfigurationManipulator()
         manip.add_parameter(PowerOfTwoParameter("unroll_factor", 1, 4))
+        manip.add_parameter(PowerOfTwoParameter("block_factor", 4, 8))
 
         return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
 
@@ -307,8 +308,9 @@ class SpecializedStencil(LazySpecializedFunction):
         else:
             param_types.append(POINTER(c_float))
 
-        # block_factors = [2**tune_cfg['block_factor_%s' % d] for d in
-        #                  range(len(self.input_grids[0].shape) - 1)]
+        block_factors = [2**tune_cfg['block_factor'] for _ in
+                         range(arg_cfg[0].ndim)]
+        print("block factor", block_factors)
         unroll_factor = 2**tune_cfg['unroll_factor']
         # unroll_factor = 0
 
@@ -349,10 +351,13 @@ class SpecializedStencil(LazySpecializedFunction):
                 # FIXME: Lack of parent pointers breaks current loop unrolling
                 first_For = tree.find(For)
                 inner_For = optimizer.FindInnerMostLoop().find(first_For)
-                # inner, first = optimizer.block_loops(inner_For, tree,
-                #                                      block_factors + [1])
-                # first_For.replace(first)
-                optimizer.unroll(tree, inner_For, unroll_factor)
+                unrolled = optimizer.unroll(inner_For, unroll_factor)
+                inner, first = optimizer.block_loops(inner_For, first_For,
+                                                     block_factors + [1])
+                first_For.body = first.body
+                first_For.incr = first.incr
+                first_For.init = first.init
+                first_For.test = first.test
 
         # import ast
         # print(ast.dump(tree))

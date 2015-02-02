@@ -4,20 +4,16 @@ from ctypes import c_int
 from copy import deepcopy
 
 
-def unroll(tree, for_node, factor):  # pragma no cover
-    Unroller(factor, for_node).visit(tree)
+def unroll(for_node, factor):  # pragma no cover
+    return Unroller(factor).visit(for_node)
 
 
 class Unroller(NodeTransformer):  # pragma no cover
-    def __init__(self, factor, for_node):
+    def __init__(self, factor):
         self.factor = factor
-        self.for_node = for_node
 
     # noinspection PyPep8Naming
     def visit_For(self, for_node):
-        if for_node is not self.for_node:
-            map(self.visit, for_node.body)
-            return for_node
         factor = self.factor
         # Determine the leftover iterations after unrolling
         # TODO: Requires that parent pointers have been fixed
@@ -159,13 +155,13 @@ class LoopBlocker(object):  # pragma no cover
         new_inner_for = For(
             Assign(node.init.left, SymbolRef(outer_incr_name)),
             new_inner_test,
-            PostInc(SymbolRef(node.init.left.name)),
+            node.incr,
             node.body)
 
         newtest = deepcopy(node.test)
         newtest.left = SymbolRef(node.init.left.name + node.init.left.name)
 
-        old_incr = 1 if type(node.incr) is UnaryOp else node.incr.arg
+        old_incr = 1 if type(node.incr) is UnaryOp else node.incr.value
         new_outer_for = For(
             Assign(SymbolRef(node.init.left.name + node.init.left.name, c_int()), node.init.right),
             newtest,
