@@ -331,8 +331,7 @@ class SpecializedStencil(LazySpecializedFunction):
 
         # import ast
         # print(ast.dump(tree))
-        # TODO: This should be done in the visitors
-        tree.files[0].config_target = 'omp'
+
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
             for arg in arg_cfg + (self.output, )
@@ -344,13 +343,65 @@ class SpecializedStencil(LazySpecializedFunction):
         return tree.files
 
     def finalize(self, transform_result, program_config):
-        stencil_file = transform_result[0]
-        project = Project([stencil_file])
+        project = Project(transform_result)
         arg_config, tuner_config = program_config
-        array_type = arg_config[0]
-        entry_type = CFUNCTYPE(None, array_type)
+
+        param_types = [
+            np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
+            for arg in arg_config + (self.output, )
+        ]
+        if self.backend == StencilException:
+            entry_point = "stencil_control"
+            param_types.append(param_types[0])
+            entry_type = [c_int32, cl.cl_command_queue, cl.cl_kernel]
+            if self.kernel.is_copied:
+                for _ in range(self.kernel.dim):
+                    entry_type.append(cl.cl_kernel)
+            entry_type.extend(cl_mem for _ in range(len(arg_config) + 1))
+            entry_type = CFUNCTYPE(*entry_type)
+        else:
+            entry_point = "stencil_kernel"
+            param_types.append(POINTER(c_float))
+            entry_type = CFUNCTYPE(c_int32, *param_types)
+
+        if self.backend == StencilOclTransformer:
+            concrete_function = OclStencilFunction()
+            if self.kernel.is_copied:
+                args = [
+                    project, entry_type, entry_point,
+                ]
+                kernels = []
+                for index, kernel in enumerate(project.find_all(OclFile)):
+                    # print("XXX index {} kernel {}".format(index, kernel.name))
+                    # print(kernel.codegen())
+                    program = clCreateProgramWithSource(concrete_function.context, kernel.codegen()).build()
+                    ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
+                    kernel_ptr = program[ocl_kernel_name]
+                    kernels.append(kernel_ptr)
+                args.append(kernels)
+                args.append(self.output)
+
+                finalized = concrete_function.finalize(*args)
+            else:
+                kernel = project.find(OclFile)
+                program = clCreateProgramWithSource(concrete_function.context,
+                                                    kernel.codegen()).build()
+                stencil_kernel_ptr = program['stencil_kernel']
+                finalized = concrete_function.finalize(
+                    project, entry_type, entry_point,
+                    stencil_kernel_ptr,
+                    self.output
+                )
+        else:
+            concrete_function = ConcreteStencil()
+            finalized = concrete_function.finalize(project, entry_point, entry_type,
+                                    self.output)
+        self.output = None
+        self.fusable_nodes = []
+        return finalized
+
         concrete_function = ConcreteStencil()
-        return concrete_function.finalize()
+        return concrete_function.finalize(entry_point, project, entry_type)
 
 
         # if self.backend == StencilOclTransformer:
