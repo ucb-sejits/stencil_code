@@ -300,22 +300,16 @@ class SpecializedStencil(LazySpecializedFunction):
         # self.block(inner_For, first_For, block_factor)
         # TODO: If should unroll check
         # optimizer.unroll(inner_For, unroll_factor)
-        entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         # TODO: This should be handled by the backend
         # if self.backend != StencilOclTransformer:
+
+        # fix up the parameters type signatures, int the stencil_kernel
+        entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         for index, _type in enumerate(param_types):
             entry_point.params[index].type = _type()
         # entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
-            entry_point = 'stencil_control'
-            entry_type = [c_int32, cl.cl_command_queue, cl.cl_kernel]
-            if self.kernel.is_copied:
-                for _ in range(self.kernel.dim):
-                    entry_type.append(cl.cl_kernel)
-            entry_type.extend(cl_mem for _ in range(len(argument_configuration) + 1))
-            entry_type = CFUNCTYPE(*entry_type)
-            # return tree, entry_type, entry_point
             return tree.files
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
