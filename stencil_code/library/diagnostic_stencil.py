@@ -29,8 +29,8 @@ if __name__ == '__main__':  # pragma no cover
     width = 8
     in_img = numpy.ones([height, height]).astype(numpy.float32)
 
-    ocl_stencil = DiagnosticStencil(backend='c', boundary_handling='copy')
-    python_stencil = DiagnosticStencil(backend='python', boundary_handling='copy')
+    ocl_stencil = DiagnosticStencil(backend='ocl', boundary_handling='clamp')
+    python_stencil = DiagnosticStencil(backend='c', boundary_handling='clamp')
 
     ocl_out = ocl_stencil(in_img)
     python_out = python_stencil(in_img)
