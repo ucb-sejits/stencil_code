@@ -206,7 +206,7 @@ class SpecializedStencil(LazySpecializedFunction):
                     "ocl": StencilOclTransformer,
                     "opencl": StencilOclTransformer}
 
-    def __init__(self, stencil_kernel, backend, ):
+    def __init__(self, stencil_kernel, backend_name, boundary_handling=""):
         """
         Initializes an instance of a SpecializedStencil. This function
         inherits from ctree's LazySpecializedFunction. When the specialized
@@ -218,13 +218,14 @@ class SpecializedStencil(LazySpecializedFunction):
         specializer. For more information consult the ctree docs.
 
         :param stencil_kernel: The Kernel object containing the kernel function.
-        :param backend: the type of specialized kernel to generate
+        :param backend_name: the type of specialized kernel to generate
 \        """
         self.kernel = stencil_kernel
-        self.backend = self.backend_dict[backend]
+        self.backend = self.backend_dict[backend_name]
         self.output = None
         self.args = None
-        super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel))
+        backend_key = "{}_{}".format(backend_name, boundary_handling)
+        super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel), backend_name=backend_key)
 
     def args_to_subconfig(self, args):
         """
@@ -543,7 +544,7 @@ class Stencil(object):
         if backend == 'python':
             self.specializer = self.python_kernel_wrapper
         elif backend in ['c', 'omp', 'ocl']:
-            self.specializer = SpecializedStencil(self, backend,)
+            self.specializer = SpecializedStencil(self, backend, boundary_handling)
         self.model = self.kernel
 
         self.should_unroll = kwargs.get('should_unroll', True)

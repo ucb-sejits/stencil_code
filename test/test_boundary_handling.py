@@ -50,14 +50,14 @@ class TestBoundaryHandling(unittest.TestCase):
         zero boundary handling should just leave zero's in grid halo
         :return:
         """
-        in_grid = numpy.ones([10, 10])
+        import logging
+        logging.basicConfig(level=20)
+
+        in_grid = numpy.ones([8, 8])
 
         python_clamped_kernel = DiagnosticStencil(backend='python', boundary_handling='clamp')
         c_clamped_kernel = DiagnosticStencil(backend='c', boundary_handling='clamp')
         python_clamped_out = python_clamped_kernel(in_grid)
-
-        # import logging
-        # logging.basicConfig(level=20)
         c_clamped_out = c_clamped_kernel(in_grid)
 
         numpy.testing.assert_array_almost_equal(python_clamped_out, c_clamped_out, decimal=4)
