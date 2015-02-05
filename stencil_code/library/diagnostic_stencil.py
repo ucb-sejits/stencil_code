@@ -39,7 +39,7 @@ if __name__ == '__main__':  # pragma no cover
     ]).astype(numpy.int32)
     from scipy.ndimage.filters import convolve
 
-    for i in range(10):
+    for i in range(50):
         # ocl_out = ocl_stencil(in_img)
         python_out = python_stencil(in_img)
 

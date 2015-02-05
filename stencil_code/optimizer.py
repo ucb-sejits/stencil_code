@@ -2,18 +2,33 @@ from ctree.visitors import NodeTransformer, NodeVisitor
 from ctree.c.nodes import *
 from ctypes import c_int
 from copy import deepcopy
+from ctree.util import flatten
 
 
-def unroll(for_node, factor):  # pragma no cover
-    return Unroller(factor).visit(for_node)
+def unroll(tree, for_node, factor):  # pragma no cover
+    return Unroller(for_node, factor).visit(tree)
 
 
 class Unroller(NodeTransformer):  # pragma no cover
-    def __init__(self, factor):
+    def __init__(self, for_node, factor):
         self.factor = factor
+        self.for_node = for_node
 
     # noinspection PyPep8Naming
     def visit_For(self, for_node):
+        if for_node is not self.for_node:
+            # for_node.body = flatten(list(map(self.visit, for_node.body)))
+            new_body = []
+            print(for_node.body)
+            for statement in for_node.body:
+                visited = self.visit(statement)
+                if isinstance(visited, list):
+                    print("found list")
+                    new_body.extend(visited)
+                else:
+                    new_body.append(visited)
+            for_node.body = new_body
+            return for_node
         factor = self.factor
         # Determine the leftover iterations after unrolling
         # TODO: Requires that parent pointers have been fixed

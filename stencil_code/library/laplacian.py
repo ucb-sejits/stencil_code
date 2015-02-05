@@ -24,7 +24,7 @@ class LaplacianKernel(Stencil):
 
 if __name__ == '__main__':  # pragma: no cover
     import logging
-    logging.basicConfig(level=0)
+    logging.basicConfig(level=20)
 
     nx = 8 if len(sys.argv) <= 1 else int(sys.argv[1])
     ny = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
@@ -33,15 +33,16 @@ if __name__ == '__main__':  # pragma: no cover
     input_grid = numpy.random.random([nx, ny, nz]).astype(numpy.float32) * 1024
 
     laplacian = LaplacianKernel(backend='c')
-    with Timer() as s_t:
-        a = laplacian(input_grid)
-    print("Specialized time {:0.3f}s".format(s_t.interval))
-    print("a.shape {}".format(a.shape))
+    for i in range(100):
+        with Timer() as s_t:
+            a = laplacian(input_grid)
+        print("Specialized time {:0.3f}s".format(s_t.interval))
+        print("a.shape {}".format(a.shape))
 
     # too slow to compare directly, this will apply python method to just a subset
-    py = LaplacianKernel(backend='python')
-    with Timer() as py_t:
-        b = py(input_grid)
-    numpy.testing.assert_array_almost_equal(a, b, decimal=4)
-    print("PASSED")
-    print("Py time {:0.3f}".format(py_t.interval))
+    # py = LaplacianKernel(backend='python')
+    # with Timer() as py_t:
+    #     b = py(input_grid)
+    # numpy.testing.assert_array_almost_equal(a, b, decimal=4)
+    # print("PASSED")
+    # print("Py time {:0.3f}".format(py_t.interval))

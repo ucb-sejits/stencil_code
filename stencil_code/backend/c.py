@@ -161,7 +161,7 @@ class StencilCTransformer(StencilBackend):
                         grid = self.input_dict[grid_name]
                         pt = list(
                             map(lambda d: gen_clamped_index(
-                                self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
+                                SymbolRef(self.var_list[d]), grid.shape[d]-1), range(len(self.var_list))))
                     else:  # pragma no cover
                         pt = list(map(lambda x: SymbolRef(x), self.var_list))
 
