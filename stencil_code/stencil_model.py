@@ -56,6 +56,10 @@ class GridElement(StencilModelNode):
     @property
     def name(self):
         return self.grid_name
+        
+    @name.setter
+    def name(self, value):
+        self.grid_name = value
     
     def label(self):  # pragma no cover
         return r"%s" % (self.grid_name)
