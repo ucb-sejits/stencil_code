@@ -7,7 +7,7 @@ from ctree.c.nodes import If, Constant
 
 from stencil_code.backend.ocl_boundary_copier import OclBoundaryCopier
 from stencil_code.stencil_exception import StencilException
-from test.fixtures import MockIrisPro
+from fixtures import MockIrisPro
 
 
 class TestBoundaryKernel(unittest.TestCase):

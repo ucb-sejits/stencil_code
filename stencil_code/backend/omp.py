@@ -103,4 +103,5 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise Exception("Found GridElement that is not supported")
+        raise StencilException(
+            "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))

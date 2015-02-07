@@ -4,7 +4,7 @@ __author__ = 'chick'
 import unittest
 
 from stencil_code.backend.local_size_computer import product, LocalSizeComputer
-from test.fixtures import MockCPU, MockIrisPro
+from fixtures import MockCPU, MockIrisPro
 
 class TestLocalSizeComputer(unittest.TestCase):
     def _are_lists_equal(self, list1, list2):
