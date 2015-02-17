@@ -47,6 +47,8 @@ import itertools
 import abc
 
 from stencil_code.halo_enumerator import HaloEnumerator
+from hindemith.types.hmarray import hmarray, empty_like, Loop
+import copy
 
 
 def product(nums):
@@ -144,22 +146,28 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
-        if self.output is not None:
-            output = self.output
-            self.output = None
-        else:  # pragma no cover
-            output = np.zeros_like(args[0])
+        if isinstance(args[0], hmarray):
+            output = empty_like(args[0])
+        else:
+            if self.output is not None:
+                output = self.output
+                self.output = None
+            else:  # pragma no cover
+                output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
         buffers = []
         events = []
         for index, arg in enumerate(args + (output, )):
-            buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
-            # evt.wait()
-            events.append(evt)
-            buffers.append(buf)
-            # self.kernel.setarg(index, buf, sizeof(cl_mem))
+            if isinstance(arg, hmarray):
+                buffers.append(arg.ocl_buf)
+            else:
+                buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
+                # evt.wait()
+                events.append(evt)
+                buffers.append(buf)
+                # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         cl_error = 0
         if isinstance(self.kernel, list):
@@ -182,6 +190,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                     cl.cl_errnum(cl_error)
                 )
             )
+        if isinstance(output, hmarray):
+            return output
         buf, evt = buffer_to_ndarray(
             self.queue, buffers[-1], output
         )
@@ -383,6 +393,35 @@ class SpecializedStencil(LazySpecializedFunction):
             self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
         return self.output
 
+    def get_placeholder_output(self, args):
+        return empty_like(args[0])
+
+    def get_ir_nodes(self, args):
+        tree = copy.deepcopy(self.original_tree)
+        arg_cfg = self.args_to_subconfig(args)
+
+        output = np.zeros_like(args[0])
+        shape = output.shape
+        
+        param_types = [
+            np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
+            for arg in arg_cfg + (output, )
+        ]
+
+        for transformer in [
+            PythonToStencilModel(),
+            self.backend(self.args, output, self.kernel, arg_cfg=arg_cfg,
+                         fusable_nodes=None)]:
+            tree = transformer.visit(tree)
+        ocl_file = tree.find(OclFile)
+        loop_body = ocl_file.body[0].defn
+        params = ocl_file.body[0].params
+        print(tree.files[0])
+        for index, _type in enumerate(param_types):
+            params[index].type = _type()
+
+        return [Loop(shape, params[:-2], [params[-2]], param_types, loop_body, [params[-1]])]
+
 
 class Stencil(object):
     """
@@ -398,6 +437,7 @@ class Stencil(object):
                     "python": None}
 
     boundary_handling_list = ['clamp', 'zero', 'copy', 'wrap']
+    composable = True
 
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
