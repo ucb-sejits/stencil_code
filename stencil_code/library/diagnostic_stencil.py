@@ -30,9 +30,9 @@ if __name__ == '__main__':  # pragma no cover
     in_img = numpy.ones([height, height]).astype(numpy.float32)
 
     ocl_stencil = DiagnosticStencil(backend='ocl', boundary_handling='copy')
-    python_stencil = DiagnosticStencil(backend='c', boundary_handling='copy')
+    c_stencil = DiagnosticStencil(backend='c', boundary_handling='copy')
 
-    python_out = python_stencil(in_img)
+    c_out = c_stencil(in_img)
     ocl_out = ocl_stencil(in_img)
 
     print(ocl_out)
@@ -40,7 +40,7 @@ if __name__ == '__main__':  # pragma no cover
     for index1 in range(height):
         for index2 in range(width):
             p = (index1, index2)
-            if int(ocl_out[p]*1000) != int(python_out[p]*1000):
-                print("{} {} != {}".format(p, ocl_out[p], python_out[p]))
+            if int(ocl_out[p]*1000) != int(c_out[p]*1000):
+                print("{} {} != {}".format(p, ocl_out[p], c_out[p]))
 
-    numpy.testing.assert_array_almost_equal(ocl_out, python_out, decimal=4)
+    numpy.testing.assert_array_almost_equal(ocl_out, c_out, decimal=4)

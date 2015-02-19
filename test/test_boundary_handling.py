@@ -170,7 +170,15 @@ class TestBoundaryHandling(unittest.TestCase):
         copy_out_grid = copy_boundary_kernel(input_grid)
 
         for point in copy_boundary_kernel.interior_points(copy_out_grid):
-            self.assertEqual(copy_out_grid[point], 2.0)
+            self.assertEqual(copy_out_grid[point], 2.0, "copy_out_grid[{}] is {} should be {}".format(
+                point,
+                copy_out_grid[point],
+                2.0
+            ))
 
         for point in copy_boundary_kernel.halo_points(copy_out_grid):
-            self.assertEqual(copy_out_grid[point], 1.0)
+            self.assertEqual(copy_out_grid[point], 1.0, "copy_out_grid[{}] is {} should be {}".format(
+                point,
+                copy_out_grid[point],
+                1.0
+            ))
