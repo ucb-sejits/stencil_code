@@ -546,9 +546,10 @@ class StencilOclTransformer(StencilBackend):
         grid_name = node.grid_name
         target = node.target
         if isinstance(target, SymbolRef):
-            target = target.name
-            if target == self.kernel_target:
-                if grid_name is self.output_grid_name:
+
+            target_name = target.name
+            if target_name == self.kernel_target:
+                if grid_name == self.output_grid_name:
                     return ArrayRef(SymbolRef(self.output_grid_name),
                                     SymbolRef(self.output_index))
                 elif grid_name in self.input_dict:
@@ -563,8 +564,9 @@ class StencilOclTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
+
         raise StencilException(
-            "Unsupported GridElement encountered: {0} type {1}".format(grid_name, type(target)))
+            "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))
 
 
 def gen_decls(dim, ghost_depth):
