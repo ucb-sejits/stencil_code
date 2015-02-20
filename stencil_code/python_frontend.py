@@ -75,8 +75,10 @@ class PythonToStencilModel(PyBasicConversions):
 
     def visit_Subscript(self, node):
         value = self.visit(node.value)
-        slice = self.visit(node.slice)
+        sliced = self.visit(node.slice.value)
+        if isinstance(sliced, str):
+            sliced = SymbolRef(sliced)
         return GridElement(
             grid_name=self.arg_name_map[value.name],
-            target=slice.value
+            target=sliced
         )
