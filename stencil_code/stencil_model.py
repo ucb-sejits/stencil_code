@@ -53,8 +53,19 @@ class GridElement(StencilModelNode):
         self.target = target
         super(StencilModelNode, self).__init__()
 
+    @property
+    def name(self):
+        return self.grid_name
+        
+    @name.setter
+    def name(self, value):
+        self.grid_name = value
+    
     def label(self):  # pragma no cover
         return r"%s" % (self.grid_name)
+
+    def copy(self):
+        return GridElement(grid_name=self.grid_name, target=self.target)
 
 
 class StencilModelDotGen(DotGenVisitor):  # pragma: no cover

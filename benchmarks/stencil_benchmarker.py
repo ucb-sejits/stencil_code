@@ -100,7 +100,7 @@ class StencilBenchmarker(object):
             # print("Testing matrix with shape {}".format(input_image.shape))
             test_shapes.append(input_image.shape)
             for test in self.tests_to_run:
-                for trials in xrange(self.iterations):
+                for trials in range(self.iterations):
                     test.run_trial(input_image, input_image.shape)
 
         for test_shape in test_shapes:

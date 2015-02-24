@@ -50,14 +50,14 @@ class TestBoundaryHandling(unittest.TestCase):
         zero boundary handling should just leave zero's in grid halo
         :return:
         """
-        in_grid = numpy.ones([10, 10])
+        import logging
+        logging.basicConfig(level=20)
+
+        in_grid = numpy.ones([8, 8])
 
         python_clamped_kernel = DiagnosticStencil(backend='python', boundary_handling='clamp')
         c_clamped_kernel = DiagnosticStencil(backend='c', boundary_handling='clamp')
         python_clamped_out = python_clamped_kernel(in_grid)
-
-        # import logging
-        # logging.basicConfig(level=20)
         c_clamped_out = c_clamped_kernel(in_grid)
 
         numpy.testing.assert_array_almost_equal(python_clamped_out, c_clamped_out, decimal=4)
@@ -115,12 +115,14 @@ class TestBoundaryHandling(unittest.TestCase):
         assert_list_equal(list(copy_out_grid[:][4]), compare_list)
 
     def test_copied_for_ocl(self):
-        # import logging
-        # logging.basicConfig(level=20)
+        import logging
+        logging.basicConfig(level=20)
         size = 8
         in_grid = numpy.ones([size, size]).astype(numpy.float32)
         copy_boundary_kernel = DiagnosticStencil(backend='ocl', boundary_handling='copy')
         copy_out_grid = copy_boundary_kernel(in_grid)
+
+        print(copy_out_grid)
 
         compare_list = [1. for _ in range(size)]
         assert_list_equal(list(copy_out_grid[0]), compare_list)
@@ -168,7 +170,15 @@ class TestBoundaryHandling(unittest.TestCase):
         copy_out_grid = copy_boundary_kernel(input_grid)
 
         for point in copy_boundary_kernel.interior_points(copy_out_grid):
-            self.assertEqual(copy_out_grid[point], 2.0)
+            self.assertEqual(copy_out_grid[point], 2.0, "copy_out_grid[{}] is {} should be {}".format(
+                point,
+                copy_out_grid[point],
+                2.0
+            ))
 
         for point in copy_boundary_kernel.halo_points(copy_out_grid):
-            self.assertEqual(copy_out_grid[point], 1.0)
+            self.assertEqual(copy_out_grid[point], 1.0, "copy_out_grid[{}] is {} should be {}".format(
+                point,
+                copy_out_grid[point],
+                1.0
+            ))
