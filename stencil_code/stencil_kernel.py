@@ -491,7 +491,7 @@ class SpecializedStencil(LazySpecializedFunction):
 
         output = np.zeros_like(args[0])
         shape = output.shape
-        
+
         param_types = [
             np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
             for arg in arg_cfg + (output, )
