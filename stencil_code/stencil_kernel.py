@@ -28,7 +28,6 @@ import ctree.np
 from stencil_code.stencil_exception import StencilException
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
-import ctree.ocl
 from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from ctree.nodes import Project
@@ -93,7 +92,8 @@ class ConcreteStencil(ConcreteSpecializedFunction):
                       that was passed to :attr: `finalize`.
 
         """
-        # TODO: provide stronger type checking to give users better error messages.
+        # TODO: provide stronger type checking to give users better error
+        # messages.
         duration = c_float()
         if self.output is not None:
             output = self.output
@@ -119,10 +119,13 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         # TODO: Need dependency injection to control ocl device selection
         self.desired_ocl_device = -1
         devices = cl.clGetDeviceIDs()
-        self.context, self.queue = get_context_and_queue_from_devices([devices[self.desired_ocl_device]])
-        self.max_work_group_size = devices[self.desired_ocl_device].max_work_group_size
+        self.context, self.queue = get_context_and_queue_from_devices(
+            [devices[self.desired_ocl_device]])
+        self.max_work_group_size = \
+            devices[self.desired_ocl_device].max_work_group_size
 
-        # some variables that will be used that PEP-8 wants to see initialized in __init__
+        # some variables that will be used that PEP-8 wants to see initialized
+        # in __init__
         self.kernel = None
         self.output = None
         self._c_function = None
@@ -150,11 +153,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         if isinstance(args[0], hmarray):
             output = empty_like(args[0])
         else:
-            if self.output is not None:
-                output = self.output
-                self.output = None
-            else:  # pragma no cover
-                output = np.zeros_like(args[0])
+            output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
@@ -174,12 +173,16 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         if isinstance(self.kernel, list):
             kernels = len(self.kernel)
             if kernels == 2:
-                cl_error = self._c_function(self.queue, self.kernel[0], self.kernel[1], *buffers)
-            if kernels == 3:
-                cl_error = self._c_function(self.queue, self.kernel[0], self.kernel[1], self.kernel[2], *buffers)
-            if kernels == 4:
+                cl_error = self._c_function(self.queue, self.kernel[0],
+                                            self.kernel[1], *buffers)
+            elif kernels == 3:
+                cl_error = self._c_function(self.queue, self.kernel[0],
+                                            self.kernel[1], self.kernel[2],
+                                            *buffers)
+            elif kernels == 4:
                 cl_error = self._c_function(
-                    self.queue, self.kernel[0], self.kernel[1], self.kernel[2], self.kernel[3], *buffers
+                    self.queue, self.kernel[0], self.kernel[1], self.kernel[2],
+                    self.kernel[3], *buffers
                 )
         else:
             cl_error = self._c_function(self.queue, self.kernel, *buffers)
@@ -235,7 +238,8 @@ class SpecializedStencil(LazySpecializedFunction):
         self.output = None
         self.args = None
         backend_key = "{}_{}".format(backend_name, boundary_handling)
-        super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel), backend_name=backend_key)
+        super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
+                                                 backend_name=backend_key)
 
     def args_to_subconfig(self, args):
         """
@@ -292,15 +296,15 @@ class SpecializedStencil(LazySpecializedFunction):
         else:
             param_types.append(POINTER(c_float))
 
-        # block_factors = [2**tuning_configuration['block_factor_%s' % d] for d in
-        #                  range(len(self.input_grids[0].shape) - 1)]
+        # block_factors = [2**tuning_configuration['block_factor_%s' % d] for
+        #                  d in range(len(self.input_grids[0].shape) - 1)]
         # unroll_factor = 2**tuning_configuration['unroll_factor']
         unroll_factor = 0
 
         for transformer in [
             PythonToStencilModel(),
-            self.backend(self.args, output, self.kernel, arg_cfg=argument_configuration,
-                         fusable_nodes=None)
+            self.backend(self.args, output, self.kernel,
+                         arg_cfg=argument_configuration, fusable_nodes=None)
         ]:
             tree = transformer.visit(tree)
 
@@ -372,8 +376,12 @@ class SpecializedStencil(LazySpecializedFunction):
                 for index, kernel in enumerate(project.find_all(OclFile)):
                     # print("XXX index {} kernel {}".format(index, kernel.name))
                     print("Kernel Codegen\n".format(kernel.codegen()))
-                    program = clCreateProgramWithSource(concrete_function.context, kernel.codegen()).build()
-                    ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
+                    program = clCreateProgramWithSource(
+                        concrete_function.context, kernel.codegen()).build()
+                    if index == 0:
+                        ocl_kernel_name = 'stencil_kernel'
+                    else:
+                        ocl_kernel_name = kernel.name
                     kernel_ptr = program[ocl_kernel_name]
                     kernels.append(kernel_ptr)
                 args.append(kernels)
@@ -392,89 +400,14 @@ class SpecializedStencil(LazySpecializedFunction):
                 )
         else:
             concrete_function = ConcreteStencil()
-            finalized = concrete_function.finalize(project, entry_point, entry_type,
-                                    self.output)
+            finalized = concrete_function.finalize(project, entry_point,
+                                                   entry_type, self.output)
         self.output = None
         self.fusable_nodes = []
         return finalized
 
         concrete_function = ConcreteStencil()
         return concrete_function.finalize(entry_point, project, entry_type)
-
-
-        # if self.backend == StencilOclTransformer:
-        #     fn = OclStencilFunction()
-        #     if self.kernel.is_copied:
-        #         args = [
-        #             tree, entry_type, entry_point,
-        #         ]
-        #         kernels = []
-        #         for index, kernel in enumerate(tree.find_all(OclFile)):
-        #             # print("XXX index {} kernel {}".format(index, kernel.name))
-        #             # print(kernel.codegen())
-        #             program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
-        #             ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
-        #             kernel_ptr = program[ocl_kernel_name]
-        #             kernels.append(kernel_ptr)
-        #         args.append(kernels)
-        #         args.append(self.output)
-        #
-        #         finalized = fn.finalize(*args)
-        #     else:
-        #         kernel = tree.find(OclFile)
-        #         program = clCreateProgramWithSource(fn.context,
-        #                                             kernel.codegen()).build()
-        #         stencil_kernel_ptr = program['stencil_kernel']
-        #         finalized = fn.finalize(
-        #             tree, entry_type, entry_point,
-        #             stencil_kernel_ptr,
-        #             self.output
-        #         )
-        # else:
-        #     fn = ConcreteStencil()
-        #     finalized = fn.finalize(tree, entry_point, entry_type,
-        #                             self.output)
-        # self.output = None
-        # self.fusable_nodes = []
-        # return finalized
-        return None
-
-    def old_finalize(self, tree, entry_type, entry_point):
-        if self.backend == StencilOclTransformer:
-            fn = OclStencilFunction()
-            if self.kernel.is_copied:
-                args = [
-                    tree, entry_type, entry_point,
-                ]
-                kernels = []
-                for index, kernel in enumerate(tree.find_all(OclFile)):
-                    # print("XXX index {} kernel {}".format(index, kernel.name))
-                    # print(kernel.codegen())
-                    program = clCreateProgramWithSource(fn.context, kernel.codegen()).build()
-                    ocl_kernel_name = 'stencil_kernel' if index == 0 else kernel.name
-                    kernel_ptr = program[ocl_kernel_name]
-                    kernels.append(kernel_ptr)
-                args.append(kernels)
-                args.append(self.output)
-
-                finalized = fn.finalize(*args)
-            else:
-                kernel = tree.find(OclFile)
-                program = clCreateProgramWithSource(fn.context,
-                                                    kernel.codegen()).build()
-                stencil_kernel_ptr = program['stencil_kernel']
-                finalized = fn.finalize(
-                    tree, entry_type, entry_point,
-                    stencil_kernel_ptr,
-                    self.output
-                )
-        else:
-            fn = ConcreteStencil()
-            finalized = fn.finalize(tree, entry_point, entry_type,
-                                    self.output)
-        self.output = None
-        self.fusable_nodes = []
-        return finalized
 
     def generate_output(self, program_cfg):
         arg_cfg, tune_cfg = program_cfg
@@ -509,7 +442,8 @@ class SpecializedStencil(LazySpecializedFunction):
         for index, _type in enumerate(param_types):
             params[index].type = _type()
 
-        return [Loop(shape, params[:-2], [params[-2]], param_types, loop_body, [params[-1]])]
+        return [Loop(shape, params[:-2], [params[-2]], param_types, loop_body,
+                     [params[-1]])]
 
 
 class Stencil(object):
@@ -531,7 +465,8 @@ class Stencil(object):
     def __call__(self, *args, **kwargs):
         return self.specializer(*args, **kwargs)
 
-    def __init__(self, backend='ocl', neighborhoods=None, boundary_handling='clamp', **kwargs):
+    def __init__(self, backend='ocl', neighborhoods=None,
+                 boundary_handling='clamp', **kwargs):
         """
         Our Stencil class wraps an un-specialized stencil kernel
         function.  This class should be sub-classed by the user, and should
@@ -542,7 +477,8 @@ class Stencil(object):
 
         :param backend: Optional backend that should be used by ctree.
         Supported backends are c, omp (openmp), and ocl (opencl).
-        :param neighborhood_definition: an iterable of neighborhoods neighborhoods are a list of points(tuples)
+        :param neighborhood_definition: an iterable of neighborhoods
+            neighborhoods are a list of points(tuples)
         :param boundary_handling: one of skip, clamped, copy; default is clamped
         :raise Exception: If no kernel method is defined.
         """
@@ -551,18 +487,22 @@ class Stencil(object):
             self.neighborhood_definition = neighborhoods
         else:
             try:
-                # self.neighborhoods below actually references the subclass variable
+                # self.neighborhoods below actually references the subclass
+                # variable
                 # noinspection PyUnresolvedReferences
                 self.neighborhood_definition = self.neighborhoods
             except Exception:
                 raise StencilException(
-                    "Error: neighborhoods must be defined by {}".format(type(self))
+                    "Error: neighborhoods must be defined by {}".format(
+                        type(self))
                 )
 
         self.backend = self.backend_dict[backend]
 
-        if not boundary_handling in Stencil.boundary_handling_list:
-            raise StencilException("Error: boundary handling value '{}' not recognized".format(boundary_handling))
+        if boundary_handling not in Stencil.boundary_handling_list:
+            raise StencilException(
+                "Error: boundary handling value '{}' not recognized".format(
+                    boundary_handling))
 
         self.boundary_handling = boundary_handling
         self.is_clamped = boundary_handling == 'clamp'
@@ -570,13 +510,16 @@ class Stencil(object):
         self.is_copied = boundary_handling == 'copy'
         self.is_zeroed = boundary_handling == 'zero'
 
-        self.current_shape = None  # this is used to communicate shape info from interior points to neighbors
+        # this is used to communicate shape info from interior points to
+        # neighbors
+        self.current_shape = None
 
         try:
             self.dim = len(self.neighborhood_definition[0][0])
         except Exception:
             raise StencilException(
-                "Error: neighborhoods not properly set for {}".format(type(self))
+                "Error: neighborhoods not properly set for {}".format(
+                    type(self))
             )
 
         self.ghost_depth = self.compute_ghost_depth()
@@ -584,7 +527,8 @@ class Stencil(object):
         if backend == 'python':
             self.specializer = self.python_kernel_wrapper
         elif backend in ['c', 'omp', 'ocl']:
-            self.specializer = SpecializedStencil(self, backend, boundary_handling)
+            self.specializer = SpecializedStencil(self, backend,
+                                                  boundary_handling)
         self.model = self.kernel
 
         self.should_unroll = kwargs.get('should_unroll', True)
@@ -621,7 +565,8 @@ class Stencil(object):
     def compute_ghost_depth(self):
         """
         figure out a maximal ghost depth for all neighborhoods
-        The ghost depth may be asymmetric and is therefore a tuple of the ghost depth for each dimension
+        The ghost depth may be asymmetric and is therefore a tuple of the ghost
+        depth for each dimension
         :return: the maximal_ghost_depth tuple
         """
         ghost_depth = tuple(0 for _ in range(self.dim))
@@ -633,25 +578,28 @@ class Stencil(object):
                 )
         return ghost_depth
 
-    def interior_points(self, x):
+    def interior_points(self, x, stride=1):
         """
-        an iterator over the points in a matrix being operated on.  The behaviour
-        of this method depends on the boundary_handling
-        DANGER: clamping requires that the neighbors method have access to the current shape,
-                which means this functions is not re-entrant, it cannot be called from
-                separate threads with different shapes
-        :param x: the matrix to iterate over, typically this is the output matrix
+        an iterator over the points in a matrix being operated on.  The
+        behaviour of this method depends on the boundary_handling
+        DANGER: clamping requires that the neighbors method have access to the
+        current shape, which means this functions is not re-entrant, it cannot
+        be called from separate threads with different shapes
+        :param x: the matrix to iterate over, typically this is the output
+            matrix
         :return:
         """
         if self.is_clamped:
             self.current_shape = x.shape
-            dims = (range(0, dim) for dim in x.shape)
+            dims = (range(0, dim, stride) for dim in x.shape)
         elif self.is_copied:
-            dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
-                    for index, dim in enumerate(x.shape))
+            dims = (range(self.ghost_depth[index], dim -
+                          self.ghost_depth[index], stride) for index, dim in
+                    enumerate(x.shape))
         else:
-            dims = (range(self.ghost_depth[index], dim - self.ghost_depth[index])
-                    for index, dim in enumerate(x.shape))
+            dims = (range(self.ghost_depth[index], dim -
+                          self.ghost_depth[index], stride) for index, dim in
+                    enumerate(x.shape))
 
         for item in itertools.product(*dims):
             yield tuple(item)
@@ -659,7 +607,8 @@ class Stencil(object):
     def neighbors(self, point, neighbors_id=0):
         """
         iterate over the neighborhood of point
-        :param point: the nominal center of the neighborhood, neighborhood does not have to be symmetric
+        :param point: the nominal center of the neighborhood, neighborhood does
+            not have to be symmetric
         :param neighbors_id: users may define more than one neighborhood
         :return: yields absolute neighbor point
         """
@@ -667,16 +616,18 @@ class Stencil(object):
             if self.is_clamped and self.current_shape is not None:
                 for neighbor in self.neighborhood_definition[neighbors_id]:
                     yield tuple(map(
-                        lambda dim: Stencil.clamp(point[dim]+neighbor[dim], 0, self.current_shape[dim]),
+                        lambda dim: Stencil.clamp(point[dim]+neighbor[dim], 0,
+                                                  self.current_shape[dim]),
                         range(len(point))))
             else:
                 for neighbor in self.neighborhood_definition[neighbors_id]:
-                    yield tuple(map(lambda a, b: a+b, list(point), list(neighbor)))
+                    yield tuple(map(lambda a, b: a+b, list(point),
+                                    list(neighbor)))
 
         except IndexError:
             raise StencilException(
-                "Undefined neighborhood identifier {} this stencil has {}".format(
-                    neighbors_id, len(self.neighborhood_definition)))
+                "Undefined neighborhood identifier {} this stencil has \
+                    {}".format(neighbors_id, len(self.neighborhood_definition)))
 
     def interior_points_slice(self, extra=0):
         """
@@ -684,7 +635,8 @@ class Stencil(object):
         (x:-x, ...) because areas of ghost zone may not be calculated, this can
         be used to limit the region of a test like
         :param extra: in case you want to further decrease the interior side
-        :return: a tuple representing a numpy slice that selects the interior of a grid
+        :return: a tuple representing a numpy slice that selects the interior of
+        a grid
         """
         return tuple([slice(x+extra, -(x+extra)) for x in self.ghost_depth])
 
@@ -703,11 +655,10 @@ class Stencil(object):
 
     def halo_points(self, grid):
         """
-        generator for points not in the interior of the specified grid based on this stencil's
-        ghost_depth and boundary handling
+        generator for points not in the interior of the specified grid based on
+        this stencil's ghost_depth and boundary handling
         :param grid:
         :return:
         """
         for halo_point in HaloEnumerator(self.ghost_depth, grid.shape):
             yield halo_point
-
