@@ -17,6 +17,41 @@ from stencil_code.backend.stencil_backend import StencilBackend
 from stencil_code.backend.ocl_boundary_copier import boundary_kernel_factory
 
 
+def kernel_dim_name(cur_dim):
+    return "kernel_d{}".format(cur_dim)
+
+
+def global_for_dim_name(cur_dim):
+    return "global_size_d{}".format(cur_dim)
+
+
+def local_for_dim_name(cur_dim):
+    return "local_size_d{}".format(cur_dim)
+
+
+def check_ocl_error(code_block, message="kernel"):
+    return [
+        Assign(
+            SymbolRef("error_code"),
+            code_block
+        ),
+        If(
+            NotEq(SymbolRef("error_code"), SymbolRef("CL_SUCCESS")),
+            [
+                FunctionCall(
+                    SymbolRef("printf"),
+                    [
+                        String("OPENCL ERROR: {}:error code \
+                               %d\\n".format(message)),
+                        SymbolRef("error_code")
+                    ]
+                ),
+                Return(SymbolRef("error_code")),
+            ]
+        )
+    ]
+
+
 class StencilOclTransformer(StencilBackend):
     def __init__(self, input_grids=None, output_grid=None, kernel=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
@@ -43,6 +78,7 @@ class StencilOclTransformer(StencilBackend):
     # noinspection PyPep8Naming
     def visit_CFile(self, node):
         node.body = list(map(self.visit, node.body))
+        node.config_target = 'opencl'
         node.body.insert(0, StringTemplate("""
             #ifdef __APPLE__
             #include <OpenCL/opencl.h>
@@ -87,36 +123,6 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].set_local()
         node.defn = node.defn[0]
 
-        def kernel_dim_name(cur_dim):
-            return "kernel_d{}".format(cur_dim)
-
-        def global_for_dim_name(cur_dim):
-            return "global_size_d{}".format(cur_dim)
-
-        def local_for_dim_name(cur_dim):
-            return "local_size_d{}".format(cur_dim)
-
-        def check_ocl_error(code_block, message="kernel"):
-            return [
-                Assign(
-                    SymbolRef("error_code"),
-                    code_block
-                ),
-                If(
-                    NotEq(SymbolRef("error_code"), SymbolRef("CL_SUCCESS")),
-                    [
-                        FunctionCall(
-                            SymbolRef("printf"),
-                            [
-                                String("OPENCL ERROR: {}:error code %d\\n".format(message)),
-                                SymbolRef("error_code")
-                            ]
-                        ),
-                        Return(SymbolRef("error_code")),
-                    ]
-                )
-            ]
-
         # if boundary handling is copy we have to generate a collection of
         # boundary kernels to handle the on-gpu boundary copy
         if self.is_copied:
@@ -140,7 +146,8 @@ class StencilOclTransformer(StencilBackend):
 
             for dim, boundary_kernel in enumerate(boundary_kernels):
                 boundary_kernel.set_kernel()
-                self.project.files.append(OclFile(kernel_dim_name(dim), [boundary_kernel]))
+                self.project.files.append(OclFile(kernel_dim_name(dim),
+                                                  [boundary_kernel]))
 
             self.boundary_kernels = boundary_kernels
 
@@ -161,7 +168,8 @@ class StencilOclTransformer(StencilBackend):
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
                 [Constant(s) for s in local_size]
-                # [Constant(s) for s in [512, 512]]  # use this line to force a opencl local size error
+                # [Constant(s) for s in [512, 512]]  # use this line to force a
+                # opencl local size error
             ),
             Assign(SymbolRef("error_code", ct.c_int()), Constant(0)),
         ]
@@ -204,13 +212,16 @@ class StencilOclTransformer(StencilBackend):
             for dim, boundary_kernel in enumerate(self.boundary_kernels):
                 defn.extend([
                     ArrayDef(
-                        SymbolRef(global_for_dim_name(dim), ct.c_ulong()), arg_cfg[0].ndim,
+                        SymbolRef(global_for_dim_name(dim), ct.c_ulong()),
+                        arg_cfg[0].ndim,
                         [Constant(d)
                          for d in self.boundary_handlers[dim].global_size]
                     ),
                     ArrayDef(
-                        SymbolRef(local_for_dim_name(dim), ct.c_ulong()), arg_cfg[0].ndim,
-                        [Constant(s) for s in self.boundary_handlers[dim].local_size]
+                        SymbolRef(local_for_dim_name(dim), ct.c_ulong()),
+                        arg_cfg[0].ndim,
+                        [Constant(s) for s in
+                         self.boundary_handlers[dim].local_size]
                     )
                 ])
                 setargs = [clSetKernelArg(
@@ -227,19 +238,23 @@ class StencilOclTransformer(StencilBackend):
                 )
                 defn.extend(setargs)
 
-                enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
-                    SymbolRef('queue'), SymbolRef(kernel_dim_name(dim)),
-                    Constant(self.kernel.dim), NULL(),
-                    SymbolRef(global_for_dim_name(dim)), SymbolRef(local_for_dim_name(dim)),
-                    Constant(0), NULL(), NULL()
-                ])
+                enqueue_call = FunctionCall(
+                    SymbolRef('clEnqueueNDRangeKernel'), [
+                        SymbolRef('queue'), SymbolRef(kernel_dim_name(dim)),
+                        Constant(self.kernel.dim), NULL(),
+                        SymbolRef(global_for_dim_name(dim)),
+                        SymbolRef(local_for_dim_name(dim)),
+                        Constant(0), NULL(), NULL()
+                    ]
+                )
                 defn.append(enqueue_call)
 
                 params.extend([
                     SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
                 ])
 
-        # finish_call = FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
+        # finish_call = FunctionCall(SymbolRef('clFinish'),
+        # [SymbolRef('queue')])
         # defn.append(finish_call)
         # finish_call = [
         #     Assign(
@@ -465,7 +480,8 @@ class StencilOclTransformer(StencilBackend):
                 condition,
                 And(
                     Lt(get_global_id(d),
-                       Constant(self.arg_cfg[0].shape[d] - self.ghost_depth[d])),
+                       Constant(self.arg_cfg[0].shape[d] -
+                                self.ghost_depth[d])),
                     GtE(get_global_id(d),
                         Constant(self.ghost_depth[d]))
                 )
@@ -506,9 +522,12 @@ class StencilOclTransformer(StencilBackend):
         for dim in range(len(self.output_grid.shape)):
             if self.virtual_global_size[dim] != self.global_size[dim]:
                 if conditional is None:
-                    conditional = Lt(get_global_id(dim), Constant(self.global_size[dim]))
+                    conditional = Lt(get_global_id(dim),
+                                     Constant(self.global_size[dim]))
                 else:
-                    conditional = And(conditional, Lt(get_global_id(dim), Constant(self.global_size[dim])))
+                    conditional = And(conditional,
+                                      Lt(get_global_id(dim),
+                                         Constant(self.global_size[dim])))
 
         if conditional is not None:
             body.append(If(conditional, self.stencil_op))
@@ -520,13 +539,16 @@ class StencilOclTransformer(StencilBackend):
         #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
         # body.extend(self.stencil_op)
         #
-        # this line does seem to fix the problem, seems to suggest some timing issue
+        # this line does seem to fix the problem, seems to suggest some timing
+        # issue
         #
-        # body.append(If(conditional, [StringTemplate("out_grid[global_index]+=0;")]))
+        # body.append(If(conditional,
+        #                [StringTemplate("out_grid[global_index]+=0;")]))
         #
         # the following fixes the problem too, suggests timing issues
         #
-        # body.append(FunctionCall(SymbolRef("printf"), [String("gid %d\\n"), SymbolRef("global_index")]))
+        # body.append(FunctionCall(SymbolRef("printf"), [String("gid %d\\n"),
+        #                                                SymbolRef("global_index")]))
         # from ctree.ocl.macros import get_group_id
         # body.append(
         #     FunctionCall(
@@ -568,7 +590,8 @@ class StencilOclTransformer(StencilBackend):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
 
         raise StencilException(
-            "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))
+            "Unsupported GridElement encountered: {} type {} \
+                {}".format(grid_name, type(target), repr(target)))
 
 
 def gen_decls(dim, ghost_depth):

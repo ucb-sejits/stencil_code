@@ -4,7 +4,7 @@ import unittest
 import numpy
 import numpy.testing
 
-from stencil_code.library.basic_convolution import ConvolutionFilter
+from stencil_code.library.convolution import ConvolutionFilter
 from stencil_code.library.bilateral_filter import BilateralFilter, gaussian
 from stencil_code.library.better_bilateral_filter import BetterBilateralFilter
 from stencil_code.library.diagnostic_stencil import DiagnosticStencil
