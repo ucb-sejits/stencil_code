@@ -10,3 +10,5 @@ dist
 *.sublime-*
 htmlcov
 compiled
+opentuner.db
+opentuner.log
