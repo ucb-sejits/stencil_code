@@ -14,6 +14,8 @@ to unroll neighbor loops, stencil_convert is invoked to convert the
 model to C++, and an external compiler tool is invoked to generate a
 binary which then efficiently completes executing the call. The binary
 is cached for future calls.
+
+edited by Dorthy on 2/26
 """
 from __future__ import print_function
 import math
