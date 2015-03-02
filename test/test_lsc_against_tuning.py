@@ -62,6 +62,6 @@ if __name__ == '__main__':
 
     argparser = opentuner.default_argparser()
     LocalSizeTuner.main(argparser.parse_args())
-    print LocalSizeTuner.final_config
+    print "opentuner result ", LocalSizeTuner.final_config
     print "lsc compute bulky :", bulky_results[0]
     assert LocalSizeTuner.final_config == bulky_results[0]
