@@ -261,6 +261,22 @@ class SpecializedStencil(LazySpecializedFunction):
     #         params.append(IntegerParameter("block_factor_%s" % d, 4, 8))
     #     return BruteForceTuningDriver(params, MinimizeTime())
 
+        # from ctree.opentuner.driver import OpenTunerDriver
+        # from opentuner.search.manipulator import ConfigurationManipulator
+        # from opentuner.search.manipulator import IntegerParameter
+        # from opentuner.search.manipulator import PowerOfTwoParameter
+        # from opentuner.search.objective import MinimizeTime
+
+        # manip = ConfigurationManipulator()
+        # manip.add_parameter(PowerOfTwoParameter("unroll_factor", 1, 4))
+        # manip.add_parameter(PowerOfTwoParameter("block_factor1", 4, 8))
+        # manip.add_parameter(PowerOfTwoParameter("block_factor2", 4, 8))
+        # manip.add_parameter(PowerOfTwoParameter("block_factor3", 4, 8))
+        # manip.add_parameter(IntegerParameter("x", -1000, 1000))
+
+
+        # return OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
+
     def transform(self, tree, program_config):
         """
         Transforms the python AST representing our un-specialized stencil

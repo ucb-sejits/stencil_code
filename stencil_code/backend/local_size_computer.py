@@ -119,6 +119,8 @@ class LocalSizeComputer(object):
         return sum([product([f * 2 for f in face]) for face in itertools.permutations(vector, len(vector)-1)])
 
     def compute_local_size_bulky(self):
+        print ("shape ", self.shape, " minimize between returned local dimensions and these")
+        print ("max work group size ", self.max_work_group_size, " want volume to be <= this")
         """
         compute a local size that leans toward minimizing the surface area to volume
         ratio of the n-dimensional local_size shape.
@@ -128,7 +130,10 @@ class LocalSizeComputer(object):
         """
         best_local_size = None
         largest_volume = 0
+        # temporary variable to test against opentuner:
+        sizes_tested = []
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size, perfect_fit_only=True):
+            sizes_tested.append(candidate_local_size)
             ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
                 float(LocalSizeComputer.surface_area(candidate_local_size))
             print("shape {!s:12s} local_size {!s:12} product {!s:12s} sum {!s:12s} ratio {!s:12s}".format(
@@ -143,7 +148,7 @@ class LocalSizeComputer(object):
 
         if best_local_size is not None:
             best_local_size = [min(self.shape[dim], value) for dim, value in enumerate(best_local_size)]
-            return tuple(best_local_size)
+            return tuple(best_local_size), sizes_tested
 
         best_local_size = None
         largest_volume = 0
