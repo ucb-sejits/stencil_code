@@ -278,7 +278,8 @@ class SpecializedStencil(LazySpecializedFunction):
         ]
 
         if self.backend == StencilOclTransformer:
-            param_types.append(param_types[0])
+            # param_types.append(param_types[0])
+            pass
         else:
             param_types.append(POINTER(c_float))
 
@@ -287,11 +288,12 @@ class SpecializedStencil(LazySpecializedFunction):
         # unroll_factor = 2**tuning_configuration['unroll_factor']
         unroll_factor = 0
 
-        for transformer in [
+        transformer_list = [
             PythonToStencilModel(),
             self.backend(self.args, output, self.kernel, arg_cfg=argument_configuration,
                          fusable_nodes=None)
-        ]:
+        ]
+        for transformer in transformer_list:
             tree = transformer.visit(tree)
 
         # first_For = tree.find(For)
@@ -305,14 +307,20 @@ class SpecializedStencil(LazySpecializedFunction):
         # if self.backend != StencilOclTransformer:
 
         # fix up the parameters type signatures, int the stencil_kernel
-        entry_point = tree.find(FunctionDecl, name="stencil_kernel")
-        for index, _type in enumerate(param_types):
-            entry_point.params[index].type = _type()
         # entry_point.set_typesig(kernel_sig)
         # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
-            return tree.files
+            entry_point = tree.find(FunctionDecl, name="stencil_control")
+            offset = len(entry_point.params) - len(param_types)
+            for index, _type in enumerate(param_types):
+                entry_point.params[index+offset].type = _type()
+                # TODO: clean this up, not sure this is the right way
+            ret = [tree] + transformer.files
+            return ret
         else:
+            entry_point = tree.find(FunctionDecl, name="stencil_kernel")
+            for index, _type in enumerate(param_types):
+                entry_point.params[index].type = _type()
             if self.args[0].shape[len(self.args[0].shape) - 1] \
                     >= unroll_factor:
                 # FIXME: Lack of parent pointers breaks current loop unrolling
@@ -327,7 +335,7 @@ class SpecializedStencil(LazySpecializedFunction):
         # import ast
         # print(ast.dump(tree))
 
-        return tree.files
+        return tree
 
     def finalize(self, transform_result, program_config):
         project = Project(transform_result)

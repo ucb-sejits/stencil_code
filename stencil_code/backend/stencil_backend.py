@@ -9,7 +9,7 @@ from stencil_code.stencil_exception import StencilException
 
 
 class StencilBackend(NodeTransformer):
-    def __init__(self, input_grids=None, output_grid=None, kernel=None, arg_cfg=None,
+    def __init__(self, input_grids=None, output_grid_shape=None, kernel=None, arg_cfg=None,
                  fusable_nodes=None, testing=False):
         try:
             dir(self).index("visit_InteriorPointsLoop")
@@ -18,7 +18,7 @@ class StencilBackend(NodeTransformer):
 
 
         self.input_grids = input_grids
-        self.output_grid = output_grid
+        self.output_grid = output_grid_shape
         self.kernel = kernel
         self.ghost_depth = kernel.ghost_depth
         self.is_clamped = kernel.is_clamped

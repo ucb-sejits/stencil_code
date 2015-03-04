@@ -18,16 +18,17 @@ from stencil_code.backend.ocl_boundary_copier import boundary_kernel_factory
 
 
 class StencilOclTransformer(StencilBackend):
-    def __init__(self, input_grids=None, output_grid=None, kernel=None,
+    def __init__(self, input_grids=None, output_grid_shape=None, kernel=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
                  testing=False):
         super(StencilOclTransformer, self).__init__(
-            input_grids, output_grid, kernel, arg_cfg, fusable_nodes, testing)
+            input_grids, output_grid_shape, kernel, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
         self.macro_defns = []
         self.project = None
+        self.files = []
         self.local_size = None
         self.global_size = None
         self.virtual_global_size = None
@@ -51,6 +52,7 @@ class StencilOclTransformer(StencilBackend):
             #endif
             #include <stdio.h>
             """))
+        # self.files.append(node)
         return node
 
     def visit_FunctionDecl(self, node):
@@ -74,7 +76,7 @@ class StencilOclTransformer(StencilBackend):
 
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
         for index, param in enumerate(node.params[:-1]):
-            # TODO: Transform numpy type to ctype
+            # TODO: Transform numpy type to ctype, get this from self.input_grids
             param.type = ct.POINTER(ct.c_float)()
             param.set_global()
             param.set_const()
@@ -134,11 +136,11 @@ class StencilOclTransformer(StencilBackend):
                 for boundary_handler in self.boundary_handlers
             ]
 
-            self.project.files.append(OclFile('kernel', [node]))
+            self.files.append(OclFile('kernel', [node]))
 
             for dim, boundary_kernel in enumerate(boundary_kernels):
                 boundary_kernel.set_kernel()
-                self.project.files.append(OclFile(kernel_dim_name(dim), [boundary_kernel]))
+                self.files.append(OclFile(kernel_dim_name(dim), [boundary_kernel]))
 
             self.boundary_kernels = boundary_kernels
 
@@ -146,7 +148,7 @@ class StencilOclTransformer(StencilBackend):
             # import ctree
             # ctree.browser_show_ast(boundary_kernels[0])
         else:
-            self.project.files.append(OclFile('kernel', [node]))
+            self.files.append(OclFile('kernel', [node]))
 
         # print(self.project.files[0])
         # print(self.project.files[-1])

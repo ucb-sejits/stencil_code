@@ -30,18 +30,20 @@ if __name__ == '__main__':  # pragma: no cover
     ny = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
     nz = 128 if len(sys.argv) <= 3 else int(sys.argv[3])
 
+    numpy.random.seed(0)
     input_grid = numpy.random.random([nx, ny, nz]).astype(numpy.float32) * 1024
 
-    laplacian = LaplacianKernel(backend='c')
+    laplacian = LaplacianKernel(backend='ocl')
     with Timer() as s_t:
         a = laplacian(input_grid)
     print("Specialized time {:0.3f}s".format(s_t.interval))
     print("a.shape {}".format(a.shape))
+    print(a)
 
     # too slow to compare directly, this will apply python method to just a subset
-    py = LaplacianKernel(backend='python')
-    with Timer() as py_t:
-        b = py(input_grid)
-    numpy.testing.assert_array_almost_equal(a, b, decimal=4)
-    print("PASSED")
-    print("Py time {:0.3f}".format(py_t.interval))
+    # py = LaplacianKernel(backend='python')
+    # with Timer() as py_t:
+    #     b = py(input_grid)
+    # numpy.testing.assert_array_almost_equal(a, b, decimal=4)
+    # print("PASSED")
+    # print("Py time {:0.3f}".format(py_t.interval))

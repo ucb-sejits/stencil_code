@@ -7,6 +7,12 @@ from stencil_code.backend.stencil_backend import *
 
 class StencilCTransformer(StencilBackend):
     def visit_FunctionDecl(self, node):
+        """
+        This will be the StencilKernel#kernel method, there cannot be only on
+        FunctionDecl in the tree
+        :param node:
+        :return:
+        """
         super(StencilCTransformer, self).visit_FunctionDecl(node)
         for index, arg in enumerate(self.input_grids + (self.output_grid,)):
             defname = "_%s_array_macro" % node.params[index].name
@@ -51,7 +57,7 @@ class StencilCTransformer(StencilBackend):
         :param node:
         :return:
         """
-        dim = len(self.output_grid.shape)
+        dim = len(self.output_grid_shape)
         self.kernel_target = node.target
         curr_node = None
         ret_node = None
@@ -64,7 +70,7 @@ class StencilCTransformer(StencilBackend):
                            Constant(0)),
                     LtE(SymbolRef(target),
                         Constant(
-                            self.output_grid.shape[d] - 1)
+                            self.output_grid_shape[d] - 1)
                         ),
                     PostInc(SymbolRef(target)),
                     [])
@@ -74,7 +80,7 @@ class StencilCTransformer(StencilBackend):
                            Constant(self.ghost_depth[d])),
                     LtE(SymbolRef(target),
                         Constant(
-                            self.output_grid.shape[d] -
+                            self.output_grid_shape[d] -
                             self.ghost_depth[d] - 1)
                         ),
                     PostInc(SymbolRef(target)),
@@ -101,7 +107,7 @@ class StencilCTransformer(StencilBackend):
                 return Or(
                     Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
                     Gt(SymbolRef(self.var_list[index]),
-                       Constant(self.output_grid.shape[index] - (self.ghost_depth[index] + 1))),
+                       Constant(self.output_grid_shape[index] - (self.ghost_depth[index] + 1))),
                 )
 
             def boundary_or(index):
