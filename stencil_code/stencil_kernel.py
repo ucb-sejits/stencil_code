@@ -301,12 +301,14 @@ class SpecializedStencil(LazySpecializedFunction):
         # unroll_factor = 2**tuning_configuration['unroll_factor']
         unroll_factor = 0
 
-        for transformer in [
-            PythonToStencilModel(),
-            self.backend(self.args, output, self.kernel,
-                         arg_cfg=argument_configuration, fusable_nodes=None)
-        ]:
-            tree = transformer.visit(tree)
+        tree = PythonToStencilModel().visit(tree)
+
+        backend_transformer = self.backend(
+            self.args, output, self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
+        )
+        project = Project(files=[tree])
+        tree = backend_transformer.visit(project)
+        project = tree
 
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
@@ -323,7 +325,7 @@ class SpecializedStencil(LazySpecializedFunction):
         for index, _type in enumerate(param_types):
             entry_point.params[index].type = _type()
         # entry_point.set_typesig(kernel_sig)
-        # TODO: This logic should be provided by the backends
+        # # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
             return tree.files
         else:

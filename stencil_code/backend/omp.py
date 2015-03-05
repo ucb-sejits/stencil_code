@@ -31,7 +31,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         macro = CppDefine("min", [SymbolRef('_a'), SymbolRef('_b')],
                           TernaryOp(Lt(SymbolRef('_a'), SymbolRef('_b')),
                           SymbolRef('_a'), SymbolRef('_b')))
-        node.params.append(SymbolRef('duration', POINTER(c_float)))
+        node.params.append(SymbolRef('duration', ct.POINTER(ct.c_float)()))
         start_time = Assign(SymbolRef('start_time', c_double()), omp_get_wtime())
         node.defn.insert(0, start_time)
         end_time = Assign(Deref(SymbolRef('duration')),

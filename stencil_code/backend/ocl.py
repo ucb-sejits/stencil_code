@@ -2,7 +2,7 @@ import ctypes as ct
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
-    FunctionDecl, GtE, NotEq, Sub, Cast, Return
+    FunctionDecl, GtE, NotEq, Sub, Cast, Return, Array
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
     clSetKernelArg, NULL
 from ctree.cpp.nodes import CppDefine
@@ -163,11 +163,11 @@ class StencilOclTransformer(StencilBackend):
         defn = [
             ArrayDef(
                 SymbolRef('global', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(d) for d in self.virtual_global_size]
+                Array(body=[Constant(d) for d in self.virtual_global_size])
             ),
             ArrayDef(
                 SymbolRef('local', ct.c_ulong()), arg_cfg[0].ndim,
-                [Constant(s) for s in local_size]
+                Array(body=[Constant(s) for s in local_size])
                 # [Constant(s) for s in [512, 512]]  # use this line to force a
                 # opencl local size error
             ),
@@ -214,14 +214,13 @@ class StencilOclTransformer(StencilBackend):
                     ArrayDef(
                         SymbolRef(global_for_dim_name(dim), ct.c_ulong()),
                         arg_cfg[0].ndim,
-                        [Constant(d)
-                         for d in self.boundary_handlers[dim].global_size]
+                        Array(body=[Constant(d)
+                         for d in self.boundary_handlers[dim].global_size])
                     ),
                     ArrayDef(
                         SymbolRef(local_for_dim_name(dim), ct.c_ulong()),
                         arg_cfg[0].ndim,
-                        [Constant(s) for s in
-                         self.boundary_handlers[dim].local_size]
+                        Array(body=[Constant(s) for s in self.boundary_handlers[dim].local_size])
                     )
                 ])
                 setargs = [clSetKernelArg(
