@@ -131,12 +131,12 @@ class LocalSizeComputer(object):
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size, perfect_fit_only=True):
             ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
                 float(LocalSizeComputer.surface_area(candidate_local_size))
-            print("shape {!s:12s} local_size {!s:12} product {!s:12s} sum {!s:12s} ratio {!s:12s}".format(
-                self.shape, candidate_local_size,
-                LocalSizeComputer.volume(candidate_local_size),
-                LocalSizeComputer.surface_area(candidate_local_size),
-                ratio
-            ))
+            # print("shape {!s:12s} local_size {!s:12} product {!s:12s} sum {!s:12s} ratio {!s:12s}".format(
+            #     self.shape, candidate_local_size,
+            #     LocalSizeComputer.volume(candidate_local_size),
+            #     LocalSizeComputer.surface_area(candidate_local_size),
+            #     ratio
+            # ))
             if ratio > largest_volume and product(candidate_local_size) <= self.max_work_group_size:
                 largest_volume = ratio
                 best_local_size = candidate_local_size
