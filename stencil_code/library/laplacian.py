@@ -15,6 +15,7 @@ class LaplacianKernel(Stencil):
          (1, 0, 0), (-1, 0, 0)]
     ]
 
+
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(in_grid):
             out_grid[x] = -4 * in_grid[x]

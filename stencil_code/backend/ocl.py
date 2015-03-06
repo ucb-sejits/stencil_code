@@ -33,6 +33,7 @@ class StencilOclTransformer(StencilBackend):
         self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
+        self.forced_local_size = None
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -62,6 +63,16 @@ class StencilOclTransformer(StencilBackend):
 
         if self.testing:
             local_size = (1, 1, 1)
+        elif self.kernel.forced_local_size is not None:
+            local_size = self.kernel.forced_local_size
+            print("setting forced local size {}".format(local_size))
+            desired_device_number = -1
+            device = cl.clGetDeviceIDs()[desired_device_number]
+            lcs = LocalSizeComputer(global_size, device)
+            virtual_global_size = lcs.compute_virtual_global_size(local_size)
+            self.global_size = global_size
+            self.local_size = local_size
+            self.virtual_global_size = virtual_global_size
         else:
             desired_device_number = -1
             device = cl.clGetDeviceIDs()[desired_device_number]
