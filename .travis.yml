@@ -7,7 +7,8 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq fglrx=2:8.960-0ubuntu1 opencl-headers python-scipy
 install:
-  - pip install numpy Sphinx coveralls coverage nose pygments setuptools ctree hindemith
+  - pip install numpy Sphinx coveralls coverage nose pygments setuptools hindemith
+  - pip install -r requirements.txt
 script:
   - nosetests -a '!omp' --verbose --with-coverage --cover-package=stencil_code --cover-erase
 after_success:
