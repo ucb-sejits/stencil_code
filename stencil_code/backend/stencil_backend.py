@@ -89,7 +89,6 @@ class StencilBackend(NodeTransformer):
         self.neighbor_target = None
         return body
 
-    # Handle array references
     def visit_GridElement(self, node):  # pragma no cover
         grid_name = node.grid_name
         target = node.target
@@ -117,7 +116,7 @@ class StencilBackend(NodeTransformer):
     def visit_MathFunction(self, node):
         if str(node.func) == 'distance':
             zero_point = tuple([0 for _ in range(len(self.offset_list))])
-            return Constant(int(self.distance(zero_point, self.offset_list)))
+            return Constant(self.distance(zero_point, self.offset_list))
         elif str(node.func) == 'int':
             return Cast(c_int(), self.visit(node.args[0]))
 

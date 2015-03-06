@@ -29,7 +29,7 @@ class StencilCTransformer(StencilBackend):
             "clamp", [SymbolRef('_a'), SymbolRef('_min_a'), SymbolRef('_max_a')],
             StringTemplate("(_a>_max_a?_max_a:_a)<_min_a?_min_a:(_a>_max_a?_max_a:_a)"),
         )
-        node.params.append(SymbolRef('duration', POINTER(c_float)))
+        node.params.append(SymbolRef('duration', ct.POINTER(ct.c_float)()))
         start_time = Assign(StringTemplate('clock_t start_time'), FunctionCall(
             SymbolRef('clock')))
         node.defn.insert(0, start_time)
@@ -184,4 +184,5 @@ class StencilCTransformer(StencilBackend):
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise StencilException("Found GridElement that is not supported")  # pragma no cover
+        raise StencilException(
+            "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))  # pragma no cover

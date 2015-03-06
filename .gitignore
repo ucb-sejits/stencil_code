@@ -9,3 +9,6 @@ dist
 *.egg-info
 *.sublime-*
 htmlcov
+compiled
+opentuner.db
+opentuner.log

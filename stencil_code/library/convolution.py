@@ -9,23 +9,25 @@ class ConvolutionFilter(Stencil):
     """
     basic filter requires user to pass in a matrix of coefficients. the
     dimensions of this convolution_array define the stencil neighborhood
-    This should be a foundation class for example stencils such as the laplacians
-    and jacobi stencils
+    This should be a foundation class for example stencils such as the
+    laplacians and jacobi stencils
     """
-    def __init__(self, convolution_array=None, backend='ocl'):
+    def __init__(self, convolution_array=None, stride=1, backend='ocl'):
         self.convolution_array = convolution_array
-        neighbors, coefficients, _ = Neighborhood.compute_from_indices(convolution_array)
+        neighbors, coefficients, _ = \
+            Neighborhood.compute_from_indices(convolution_array)
         self.neighbor_to_coefficient = dict(zip(neighbors, coefficients))
         self.coefficients = numpy.array(coefficients)
+        self.stride = stride
         super(ConvolutionFilter, self).__init__(
             neighborhoods=[neighbors], backend=backend, boundary_handling='copy'
         )
 
     def __call__(self, *args, **kwargs):
         """
-        We had to override __call__ here because the kernel currently cannot directly reference
-        the smoothing arrays as class members so we must add them here to the call so
-        the Stencil's __call__ can have access to them
+        We had to override __call__ here because the kernel currently cannot
+        directly reference the smoothing arrays as class members so we must add
+        them here to the call so the Stencil's __call__ can have access to them
         :param args:
         :param kwargs:
         :return:
@@ -41,7 +43,7 @@ class ConvolutionFilter(Stencil):
         return self.neighbor_to_coefficient[d]
 
     def kernel(self, input_grid, coefficients, output_grid):
-        for point in self.interior_points(output_grid):
+        for point in self.interior_points(output_grid, stride=self.stride):
             for n in self.neighbors(point, 0):
                 output_grid[point] += input_grid[n] * self.distance(point, n)
 
@@ -72,7 +74,8 @@ if __name__ == '__main__':  # pragma no cover
         ]
     )
 
-    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
+    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil,
+                                            backend='ocl')
     ocl_out_grid = ocl_convolve_filter(in_grid)
     for i in [0, 1, 6, 7]:
         print("i {}".format(i))
@@ -94,7 +97,8 @@ if __name__ == '__main__':  # pragma no cover
         ]
     )
 
-    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
+    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil,
+                                            backend='ocl')
     ocl_out_grid = ocl_convolve_filter(in_grid)
     for r in ocl_out_grid:
         for c in r:
@@ -102,9 +106,12 @@ if __name__ == '__main__':  # pragma no cover
         print()
     exit(0)
 
-    python_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='python')
-    c_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='c')
-    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil, backend='ocl')
+    python_convolve_filter = ConvolutionFilter(convolution_array=stencil,
+                                               backend='python')
+    c_convolve_filter = ConvolutionFilter(convolution_array=stencil,
+                                          backend='c')
+    ocl_convolve_filter = ConvolutionFilter(convolution_array=stencil,
+                                            backend='ocl')
 
     python_out_grid = python_convolve_filter(in_grid)
     c_out_grid = c_convolve_filter(in_grid)
