@@ -52,7 +52,8 @@ def main():
                                             program_name='api_test',
                                             program_version='0.1')
     api = TuningRunManager(interface, args)
-    for x in xrange(5):
+    # for x in xrange(len(sizes_to_try)):
+    for x in range(1):
         desired_result = api.get_next_desired_result()
         if desired_result is None:
           # The search space for this example is very small, so sometimes
@@ -61,8 +62,10 @@ def main():
           break
         cfg = desired_result.configuration.data
         laplacian.forced_local_size = cfg['local_work_size']
+        a = laplacian(input_grid)
         with Timer() as s_t:
-            a = laplacian(input_grid)
+            for _ in range(5):
+                a = laplacian(input_grid)
         print("{} {} Specialized time".format(s_t.interval, laplacian.forced_local_size))
         print("a.shape {}".format(a.shape))
         result = Result(time=s_t.interval)

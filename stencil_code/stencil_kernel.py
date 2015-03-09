@@ -152,6 +152,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
+        # TODO: add timing to report back to opentuner by calling tools of ctree, which should be set up to use opentuner
         if isinstance(args[0], hmarray):
             output = empty_like(args[0])
         else:
