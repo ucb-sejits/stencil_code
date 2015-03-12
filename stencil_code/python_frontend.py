@@ -6,6 +6,7 @@ from ctree.transformations import PyBasicConversions
 from ctree.c.nodes import SymbolRef
 from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
     MathFunction
+from .stencil_exception import StencilException
 
 import sys
 
@@ -20,6 +21,9 @@ class PythonToStencilModel(PyBasicConversions):
     def visit_FunctionDef(self, node):
         if node.name == 'kernel':
             node.args.args = node.args.args[1:]
+        else:
+            raise StencilException("AST, FunctionDef '{}' found, should only be 'kernel'".format(node.name))
+
         if self.arg_names is not None:  # pragma no cover
             for index, arg in enumerate(node.args.args):
                 new_name = self.arg_names[index]

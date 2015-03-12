@@ -320,7 +320,7 @@ class SpecializedStencil(LazySpecializedFunction):
         # TODO: This should be handled by the backend
         # if self.backend != StencilOclTransformer:
 
-        # fix up the parameters type signatures, int the stencil_kernel
+        # fix up the parameters type signatures, in the stencil_kernel
         entry_point = tree.find(FunctionDecl, name="stencil_kernel")
         for index, _type in enumerate(param_types):
             entry_point.params[index].type = _type()
