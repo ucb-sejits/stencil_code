@@ -1,4 +1,5 @@
 import ctypes as ct
+import numpy as np
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
@@ -53,11 +54,11 @@ def check_ocl_error(code_block, message="kernel"):
 
 
 class StencilOclTransformer(StencilBackend):
-    def __init__(self, input_grids=None, output_grid=None, kernel=None,
+    def __init__(self, input_grids=None, kernel=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
                  testing=False):
         super(StencilOclTransformer, self).__init__(
-            input_grids, output_grid, kernel, arg_cfg, fusable_nodes, testing)
+            input_grids, kernel, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
@@ -68,6 +69,7 @@ class StencilOclTransformer(StencilBackend):
         self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
+        self.output_grid = input_grids[0]
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -110,11 +112,20 @@ class StencilOclTransformer(StencilBackend):
             self.virtual_global_size = virtual_global_size
 
         super(StencilOclTransformer, self).visit_FunctionDecl(node)
-        for index, param in enumerate(node.params[:-1]):
-            # TODO: Transform numpy type to ctype
-            param.type = ct.POINTER(ct.c_float)()
-            param.set_global()
+
+        for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
+            node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
+            node.params[index].set_global()
+
+        for param in node.params[:-1]:
             param.set_const()
+
+        # for index, param in enumerate(node.params[:-1]):
+        #     # TODO: Transform numpy type to ctype
+        #     param.type = ct.POINTER(ct.c_float)()
+        #     param.set_global()
+        #     param.set_const()
+
         node.set_kernel()
         node.params[-1].set_global()
         node.params[-1].type = ct.POINTER(ct.c_float)()

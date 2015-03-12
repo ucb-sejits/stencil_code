@@ -1,4 +1,6 @@
 __author__ = 'leonardtruong'
+import numpy as np
+
 from ctree.cpp.nodes import CppDefine
 from ctypes import POINTER, c_float
 from stencil_code.stencil_exception import StencilException
@@ -8,7 +10,8 @@ from stencil_code.backend.stencil_backend import *
 class StencilCTransformer(StencilBackend):
     def visit_FunctionDecl(self, node):
         super(StencilCTransformer, self).visit_FunctionDecl(node)
-        for index, arg in enumerate(self.input_grids + (self.output_grid,)):
+
+        for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
             defname = "_%s_array_macro" % node.params[index].name
             # params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
             # params = "(%s)" % params
@@ -19,6 +22,10 @@ class StencilCTransformer(StencilBackend):
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
+
+        for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
+            node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
+
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
@@ -51,7 +58,8 @@ class StencilCTransformer(StencilBackend):
         :param node:
         :return:
         """
-        dim = len(self.output_grid.shape)
+        output_grid = self.input_grids[0]
+        dim = len(output_grid.shape)
         self.kernel_target = node.target
         curr_node = None
         ret_node = None
@@ -64,7 +72,7 @@ class StencilCTransformer(StencilBackend):
                            Constant(0)),
                     LtE(SymbolRef(target),
                         Constant(
-                            self.output_grid.shape[d] - 1)
+                            output_grid.shape[d] - 1)
                         ),
                     PostInc(SymbolRef(target)),
                     [])
@@ -74,7 +82,7 @@ class StencilCTransformer(StencilBackend):
                            Constant(self.ghost_depth[d])),
                     LtE(SymbolRef(target),
                         Constant(
-                            self.output_grid.shape[d] -
+                            output_grid.shape[d] -
                             self.ghost_depth[d] - 1)
                         ),
                     PostInc(SymbolRef(target)),
@@ -101,7 +109,7 @@ class StencilCTransformer(StencilBackend):
                 return Or(
                     Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
                     Gt(SymbolRef(self.var_list[index]),
-                       Constant(self.output_grid.shape[index] - (self.ghost_depth[index] + 1))),
+                       Constant(output_grid.shape[index] - (self.ghost_depth[index] + 1))),
                 )
 
             def boundary_or(index):

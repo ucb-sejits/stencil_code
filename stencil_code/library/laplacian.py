@@ -33,7 +33,7 @@ if __name__ == '__main__':  # pragma: no cover
     numpy.random.seed(0)
     input_grid = numpy.random.random([nx, ny, nz]).astype(numpy.float32) * 1024
 
-    laplacian = LaplacianKernel(backend='c')
+    laplacian = LaplacianKernel(backend='ocl')
     with Timer() as s_t:
         a = laplacian(input_grid)
     print("Specialized time {:0.3f}s".format(s_t.interval))

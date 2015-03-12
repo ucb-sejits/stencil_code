@@ -14,7 +14,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
 
     def visit_FunctionDecl(self, node):
         super(StencilOmpTransformer, self).visit_FunctionDecl(node)
-        for index, arg in enumerate(self.input_grids + (self.output_grid,)):
+        for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
             defname = "_%s_array_macro" % node.params[index].name
             params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
             params = "(%s)" % params
@@ -25,6 +25,10 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
+        for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
+            node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
+
+
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
         )
@@ -40,7 +44,8 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         return [IncludeOmpHeader(), abs_decl, macro, node]
 
     def visit_InteriorPointsLoop(self, node):
-        dim = len(self.output_grid.shape)
+        output_grid = self.input_grids[0]
+        dim = len(output_grid.shape)
         self.kernel_target = node.target
         curr_node = None
         ret_node = None
@@ -52,7 +57,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
                        Constant(self.ghost_depth[d])),
                 LtE(target,
                     Constant(
-                        self.output_grid.shape[d] -
+                        output_grid.shape[d] -
                         self.ghost_depth[d] - 1)
                     ),
                 PostInc(target),

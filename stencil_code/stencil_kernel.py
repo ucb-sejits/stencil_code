@@ -304,7 +304,7 @@ class SpecializedStencil(LazySpecializedFunction):
         tree = PythonToStencilModel().visit(tree)
 
         backend_transformer = self.backend(
-            self.args, output, self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
+            self.args, self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
         )
         project = Project(files=[tree])
         tree = backend_transformer.visit(project)
@@ -321,9 +321,9 @@ class SpecializedStencil(LazySpecializedFunction):
         # if self.backend != StencilOclTransformer:
 
         # fix up the parameters type signatures, in the stencil_kernel
-        entry_point = tree.find(FunctionDecl, name="stencil_kernel")
-        for index, _type in enumerate(param_types):
-            entry_point.params[index].type = _type()
+        # entry_point = tree.find(FunctionDecl, name="stencil_kernel")
+        # for index, _type in enumerate(param_types):
+        #     entry_point.params[index].type = _type()
         # entry_point.set_typesig(kernel_sig)
         # # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
