@@ -9,7 +9,7 @@ from stencil_code.backend.stencil_backend import *
 
 class StencilCTransformer(StencilBackend):
     def visit_FunctionDecl(self, node):
-        super(StencilCTransformer, self).visit_FunctionDecl(node)
+        self.function_decl_helper(node)
 
         for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
             defname = "_%s_array_macro" % node.params[index].name
@@ -157,6 +157,7 @@ class StencilCTransformer(StencilBackend):
 
         grid_name = node.grid_name
         target = node.target
+
         if isinstance(target, SymbolRef):
             target = target.name
             if target == self.kernel_target:

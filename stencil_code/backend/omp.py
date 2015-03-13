@@ -13,7 +13,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         return node
 
     def visit_FunctionDecl(self, node):
-        super(StencilOmpTransformer, self).visit_FunctionDecl(node)
+        self.function_decl_helper(node)
         for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
             defname = "_%s_array_macro" % node.params[index].name
             params = ','.join(["_d"+str(x) for x in range(arg.ndim)])

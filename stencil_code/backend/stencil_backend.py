@@ -38,11 +38,10 @@ class StencilBackend(NodeTransformer):
         self.testing = testing
         super(StencilBackend, self).__init__()
 
-    def visit_FunctionDecl(self, node):
+    def function_decl_helper(self, node):
         # This function grabs the input and output grid names which are used to
         # generate the proper array macros.
-        # TODO: There may be a better way to do this? i.e. done at
-        # initialization.
+        # TODO: There may be a better way to do this? i.e. done at initialization.
         for index, arg in enumerate(node.params):
             if index < len(self.input_grids):
                 self.input_dict[arg.name] = self.input_grids[index]

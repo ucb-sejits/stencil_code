@@ -111,7 +111,7 @@ class StencilOclTransformer(StencilBackend):
             self.local_size = local_size
             self.virtual_global_size = virtual_global_size
 
-        super(StencilOclTransformer, self).visit_FunctionDecl(node)
+        self.function_decl_helper(node)
 
         for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
             node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
