@@ -54,11 +54,11 @@ def check_ocl_error(code_block, message="kernel"):
 
 
 class StencilOclTransformer(StencilBackend):
-    def __init__(self, input_grids=None, kernel=None,
+    def __init__(self, input_grids=None, parent_lazy_specializer=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
                  testing=False):
         super(StencilOclTransformer, self).__init__(
-            input_grids, kernel, arg_cfg, fusable_nodes, testing)
+            input_grids, parent_lazy_specializer, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
@@ -193,7 +193,7 @@ class StencilOclTransformer(StencilBackend):
         import operator
         local_mem_size = reduce(
             operator.mul,
-            (size + 2 * self.kernel.ghost_depth[index]
+            (size + 2 * self.parent_lazy_specializer.ghost_depth[index]
              for index, size in enumerate(local_size)),
             ct.sizeof(cl.cl_float())
         )
@@ -208,7 +208,7 @@ class StencilOclTransformer(StencilBackend):
         defn.extend(setargs)
         enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
             SymbolRef('queue'), SymbolRef('kernel'),
-            Constant(self.kernel.dim), NULL(),
+            Constant(self.parent_lazy_specializer.dim), NULL(),
             SymbolRef('global'), SymbolRef('local'),
             Constant(0), NULL(), NULL()
         ])
@@ -251,7 +251,7 @@ class StencilOclTransformer(StencilBackend):
                 enqueue_call = FunctionCall(
                     SymbolRef('clEnqueueNDRangeKernel'), [
                         SymbolRef('queue'), SymbolRef(kernel_dim_name(dim)),
-                        Constant(self.kernel.dim), NULL(),
+                        Constant(self.parent_lazy_specializer.dim), NULL(),
                         SymbolRef(global_for_dim_name(dim)),
                         SymbolRef(local_for_dim_name(dim)),
                         Constant(0), NULL(), NULL()
@@ -462,7 +462,7 @@ class StencilOclTransformer(StencilBackend):
                                         SymbolRef('get_group_id'),
                                         [Constant(d)]),
                                         get_local_size(d))
-                                ), Constant(self.kernel.ghost_depth[d]))),
+                                ), Constant(self.parent_lazy_specializer.ghost_depth[d]))),
                                     Constant(0), Constant(
                                         self.arg_cfg[0].shape[d]-1
                                     )

@@ -9,7 +9,7 @@ from stencil_code.stencil_exception import StencilException
 
 
 class StencilBackend(NodeTransformer):
-    def __init__(self, input_grids=None, kernel=None, arg_cfg=None,
+    def __init__(self, parent_lazy_specializer=None, arg_cfg=None,
                  fusable_nodes=None, testing=False):
         try:
             dir(self).index("visit_InteriorPointsLoop")
@@ -17,12 +17,12 @@ class StencilBackend(NodeTransformer):
             raise StencilException("Error: {} must define a visit_InteriorPointsLoop method".format(type(self)))
 
 
-        self.input_grids = input_grids
+        self.input_grids = arg_cfg
         self.output_grid_name = None
-        self.kernel = kernel
-        self.ghost_depth = kernel.ghost_depth
-        self.is_clamped = kernel.is_clamped
-        self.is_copied = kernel.is_copied
+        self.parent_lazy_specializer = parent_lazy_specializer
+        self.ghost_depth = parent_lazy_specializer.ghost_depth
+        self.is_clamped = parent_lazy_specializer.is_clamped
+        self.is_copied = parent_lazy_specializer.is_copied
         self.next_fresh_var = 0
         self.output_index = None
         self.neighbor_grid_name = None
@@ -31,8 +31,8 @@ class StencilBackend(NodeTransformer):
         self.var_list = []
         self.input_dict = {}
         self.input_names = []
-        self.constants = kernel.constants
-        self.distance = kernel.distance
+        self.constants = parent_lazy_specializer.constants
+        self.distance = parent_lazy_specializer.distance
         self.arg_cfg = arg_cfg
         self.fusable_nodes = fusable_nodes
         self.testing = testing
@@ -77,11 +77,11 @@ class StencilBackend(NodeTransformer):
         neighbors_id = node.neighbor_id
         # grid_name = node.grid_name
         # grid = self.input_dict[grid_name]
-        zero_point = tuple([0 for x in range(self.kernel.dim)])
+        zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])
         self.neighbor_target = node.neighbor_target
         # self.neighbor_grid_name = grid_name
         body = []
-        for x in self.kernel.neighbors(zero_point, neighbors_id):
+        for x in self.parent_lazy_specializer.neighbors(zero_point, neighbors_id):
             # TODO: add line below to manage indices that refer to neighbor points loop
             # self.var_list.append(node.neighbor_target)
             self.offset_list = list(x)
