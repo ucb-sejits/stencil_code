@@ -175,7 +175,9 @@ class StencilCTransformer(StencilBackend):
 
                     index = self.gen_array_macro(grid_name, pt)
                     return ArrayRef(SymbolRef(grid_name), index)
-            # elif grid_name == self.neighbor_grid_name:
+            # TODO: consider whether to add following elif to handle non-tuple numpy indices
+            # elif target not in self.var_list:
+            #     return ArrayRef(SymbolRef(grid_name), node.target)
             else:
                 if self.is_clamped:
                     grid = self.input_dict[grid_name]

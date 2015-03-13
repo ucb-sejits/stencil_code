@@ -74,7 +74,7 @@ class StencilBackend(NodeTransformer):
         :param node:
         :return:
         """
-        # TODO: unrolling blows up when neighborhood size id large. 27pt laplacian has 5K neighbors
+        # TODO: unrolling blows up when neighborhood size is large.
         neighbors_id = node.neighbor_id
         # grid_name = node.grid_name
         # grid = self.input_dict[grid_name]
@@ -83,6 +83,8 @@ class StencilBackend(NodeTransformer):
         # self.neighbor_grid_name = grid_name
         body = []
         for x in self.kernel.neighbors(zero_point, neighbors_id):
+            # TODO: add line below to manage indices that refer to neighbor points loop
+            # self.var_list.append(node.neighbor_target)
             self.offset_list = list(x)
             for statement in node.body:
                 body.append(self.visit(deepcopy(statement)))

@@ -22,7 +22,6 @@ from collections import namedtuple
 from numpy import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
-from ctree.c.nodes import FunctionDecl
 from ctree.ocl.nodes import OclFile
 import ctree.np
 from stencil_code.stencil_exception import StencilException
@@ -47,7 +46,11 @@ import itertools
 import abc
 
 from stencil_code.halo_enumerator import HaloEnumerator
-from hindemith.types.hmarray import hmarray, empty_like, Loop
+try:
+    from hindemith.types.hmarray import hmarray, empty_like, Loop
+except ImportError:
+    hmarray, empty_like, Loop = (None, None, None)
+
 import copy
 
 
@@ -64,6 +67,11 @@ class ConcreteStencil(ConcreteSpecializedFunction):
     The standard concrete specialized function that is returned when using the
     C or OpenMP backend.
     """
+
+    def __init__(self):
+        super(ConcreteStencil, self).__init__()
+        self.output = None
+        self._c_function = None
 
     def finalize(self, tree, entry_name, entry_type, output):
         """
@@ -150,7 +158,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
-        if isinstance(args[0], hmarray):
+        if hmarray and isinstance(args[0], hmarray):
             output = empty_like(args[0])
         else:
             output = np.zeros_like(args[0])
@@ -160,7 +168,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         buffers = []
         events = []
         for index, arg in enumerate(args + (output, )):
-            if isinstance(arg, hmarray):
+            if hmarray and isinstance(arg, hmarray):
                 buffers.append(arg.ocl_buf)
             else:
                 buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
@@ -194,7 +202,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                     cl.cl_errnum(cl_error)
                 )
             )
-        if isinstance(output, hmarray):
+        if hmarray and isinstance(output, hmarray):
             return output
         buf, evt = buffer_to_ndarray(
             self.queue, buffers[-1], output
@@ -237,6 +245,7 @@ class SpecializedStencil(LazySpecializedFunction):
         self.backend = self.backend_dict[backend_name]
         self.output = None
         self.args = None
+        self.fusable_nodes = None
         backend_key = "{}_{}".format(backend_name, boundary_handling)
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
@@ -285,16 +294,6 @@ class SpecializedStencil(LazySpecializedFunction):
         :return: A ctree Project node, and our entry point type signature.
         """
         argument_configuration, tuning_configuration = program_config
-        output = self.generate_output(program_config)
-        param_types = [
-            np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)
-            for arg in argument_configuration + (output,)
-        ]
-
-        if self.backend == StencilOclTransformer:
-            param_types.append(param_types[0])
-        else:
-            param_types.append(POINTER(c_float))
 
         # block_factors = [2**tuning_configuration['block_factor_%s' % d] for
         #                  d in range(len(self.input_grids[0].shape) - 1)]
@@ -308,7 +307,6 @@ class SpecializedStencil(LazySpecializedFunction):
         )
         project = Project(files=[tree])
         tree = backend_transformer.visit(project)
-        project = tree
 
         # first_For = tree.find(For)
         # TODO: let the optimizer handle this? Or move the find inner most loop
@@ -320,12 +318,6 @@ class SpecializedStencil(LazySpecializedFunction):
         # TODO: This should be handled by the backend
         # if self.backend != StencilOclTransformer:
 
-        # fix up the parameters type signatures, in the stencil_kernel
-        # entry_point = tree.find(FunctionDecl, name="stencil_kernel")
-        # for index, _type in enumerate(param_types):
-        #     entry_point.params[index].type = _type()
-        # entry_point.set_typesig(kernel_sig)
-        # # TODO: This logic should be provided by the backends
         if self.backend == StencilOclTransformer:
             return tree.files
         else:
@@ -408,17 +400,11 @@ class SpecializedStencil(LazySpecializedFunction):
         self.fusable_nodes = []
         return finalized
 
-        concrete_function = ConcreteStencil()
-        return concrete_function.finalize(entry_point, project, entry_type)
-
     def generate_output(self, program_cfg):
         arg_cfg, tune_cfg = program_cfg
         if self.output is None:
             self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
         return self.output
-
-    def get_placeholder_output(self, args):
-        return empty_like(args[0])
 
     def get_ir_nodes(self, args):
         tree = copy.deepcopy(self.original_tree)
