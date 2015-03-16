@@ -11,16 +11,14 @@ class StencilCTransformer(StencilBackend):
         self.function_decl_helper(node)
 
         for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
-            defname = "_%s_array_macro" % node.params[index].name
-            # params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
-            # params = "(%s)" % params
+            def_name = "_%s_array_macro" % node.params[index].name
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
                 ndim = str(int(strides(arg.shape)[x]))
                 calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
-            node.defn.insert(0, CppDefine(defname, params, calc))
+            node.defn.insert(0, CppDefine(def_name, params, calc))
 
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]

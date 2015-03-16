@@ -17,6 +17,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
     # noinspection PyPep8Naming
     def visit_FunctionDecl(self, node):
         self.function_decl_helper(node)
+
         for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
             def_name = "_%s_array_macro" % node.params[index].name
             calc = "((_d%d)" % (arg.ndim - 1)
