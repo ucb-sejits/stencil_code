@@ -3,6 +3,7 @@ from ctree.omp.macros import *
 from ctree.cpp.nodes import CppDefine
 from .stencil_backend import *
 from ctypes import c_int, POINTER, c_float, c_double
+from ctree.util import strides
 
 
 class StencilOmpTransformer(StencilBackend):  #pragma: no cover
@@ -20,7 +21,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
             params = "(%s)" % params
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
-                ndim = str(int(arg.strides[x]/arg.itemsize))
+                ndim = str(int(strides(arg)[x]/arg.itemsize))
                 calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]

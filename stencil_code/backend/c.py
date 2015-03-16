@@ -5,6 +5,7 @@ from ctree.cpp.nodes import CppDefine
 from ctypes import POINTER, c_float
 from stencil_code.stencil_exception import StencilException
 from stencil_code.backend.stencil_backend import *
+from ctree.util import strides
 
 
 class StencilCTransformer(StencilBackend):
@@ -17,14 +18,11 @@ class StencilCTransformer(StencilBackend):
             # params = "(%s)" % params
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
-                ndim = str(int(arg.strides[x]/arg.itemsize))
+                ndim = str(int(strides(arg.shape)[x]))
                 calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
             node.defn.insert(0, CppDefine(defname, params, calc))
-
-        for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
-            node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
 
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
@@ -90,8 +88,11 @@ class StencilCTransformer(StencilBackend):
 
             if d == 0:
                 ret_node = for_loop
+                self.index_target_dict[node.target] = (node.grid_name, target)
             else:
                 curr_node.body = [for_loop]
+                self.index_target_dict[node.target] += (target,)
+
             curr_node = for_loop
         self.output_index = self.gen_fresh_var()
         pt = [SymbolRef(x) for x in self.var_list]
@@ -156,44 +157,73 @@ class StencilCTransformer(StencilBackend):
             return FunctionCall('clamp', [symbol_ref, Constant(0), Constant(max_index)])
 
         grid_name = node.grid_name
+        grid = self.input_dict[grid_name]
         target = node.target
 
         if isinstance(target, SymbolRef):
-            target = target.name
-            if target == self.kernel_target:
-                if grid_name is self.output_grid_name:
-                    return ArrayRef(SymbolRef(self.output_grid_name),
-                                    SymbolRef(self.output_index))
-                elif grid_name in self.input_dict:
-                    # grid = self.input_dict[grid_name]
-                    if self.is_clamped:
-                        grid = self.input_dict[grid_name]
-                        pt = list(
-                            map(lambda d: gen_clamped_index(
-                                self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
-                    else:  # pragma no cover
-                        pt = list(map(lambda x: SymbolRef(x), self.var_list))
-
-                    index = self.gen_array_macro(grid_name, pt)
-                    return ArrayRef(SymbolRef(grid_name), index)
-            # TODO: consider whether to add following elif to handle non-tuple numpy indices
-            # elif target not in self.var_list:
-            #     return ArrayRef(SymbolRef(grid_name), node.target)
-            else:
+            if target.name in self.index_target_dict:
+                dict_tuple = self.index_target_dict[target.name]
+                reference_grid = dict_tuple[0]
+                index_components = [SymbolRef(val) for val in dict_tuple[1:]]
+                if target.name in self.offset_dict:
+                    offsets = self.offset_dict[target.name]
+                    index_components = [
+                        Add(symbol, Constant(offsets[index]))
+                        for index, symbol in enumerate(index_components)
+                    ]
                 if self.is_clamped:
-                    grid = self.input_dict[grid_name]
-                    pt = list(map(
-                        lambda d, y: gen_clamped_index(
-                            Add(SymbolRef(self.var_list[d]), Constant(y)),
-                            grid.shape[d]-1), range(len(self.var_list)), self.offset_list
-                    ))
-                else:
-                    pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
-                              self.var_list, self.offset_list))
-                index = self.gen_array_macro(grid_name, pt)
-                return ArrayRef(SymbolRef(grid_name), index)
+                    index_components = [
+                        gen_clamped_index(element, grid.shape[index]-1)
+                        for index, element in enumerate(index_components)
+                    ]
+                return ArrayRef(SymbolRef(grid_name), self.gen_array_macro(grid_name, index_components))
+            else:
+                return ArrayRef(SymbolRef(grid_name), target)
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise StencilException(
             "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))  # pragma no cover
+
+        #
+        #
+        #
+        # if isinstance(target, SymbolRef):
+        #     target = target.name
+        #     if target == self.kernel_target:
+        #         if grid_name is self.output_grid_name:
+        #             return ArrayRef(SymbolRef(self.output_grid_name),
+        #                             SymbolRef(self.output_index))
+        #         elif grid_name in self.input_dict:
+        #             # grid = self.input_dict[grid_name]
+        #             if self.is_clamped:
+        #                 grid = self.input_dict[grid_name]
+        #                 pt = list(
+        #                     map(lambda d: gen_clamped_index(
+        #                         self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
+        #             else:  # pragma no cover
+        #                 pt = list(map(lambda x: SymbolRef(x), self.var_list))
+        #
+        #             index = self.gen_array_macro(grid_name, pt)
+        #             return ArrayRef(SymbolRef(grid_name), index)
+        #     # TODO: consider whether to add following elif to handle non-tuple numpy indices
+        #     # elif target not in self.var_list:
+        #     #     return ArrayRef(SymbolRef(grid_name), node.target)
+        #     else:
+        #         if self.is_clamped:
+        #             grid = self.input_dict[grid_name]
+        #             pt = list(map(
+        #                 lambda d, y: gen_clamped_index(
+        #                     Add(SymbolRef(self.var_list[d]), Constant(y)),
+        #                     grid.shape[d]-1), range(len(self.var_list)), self.offset_list
+        #             ))
+        #         else:
+        #             pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
+        #                       self.var_list, self.offset_list))
+        #         index = self.gen_array_macro(grid_name, pt)
+        #         return ArrayRef(SymbolRef(grid_name), index)
+        # elif isinstance(target, FunctionCall) or \
+        #         isinstance(target, MathFunction):
+        #     return ArrayRef(SymbolRef(grid_name), self.visit(target))
+        # raise StencilException(
+        #     "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))  # pragma no cover

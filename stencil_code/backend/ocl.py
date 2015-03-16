@@ -1,5 +1,6 @@
 import ctypes as ct
 import numpy as np
+from copy import deepcopy
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
@@ -9,6 +10,7 @@ from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
+from ctree.util import strides
 import pycl as cl
 from stencil_code.backend.local_size_computer import LocalSizeComputer
 
@@ -54,11 +56,11 @@ def check_ocl_error(code_block, message="kernel"):
 
 
 class StencilOclTransformer(StencilBackend):
-    def __init__(self, input_grids=None, parent_lazy_specializer=None,
+    def __init__(self, parent_lazy_specializer=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
                  testing=False):
         super(StencilOclTransformer, self).__init__(
-            input_grids, parent_lazy_specializer, arg_cfg, fusable_nodes, testing)
+            parent_lazy_specializer, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
@@ -69,7 +71,7 @@ class StencilOclTransformer(StencilBackend):
         self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
-        self.output_grid = input_grids[0]
+        self.output_grid = arg_cfg[0]
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -113,9 +115,12 @@ class StencilOclTransformer(StencilBackend):
 
         self.function_decl_helper(node)
 
-        for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
-            node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
-            node.params[index].set_global()
+        for param in node.params:
+            param.set_global()
+
+        # for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
+        #     node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
+        #     node.params[index].set_global()
 
         for param in node.params[:-1]:
             param.set_const()
@@ -316,8 +321,7 @@ class StencilOclTransformer(StencilBackend):
     def gen_global_macro(self):
         index = "(d%d)" % (self.output_grid.ndim - 1)
         for x in reversed(range(self.output_grid.ndim - 1)):
-            ndim = str(int(self.output_grid.strides[x] /
-                           self.output_grid.itemsize))
+            ndim = str(int(strides(self.output_grid.shape)[x]))
             index += "+((d%s) * %s)" % (str(x), ndim)
         return index
 
@@ -359,8 +363,7 @@ class StencilOclTransformer(StencilBackend):
         dim = self.output_grid.ndim
         index = get_global_id(dim - 1)
         for d in reversed(range(dim - 1)):
-            stride = self.output_grid.strides[d] // \
-                self.output_grid.itemsize
+            stride = strides(self.output_grid.shape)[d]
             index = Add(
                 index,
                 Mul(
@@ -574,6 +577,37 @@ class StencilOclTransformer(StencilBackend):
         #     )
         # )
         return body
+
+    def visit_NeighborPointsLoop(self, node):
+        """
+        unrolls the neighbor points loop, appending each current block of the body to a new
+        body for each neighbor point, a side effect of this is local python functions of the
+        neighbor point can be collapsed out, for example, a custom python distance function based
+        on neighbor distance can be resolved at transform time
+        DANGER: this blows up on large neighborhoods
+        :param node:
+        :return:
+        """
+        # TODO: unrolling blows up when neighborhood size is large.
+        neighbors_id = node.neighbor_id
+        # grid_name = node.grid_name
+        # grid = self.input_dict[grid_name]
+        zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])
+        self.neighbor_target = node.neighbor_target
+        # self.neighbor_grid_name = grid_name
+
+        # self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
+        body = []
+        for x in self.parent_lazy_specializer.neighbors(zero_point, neighbors_id):
+            # TODO: add line below to manage indices that refer to neighbor points loop
+            # self.var_list.append(node.neighbor_target)
+            self.offset_list = list(x)
+            self.offset_dict[self.neighbor_target] = list(x)
+            for statement in node.body:
+                body.append(self.visit(deepcopy(statement)))
+        self.neighbor_target = None
+        return body
+
 
     # Handle array references
     def visit_GridElement(self, node):

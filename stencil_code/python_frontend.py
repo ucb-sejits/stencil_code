@@ -49,11 +49,13 @@ class PythonToStencilModel(PyBasicConversions):
            type(node.iter.func) is ast.Attribute:
             if node.iter.func.attr is 'interior_points':
                 return InteriorPointsLoop(target=node.target.id,
-                                          body=node.body)
+                                          body=node.body,
+                                          grid_name=self.arg_name_map[node.iter.args[0].id])
             elif node.iter.func.attr is 'neighbors':
                 # neighbor method should have default neighbor id of 0
                 neighbor_id = 0 if len(node.iter.args) < 2 else node.iter.args[1].n
                 return NeighborPointsLoop(
+                    reference_point=node.iter.args[0].id,
                     neighbor_id=neighbor_id,
                     neighbor_target=node.target.id,
                     body=node.body

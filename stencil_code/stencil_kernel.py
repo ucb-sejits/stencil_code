@@ -303,7 +303,7 @@ class SpecializedStencil(LazySpecializedFunction):
         tree = PythonToStencilModel().visit(tree)
 
         backend_transformer = self.backend(
-            self.args, self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
+            self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
         )
         project = Project(files=[tree])
         tree = backend_transformer.visit(project)

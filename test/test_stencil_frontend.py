@@ -19,7 +19,7 @@ class LookupStencil(Stencil):
 
     def kernel(self, in_grid, lut, out_grid):
         for x in self.interior_points(out_grid):
-            acc = 0.0
+            acc = 0
             for n in self.neighbors(x, 0):
                 acc += in_grid[n]
             out_grid[x] = lut[acc]

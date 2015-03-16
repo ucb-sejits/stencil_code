@@ -13,11 +13,6 @@ from ctree.transformations import PyBasicConversions
 class LookupStencil(Stencil):
     neighborhoods = [Neighborhood.moore_neighborhood(radius=1, dim=2)]
 
-    lut = np.array([[
-        0, 0, 1, 1, 0, 0, 0,
-        0, 0, 1, 1, 1, 0, 0,
-    ]])
-
     def kernel(self, in_grid, lut, out_grid):
         for x in self.interior_points(out_grid):
             acc = 0
@@ -43,6 +38,9 @@ class TestStencilBackend(unittest.TestCase):
         lookup_stencil = LookupStencil(backend='c')
 
         out_grid = lookup_stencil(in_grid, lookup_table)
+        print(in_grid)
+        print("X"*80)
+        print(out_grid)
 
 
 
