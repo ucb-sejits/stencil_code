@@ -1,5 +1,4 @@
 import ctypes as ct
-import numpy as np
 from copy import deepcopy
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
@@ -64,6 +63,7 @@ class StencilOclTransformer(StencilBackend):
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
+        self.local_block = None
         self.macro_defns = []
         self.project = None
         self.local_size = None
@@ -93,6 +93,7 @@ class StencilOclTransformer(StencilBackend):
             """))
         return node
 
+    # noinspection PyPep8Naming
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
         self.local_block = SymbolRef.unique()
@@ -118,18 +119,8 @@ class StencilOclTransformer(StencilBackend):
         for param in node.params:
             param.set_global()
 
-        # for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
-        #     node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
-        #     node.params[index].set_global()
-
         for param in node.params[:-1]:
             param.set_const()
-
-        # for index, param in enumerate(node.params[:-1]):
-        #     # TODO: Transform numpy type to ctype
-        #     param.type = ct.POINTER(ct.c_float)()
-        #     param.set_global()
-        #     param.set_const()
 
         node.set_kernel()
         node.params[-1].set_global()
@@ -166,10 +157,6 @@ class StencilOclTransformer(StencilBackend):
                                                   [boundary_kernel]))
 
             self.boundary_kernels = boundary_kernels
-
-            # ctree.browser_show_ast(node)
-            # import ctree
-            # ctree.browser_show_ast(boundary_kernels[0])
         else:
             self.project.files.append(OclFile('kernel', [node]))
 
@@ -230,8 +217,7 @@ class StencilOclTransformer(StencilBackend):
                     ArrayDef(
                         SymbolRef(global_for_dim_name(dim), ct.c_ulong()),
                         arg_cfg[0].ndim,
-                        Array(body=[Constant(d)
-                         for d in self.boundary_handlers[dim].global_size])
+                        Array(body=[Constant(d) for d in self.boundary_handlers[dim].global_size])
                     ),
                     ArrayDef(
                         SymbolRef(local_for_dim_name(dim), ct.c_ulong()),
@@ -267,26 +253,6 @@ class StencilOclTransformer(StencilBackend):
                 params.extend([
                     SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
                 ])
-
-        # finish_call = FunctionCall(SymbolRef('clFinish'),
-        # [SymbolRef('queue')])
-        # defn.append(finish_call)
-        # finish_call = [
-        #     Assign(
-        #         SymbolRef("error_code", ct.c_int()),
-        #         FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-        #     ),
-        #     If(
-        #         NotEq(SymbolRef("error_code"), Constant(0)),
-        #         FunctionCall(
-        #             SymbolRef("printf"),
-        #             [
-        #                 String("OPENCL KERNEL RETURNED ERROR CODE %d"),
-        #                 SymbolRef("error_code")
-        #             ]
-        #         )
-        #     )
-        # ]
 
         finish_call = check_ocl_error(
             FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
@@ -607,7 +573,6 @@ class StencilOclTransformer(StencilBackend):
                 body.append(self.visit(deepcopy(statement)))
         self.neighbor_target = None
         return body
-
 
     # Handle array references
     def visit_GridElement(self, node):

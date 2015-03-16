@@ -2,33 +2,32 @@ from ctree.omp.nodes import *
 from ctree.omp.macros import *
 from ctree.cpp.nodes import CppDefine
 from .stencil_backend import *
-from ctypes import c_int, POINTER, c_float, c_double
+from ctypes import c_int, c_double
 from ctree.util import strides
 
 
 class StencilOmpTransformer(StencilBackend):  #pragma: no cover
+    # noinspection PyPep8Naming
     def visit_CFile(self, node):
         node.config_target = 'omp'
         # Assumes only one node in body, TODO: Can this be done?
         node.body = self.visit(node.body[0])
         return node
 
+    # noinspection PyPep8Naming
     def visit_FunctionDecl(self, node):
         self.function_decl_helper(node)
         for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
-            defname = "_%s_array_macro" % node.params[index].name
-            params = ','.join(["_d"+str(x) for x in range(arg.ndim)])
-            params = "(%s)" % params
+            def_name = "_%s_array_macro" % node.params[index].name
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
                 ndim = str(int(strides(arg)[x]/arg.itemsize))
                 calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
-            node.defn.insert(0, CppDefine(defname, params, calc))
+            node.defn.insert(0, CppDefine(def_name, params, calc))
         for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
             node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
-
 
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
@@ -44,6 +43,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         node.defn.append(end_time)
         return [IncludeOmpHeader(), abs_decl, macro, node]
 
+    # noinspection PyPep8Naming
     def visit_InteriorPointsLoop(self, node):
         output_grid = self.input_grids[0]
         dim = len(output_grid.shape)
@@ -87,6 +87,7 @@ class StencilOmpTransformer(StencilBackend):  #pragma: no cover
         return ret_node
 
     # Handle array references
+    # noinspection PyPep8Naming
     def visit_GridElement(self, node):
         grid_name = node.grid_name
         target = node.target

@@ -1,14 +1,12 @@
 __author__ = 'leonardtruong'
-import numpy as np
 
 from ctree.cpp.nodes import CppDefine
-from ctypes import POINTER, c_float
-from stencil_code.stencil_exception import StencilException
 from stencil_code.backend.stencil_backend import *
 from ctree.util import strides
 
 
 class StencilCTransformer(StencilBackend):
+    # noinspection PyPep8Naming
     def visit_FunctionDecl(self, node):
         self.function_decl_helper(node)
 
@@ -44,6 +42,7 @@ class StencilCTransformer(StencilBackend):
         node.defn.append(end_time)
         return [StringTemplate("#include <time.h>"), abs_decl, min_macro, clamp_macro, node]
 
+    # noinspection PyPep8Naming
     def visit_InteriorPointsLoop(self, node):
         """
         generate the c for loops necessary to represent the interior points iteration
@@ -145,6 +144,7 @@ class StencilCTransformer(StencilBackend):
         self.kernel_target = None
         return ret_node
 
+    # noinspection PyPep8Naming
     def visit_GridElement(self, node):
         """
         handles array references to input_grids, understands clamping
@@ -163,7 +163,6 @@ class StencilCTransformer(StencilBackend):
         if isinstance(target, SymbolRef):
             if target.name in self.index_target_dict:
                 dict_tuple = self.index_target_dict[target.name]
-                reference_grid = dict_tuple[0]
                 index_components = [SymbolRef(val) for val in dict_tuple[1:]]
                 if target.name in self.offset_dict:
                     offsets = self.offset_dict[target.name]
@@ -183,47 +182,5 @@ class StencilCTransformer(StencilBackend):
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise StencilException(
-            "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))  # pragma no cover
-
-        #
-        #
-        #
-        # if isinstance(target, SymbolRef):
-        #     target = target.name
-        #     if target == self.kernel_target:
-        #         if grid_name is self.output_grid_name:
-        #             return ArrayRef(SymbolRef(self.output_grid_name),
-        #                             SymbolRef(self.output_index))
-        #         elif grid_name in self.input_dict:
-        #             # grid = self.input_dict[grid_name]
-        #             if self.is_clamped:
-        #                 grid = self.input_dict[grid_name]
-        #                 pt = list(
-        #                     map(lambda d: gen_clamped_index(
-        #                         self.var_list[d], grid.shape[d]-1), range(len(self.var_list))))
-        #             else:  # pragma no cover
-        #                 pt = list(map(lambda x: SymbolRef(x), self.var_list))
-        #
-        #             index = self.gen_array_macro(grid_name, pt)
-        #             return ArrayRef(SymbolRef(grid_name), index)
-        #     # TODO: consider whether to add following elif to handle non-tuple numpy indices
-        #     # elif target not in self.var_list:
-        #     #     return ArrayRef(SymbolRef(grid_name), node.target)
-        #     else:
-        #         if self.is_clamped:
-        #             grid = self.input_dict[grid_name]
-        #             pt = list(map(
-        #                 lambda d, y: gen_clamped_index(
-        #                     Add(SymbolRef(self.var_list[d]), Constant(y)),
-        #                     grid.shape[d]-1), range(len(self.var_list)), self.offset_list
-        #             ))
-        #         else:
-        #             pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
-        #                       self.var_list, self.offset_list))
-        #         index = self.gen_array_macro(grid_name, pt)
-        #         return ArrayRef(SymbolRef(grid_name), index)
-        # elif isinstance(target, FunctionCall) or \
-        #         isinstance(target, MathFunction):
-        #     return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        # raise StencilException(
-        #     "Unsupported GridElement encountered: {} type {} {}".format(grid_name, type(target), repr(target)))  # pragma no cover
+            "Unsupported GridElement encountered: {} type {} {}".format(
+                grid_name, type(target), repr(target)))  # pragma no cover

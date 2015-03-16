@@ -1,8 +1,6 @@
 from copy import deepcopy
 import numpy as np
 
-import ctree
-from ctree.c.nodes import *
 from ctypes import c_int
 from ctree.visitors import NodeTransformer
 from stencil_code.stencil_model import *
@@ -17,7 +15,6 @@ class StencilBackend(NodeTransformer):
         except ValueError:
             raise StencilException("Error: {} must define a visit_InteriorPointsLoop method".format(type(self)))
 
-
         self.input_grids = arg_cfg
         self.output_grid_name = None
         self.parent_lazy_specializer = parent_lazy_specializer
@@ -27,8 +24,9 @@ class StencilBackend(NodeTransformer):
         self.next_fresh_var = 0
         self.output_index = None
         self.neighbor_grid_name = None
+        self.neighbor_target = None
         self.kernel_target = None
-        self.offset_list = None
+        self.offset_list = []
         self.offset_dict = {}
         self.var_list = []
         self.input_dict = {}
@@ -65,14 +63,7 @@ class StencilBackend(NodeTransformer):
         self.next_fresh_var += 1
         return "x%d" % self.next_fresh_var
 
-    # def visit_InteriorPointsLoop(self, node):
-    #     """
-    #     must be implemented by subclass this is checked in __init__
-    #     :param node:
-    #     :return:
-    #     """
-    #     pass
-
+    # noinspection PyPep8Naming
     def visit_NeighborPointsLoop(self, node):
         """
         unrolls the neighbor points loop, appending each current block of the body to a new
@@ -85,24 +76,21 @@ class StencilBackend(NodeTransformer):
         """
         # TODO: unrolling blows up when neighborhood size is large.
         neighbors_id = node.neighbor_id
-        # grid_name = node.grid_name
-        # grid = self.input_dict[grid_name]
         zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])
         self.neighbor_target = node.neighbor_target
-        # self.neighbor_grid_name = grid_name
 
         self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
         body = []
         for x in self.parent_lazy_specializer.neighbors(zero_point, neighbors_id):
             # TODO: add line below to manage indices that refer to neighbor points loop
-            # self.var_list.append(node.neighbor_target)
             self.offset_list = list(x)
             self.offset_dict[self.neighbor_target] = list(x)
             for statement in node.body:
                 body.append(self.visit(deepcopy(statement)))
-        self.neighbor_target = None
+        self.index_target_dict.pop(node.neighbor_target, None)
         return body
 
+    # noinspection PyPep8Naming
     def visit_GridElement(self, node):  # pragma no cover
         grid_name = node.grid_name
         target = node.target
@@ -127,6 +115,7 @@ class StencilBackend(NodeTransformer):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
         raise Exception("Found GridElement that is not supported")
 
+    # noinspection PyPep8Naming
     def visit_MathFunction(self, node):
         if str(node.func) == 'distance':
             zero_point = tuple([0 for _ in range(len(self.offset_list))])
@@ -138,6 +127,7 @@ class StencilBackend(NodeTransformer):
         name = "_%s_array_macro" % arg
         return FunctionCall(SymbolRef(name), point)
 
+    # noinspection PyPep8Naming
     def visit_SymbolRef(self, node):  # pragma no cover
         if node.name in self.constants.keys():
             return Constant(self.constants[node.name])
