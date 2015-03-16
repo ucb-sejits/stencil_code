@@ -22,34 +22,25 @@ class LookupStencil(Stencil):
 
 if __name__ == '__main__':  # pragma: no cover
     import logging
-    logging.basicConfig(level=0)
+    logging.basicConfig(level=20)
 
     nx = 8 if len(sys.argv) <= 1 else int(sys.argv[1])
     ny = 32 if len(sys.argv) <= 2 else int(sys.argv[2])
     nz = 128 if len(sys.argv) <= 3 else int(sys.argv[3])
 
     numpy.random.seed(0)
-    input_grid = numpy.random.randint(2, size=[10, 10])
+    # input_grid = numpy.random.randint(2, size=[10, 10])
+    input_grid = numpy.zeros([10, 10], dtype=numpy.int32)
+    input_grid[5, :] = 1
+
     lut = numpy.array([[
         0, 0, 1, 1, 0, 0, 0,
         0, 0, 1, 1, 1, 0, 0,
-    ]])
+    ]]).astype(numpy.int32)
 
+    lookup_stencil = LookupStencil(backend='c',boundary_handling='zero')
 
-
-    laplacian = LookupStencil(backend='c',boundary_handling='zero')
-    with Timer() as s_t:
-        a = laplacian(input_grid, lut)
-    print("Specialized time {:0.3f}s".format(s_t.interval))
-    print("a.shape {}".format(a.shape))
-
-    if product(a.shape) < 200:
-        print(a)
-
-    # too slow to compare directly, this will apply python method to just a subset
-    # py = LaplacianKernel(backend='python')
-    # with Timer() as py_t:
-    #     b = py(input_grid)
-    # numpy.testing.assert_array_almost_equal(a, b, decimal=4)
-    # print("PASSED")
-    # print("Py time {:0.3f}".format(py_t.interval))
+    print(input_grid)
+    for _ in range(5):
+        input_grid = lookup_stencil(input_grid, lut)
+        print(input_grid)

@@ -22,17 +22,10 @@ class LookupStencil(Stencil):
 
 
 class TestStencilBackend(unittest.TestCase):
-    def test_bad_impl(self):
-        class NoInteriorPoints(StencilBackend):
-            pass
-
-        with self.assertRaises(StencilException) as context:
-            NoInteriorPoints()
-
-        self.assertTrue("must define a visit_InteriorPointsLoop method" in context.exception.args[0])
 
     def test_lookup_table(self):
         in_grid = np.zeros([10, 10])
+        in_grid[5, :] = 1
         lookup_table = np.zeros([10])
 
         lookup_stencil = LookupStencil(backend='c')

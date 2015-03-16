@@ -18,9 +18,9 @@ class StencilBackend(NodeTransformer):
         self.input_grids = arg_cfg
         self.output_grid_name = None
         self.parent_lazy_specializer = parent_lazy_specializer
-        self.ghost_depth = parent_lazy_specializer.ghost_depth
-        self.is_clamped = parent_lazy_specializer.is_clamped
-        self.is_copied = parent_lazy_specializer.is_copied
+        self.ghost_depth = parent_lazy_specializer.ghost_depth if parent_lazy_specializer else 0
+        self.is_clamped = parent_lazy_specializer.is_clamped if parent_lazy_specializer else False
+        self.is_copied = parent_lazy_specializer.is_copied if parent_lazy_specializer else False
         self.next_fresh_var = 0
         self.output_index = None
         self.neighbor_grid_name = None
@@ -32,8 +32,8 @@ class StencilBackend(NodeTransformer):
         self.input_dict = {}
         self.input_names = []
         self.index_target_dict = {}
-        self.constants = parent_lazy_specializer.constants
-        self.distance = parent_lazy_specializer.distance
+        self.constants = parent_lazy_specializer.constants if parent_lazy_specializer else []
+        self.distance = parent_lazy_specializer.distance if parent_lazy_specializer else None
         self.arg_cfg = arg_cfg
         self.fusable_nodes = fusable_nodes
         self.testing = testing
@@ -91,29 +91,147 @@ class StencilBackend(NodeTransformer):
         return body
 
     # noinspection PyPep8Naming
-    def visit_GridElement(self, node):  # pragma no cover
+    def visit_InteriorPointsLoop(self, node):
+        """
+        generate the c for loops necessary to represent the interior points iteration
+        for boundary_handling
+        if clamped then, iterate over all points and use clamping in the
+            input array references on the kernel code
+        if copied then
+            insert an if before the unrolled neighbor stuff to do a direct copy from
+            the original input_grid
+        :param node:
+        :return:
+        """
+        output_grid = self.input_grids[0]
+        dim = len(output_grid.shape)
+        self.kernel_target = node.target
+        curr_node = None
+        ret_node = None
+        for d in range(dim):
+            target = self.gen_fresh_var()
+            self.var_list.append(target)
+            if self.is_clamped or self.is_copied:
+                for_loop = For(
+                    Assign(SymbolRef(target, c_int()),
+                           Constant(0)),
+                    LtE(SymbolRef(target),
+                        Constant(
+                            output_grid.shape[d] - 1)
+                        ),
+                    PostInc(SymbolRef(target)),
+                    [])
+            else:
+                for_loop = For(
+                    Assign(SymbolRef(target, c_int()),
+                           Constant(self.ghost_depth[d])),
+                    LtE(SymbolRef(target),
+                        Constant(
+                            output_grid.shape[d] -
+                            self.ghost_depth[d] - 1)
+                        ),
+                    PostInc(SymbolRef(target)),
+                    [])
+
+            if d == 0:
+                ret_node = for_loop
+                self.index_target_dict[node.target] = (node.grid_name, target)
+            else:
+                curr_node.body = [for_loop]
+                self.index_target_dict[node.target] += (target,)
+
+            curr_node = for_loop
+        self.output_index = self.gen_fresh_var()
+        pt = [SymbolRef(x) for x in self.var_list]
+        macro = self.gen_array_macro(self.output_grid_name, pt)
+        curr_node.body = [Assign(SymbolRef(self.output_index, c_int()),
+                                 macro)]
+
+        if self.is_copied:
+            # this a little hokey but if we are in boundary copy mode
+            # we change the for loops above to visit everything and
+            # then we test to see if the any of the values are in the halo zone
+            # and if so we just copy straight from in_grid, otherwise we
+            # do the neighborhood unrolling
+            def test_index_in_halo(index):
+                return Or(
+                    Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
+                    Gt(SymbolRef(self.var_list[index]),
+                       Constant(output_grid.shape[index] - (self.ghost_depth[index] + 1))),
+                )
+
+            def boundary_or(index):
+                if index < len(self.var_list) - 1:
+                    return Or(test_index_in_halo(index), boundary_or(index+1))
+                else:
+                    return test_index_in_halo(index)
+
+            then_block = Assign(
+                ArrayRef(SymbolRef(self.output_grid_name), SymbolRef(self.output_index)),
+                ArrayRef(SymbolRef(self.input_names[0]), SymbolRef(self.output_index)),
+            )
+            else_block = []
+            for elem in map(self.visit, node.body):
+                if type(elem) == list:
+                    else_block.extend(elem)
+                else:  # pragma no cover
+                    else_block.append(elem)
+            if_boundary_block = If(
+                boundary_or(0),
+                then_block,
+                else_block
+            )
+            curr_node.body.append(if_boundary_block)
+        else:
+            for elem in map(self.visit, node.body):
+                if type(elem) == list:
+                    curr_node.body.extend(elem)
+                else:
+                    curr_node.body.append(elem)
+
+        self.kernel_target = None
+        return ret_node
+
+    # noinspection PyPep8Naming
+    def visit_GridElement(self, node):
+        """
+        handles array references to input_grids, understands clamping
+        on input_grids by looking at the kernel of the current specializer
+        :param node:
+        :return:
+        """
+
+        def gen_clamped_index(symbol_ref, max_index):
+            return FunctionCall('clamp', [symbol_ref, Constant(0), Constant(max_index)])
+
         grid_name = node.grid_name
+        grid = self.input_dict[grid_name]
         target = node.target
+
         if isinstance(target, SymbolRef):
-            target = target.name
-            if target == self.kernel_target:
-                if grid_name is self.output_grid_name:
-                    return ArrayRef(SymbolRef(self.output_grid_name),
-                                    self.output_index)
-                elif grid_name in self.input_dict:
-                    # grid = self.input_dict[grid_name]
-                    pt = list(map(lambda x: SymbolRef(x), self.var_list))
-                    index = self.gen_array_macro(grid_name, pt)
-                    return ArrayRef(SymbolRef(grid_name), index)
-            elif grid_name == self.neighbor_grid_name:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
-                              self.var_list, self.offset_list))
-                index = self.gen_array_macro(grid_name, pt)
-                return ArrayRef(SymbolRef(grid_name), index)
+            if target.name in self.index_target_dict:
+                dict_tuple = self.index_target_dict[target.name]
+                index_components = [SymbolRef(val) for val in dict_tuple[1:]]
+                if target.name in self.offset_dict:
+                    offsets = self.offset_dict[target.name]
+                    index_components = [
+                        Add(symbol, Constant(offsets[index]))
+                        for index, symbol in enumerate(index_components)
+                    ]
+                if self.is_clamped:
+                    index_components = [
+                        gen_clamped_index(element, grid.shape[index]-1)
+                        for index, element in enumerate(index_components)
+                    ]
+                return ArrayRef(SymbolRef(grid_name), self.gen_array_macro(grid_name, index_components))
+            else:
+                return ArrayRef(SymbolRef(grid_name), target)
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
-        raise Exception("Found GridElement that is not supported")
+        raise StencilException(
+            "Unsupported GridElement encountered: {} type {} {}".format(
+                grid_name, type(target), repr(target)))  # pragma no cover
 
     # noinspection PyPep8Naming
     def visit_MathFunction(self, node):
