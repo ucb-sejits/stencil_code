@@ -103,8 +103,8 @@ class StencilBackend(NodeTransformer):
         :param node:
         :return:
         """
-        output_grid = self.input_grids[0]
-        dim = len(output_grid.shape)
+        output_grid_shape = self.input_grids[0].shape
+        dim = len(output_grid_shape)
         self.kernel_target = node.target
         curr_node = None
         ret_node = None
@@ -117,7 +117,7 @@ class StencilBackend(NodeTransformer):
                            Constant(0)),
                     LtE(SymbolRef(target),
                         Constant(
-                            output_grid.shape[d] - 1)
+                            output_grid_shape[d] - 1)
                         ),
                     PostInc(SymbolRef(target)),
                     [])
@@ -127,7 +127,7 @@ class StencilBackend(NodeTransformer):
                            Constant(self.ghost_depth[d])),
                     LtE(SymbolRef(target),
                         Constant(
-                            output_grid.shape[d] -
+                            output_grid_shape[d] -
                             self.ghost_depth[d] - 1)
                         ),
                     PostInc(SymbolRef(target)),
@@ -157,7 +157,7 @@ class StencilBackend(NodeTransformer):
                 return Or(
                     Lt(SymbolRef(self.var_list[index]), Constant(self.ghost_depth[index])),
                     Gt(SymbolRef(self.var_list[index]),
-                       Constant(output_grid.shape[index] - (self.ghost_depth[index] + 1))),
+                       Constant(output_grid_shape[index] - (self.ghost_depth[index] + 1))),
                 )
 
             def boundary_or(index):

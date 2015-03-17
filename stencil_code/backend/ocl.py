@@ -124,9 +124,8 @@ class StencilOclTransformer(StencilBackend):
 
         node.set_kernel()
         node.params[-1].set_global()
-        node.params[-1].type = ct.POINTER(ct.c_float)()
-        node.params.append(SymbolRef(self.local_block.name,
-                                     ct.POINTER(ct.c_float)()))
+        node.params[-1].type = node.params[0].type
+        node.params.append(SymbolRef(self.local_block.name, node.params[0].type))
         node.params[-1].set_local()
         node.defn = node.defn[0]
 
@@ -491,6 +490,8 @@ class StencilOclTransformer(StencilBackend):
                                    Constant(self.ghost_depth[d]))))
             self.var_list.append("local_id%d" % d)
 
+        self.index_target_dict[node.target] = global_idx
+
         for child in map(self.visit, node.body):
             if isinstance(child, list):
                 self.stencil_op.extend(child)
@@ -513,37 +514,9 @@ class StencilOclTransformer(StencilBackend):
         else:
             body.extend(self.stencil_op)
 
-        # this does not help fix the failure
-        # body.append(FunctionCall(SymbolRef("barrier"),
-        #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
-        # body.extend(self.stencil_op)
-        #
-        # this line does seem to fix the problem, seems to suggest some timing
-        # issue
-        #
-        # body.append(If(conditional,
-        #                [StringTemplate("out_grid[global_index]+=0;")]))
-        #
-        # the following fixes the problem too, suggests timing issues
-        #
-        # body.append(FunctionCall(SymbolRef("printf"), [String("gid %d\\n"),
-        #                                                SymbolRef("global_index")]))
-        # from ctree.ocl.macros import get_group_id
-        # body.append(
-        #     FunctionCall(
-        #         SymbolRef("printf"),
-        #         [
-        #             String("group_id %2d %2d gid %2d %2d %2d\\n"),
-        #             get_global_id(0),
-        #             get_group_id(1),
-        #             get_global_id(0),
-        #             get_global_id(1),
-        #             SymbolRef('global_index'),
-        #         ]
-        #     )
-        # )
         return body
 
+    # noinspection PyPep8Naming
     def visit_NeighborPointsLoop(self, node):
         """
         unrolls the neighbor points loop, appending each current block of the body to a new
@@ -571,29 +544,55 @@ class StencilOclTransformer(StencilBackend):
             self.offset_dict[self.neighbor_target] = list(x)
             for statement in node.body:
                 body.append(self.visit(deepcopy(statement)))
+                # body.append(StringTemplate('printf("acc = %d\\n", acc);'))
         self.neighbor_target = None
         return body
 
-    # Handle array references
+    # noinspection PyPep8Naming
     def visit_GridElement(self, node):
+        """
+        handles code generation for array references.
+        if a reference to the interior points loop index variable is found replace it with
+        the global_index
+        if a reference to the neighbor points index variable is found and the grid_name we are working
+        on is the first parameter then reference the local memory block, this is because the local
+        memory block is the current work_group elements mapped into a larger space that includes the
+        ghost zone
+
+        :param node:
+        :return:
+        """
         grid_name = node.grid_name
         target = node.target
-        if isinstance(target, SymbolRef):
 
+        if isinstance(target, SymbolRef):
             target_name = target.name
-            if target_name == self.kernel_target:
-                if grid_name == self.output_grid_name:
-                    return ArrayRef(SymbolRef(self.output_grid_name),
-                                    SymbolRef(self.output_index))
-                elif grid_name in self.input_dict:
-                    pt = list(map(lambda x: SymbolRef(x), self.var_list))
+            if target_name in self.index_target_dict:
+                return ArrayRef(SymbolRef(grid_name), SymbolRef(self.index_target_dict[target_name]))
+
+            elif target_name in self.offset_dict:
+                if node.grid_name == self.input_names[0]:
+                    pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
+                                  self.var_list, self.offset_list))
                     index = self.local_array_macro(pt)
                     return ArrayRef(self.local_block, index)
             else:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
-                              self.var_list, self.offset_list))
-                index = self.local_array_macro(pt)
-                return ArrayRef(self.local_block, index)
+                return ArrayRef(SymbolRef(grid_name), target)
+
+            #
+            # if target_name == self.kernel_target:
+            #     if grid_name == self.output_grid_name:
+            #         return ArrayRef(SymbolRef(self.output_grid_name),
+            #                         SymbolRef(self.output_index))
+            #     elif grid_name in self.input_dict:
+            #         pt = list(map(lambda x: SymbolRef(x), self.var_list))
+            #         index = self.local_array_macro(pt)
+            #         return ArrayRef(self.local_block, index)
+            # else:
+            #     pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
+            #                   self.var_list, self.offset_list))
+            #     index = self.local_array_macro(pt)
+            #     return ArrayRef(self.local_block, index)
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))

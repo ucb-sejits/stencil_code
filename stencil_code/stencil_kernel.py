@@ -19,6 +19,7 @@ from __future__ import print_function
 import math
 
 from collections import namedtuple
+from ctree.transforms.declaration_filler import DeclarationFiller
 from numpy import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
@@ -134,9 +135,9 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         # some variables that will be used that PEP-8 wants to see initialized
         # in __init__
-        self.kernel = None
+        self.kernel = []
         self.output = None
-        self._c_function = None
+        self._c_function = lambda: 0
 
     def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
         """
@@ -319,6 +320,7 @@ class SpecializedStencil(LazySpecializedFunction):
         # if self.backend != StencilOclTransformer:
 
         if self.backend == StencilOclTransformer:
+            tree = DeclarationFiller().visit(tree)
             return tree.files
         else:
             if self.args[0].shape[len(self.args[0].shape) - 1] \
