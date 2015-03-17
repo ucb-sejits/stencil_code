@@ -1,6 +1,5 @@
 
 import ast
-import ctree
 
 from ctree.transformations import PyBasicConversions
 from ctree.c.nodes import SymbolRef

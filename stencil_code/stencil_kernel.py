@@ -72,7 +72,7 @@ class ConcreteStencil(ConcreteSpecializedFunction):
     def __init__(self):
         super(ConcreteStencil, self).__init__()
         self.output = None
-        self._c_function = None
+        self._c_function = lambda v, *args, **kw: 0
 
     def finalize(self, tree, entry_name, entry_type, output):
         """
