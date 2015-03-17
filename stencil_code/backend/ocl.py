@@ -576,23 +576,15 @@ class StencilOclTransformer(StencilBackend):
                                   self.var_list, self.offset_list))
                     index = self.local_array_macro(pt)
                     return ArrayRef(self.local_block, index)
+                else:
+                    raise StencilException(
+                        "{}[{}] neighbor index does not reference first input {}".format(
+                            node.grid_name, target_name, self.input_names[0]
+                        )
+                    )
             else:
                 return ArrayRef(SymbolRef(grid_name), target)
 
-            #
-            # if target_name == self.kernel_target:
-            #     if grid_name == self.output_grid_name:
-            #         return ArrayRef(SymbolRef(self.output_grid_name),
-            #                         SymbolRef(self.output_index))
-            #     elif grid_name in self.input_dict:
-            #         pt = list(map(lambda x: SymbolRef(x), self.var_list))
-            #         index = self.local_array_macro(pt)
-            #         return ArrayRef(self.local_block, index)
-            # else:
-            #     pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
-            #                   self.var_list, self.offset_list))
-            #     index = self.local_array_macro(pt)
-            #     return ArrayRef(self.local_block, index)
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
