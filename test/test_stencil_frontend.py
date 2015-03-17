@@ -1,53 +1,144 @@
+from _ast import FunctionDef, For, Slice
 import unittest
 
 import ast
-import numpy as np
+from textwrap import dedent
+
+import ctree.c.nodes as cn
 
 from stencil_code.stencil_kernel import Stencil
 from stencil_code.neighborhood import Neighborhood
 from stencil_code.python_frontend import PythonToStencilModel
 from stencil_code.stencil_exception import StencilException
 
+import stencil_code.stencil_model as sm
 
-class LookupStencil(Stencil):
+
+class TestStencil(Stencil):
     neighborhoods = [Neighborhood.moore_neighborhood(radius=1, dim=2)]
 
-    lut = np.array([[
-        0, 0, 1, 1, 0, 0, 0,
-        0, 0, 1, 1, 1, 0, 0,
-    ]])
-
-    def kernel(self, in_grid, lut, out_grid):
+    def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
-            acc = 0
             for n in self.neighbors(x, 0):
-                acc += in_grid[n]
-            out_grid[x] = lut[acc]
+                out_grid[x] += in_grid[n]
 
 
 class TestStencilFrontend(unittest.TestCase):
+    def setUp(self):
+        self.transformer = PythonToStencilModel()
 
     def test_python_to_stencil_model(self):
-        transform = PythonToStencilModel()
-
         not_kernel = ast.parse("def not_kernel(self):\n    return 10")
 
-        self.assertRaises(StencilException, transform.visit, not_kernel)
+        self.assertRaises(StencilException, self.transformer.visit, not_kernel)
 
-    def test_parameter_assignment(self):
-        import logging
-        logging.basicConfig(level=20)
+    def test_function_def(self):
+        """
+        function def renames arguments to generated name
+        """
+        self.assertRaises(StencilException, self.transformer.visit, FunctionDef(name='bob'))
 
-        ls = LookupStencil(backend='c')
+        kernel_def = ast.parse(dedent("""
+        def kernel(self, in_grid, out_grid):
+            pass
+        """))
+        node = self.transformer.visit(kernel_def)
+        self.assertIsInstance(node, cn.CFile)
+        decl = node.body[0]
+        self.assertEqual(len(decl.params), 2)
+        self.assertTrue(decl.params[0].name, "name_")
+        self.assertTrue(decl.params[1].name, "name_")
 
-        start_grid = np.random.randint(2, size=(10, 10))
+        # NOTE: transformer modifies tree in place, cannot be re-run on same tree
+        # NOTE2: names assigned will change as further invocations of transformer take place
+        kernel_def = ast.parse(dedent("""
+        def kernel(self, in_grid, out_grid):
+            pass
+        """))
 
-        end_grid = ls(start_grid, ls.lut)
+        node = self.transformer.visit(kernel_def)
+        self.assertIsInstance(node, cn.CFile)
+        decl = node.body[0]
+        self.assertEqual(len(decl.params), 2)
+        self.assertTrue(decl.params[0].name, "name_")
+        self.assertTrue(decl.params[1].name, "name_")
 
-        print(start_grid)
+    def test_for(self):
+        """
+        if for iterates over interior_points or neighbors a semantic node is returned
+        representing that instead of the usual for node
+        """
+        self.transformer.arg_name_map["a"] = "name_0"
+        for_statement = ast.parse(dedent("""
+        for x in self.interior_points(a):
+            b += a[x]
+        """))
 
-        print('='*80)
+        node = self.transformer.visit(for_statement)
+        self.assertIsInstance(node.body[0], sm.InteriorPointsLoop)
 
-        print(end_grid)
+        for_statement = ast.parse(dedent("""
+        for x in self.neighbors(a, 0):
+            b += a[x]
+        """))
 
+        node = self.transformer.visit(for_statement)
+        self.assertIsInstance(node.body[0], sm.NeighborPointsLoop)
 
+        for_statement = ast.parse(dedent("""
+        for x in range(a):
+            b += a[x]
+        """))
+
+        node = self.transformer.visit(for_statement)
+        self.assertNotIsInstance(node.body[0], For)
+
+    def test_call(self):
+        """
+        project currently supports two special calls
+        distance which allows reference to function defined in the Stencil subclass
+        int which allows casting
+        Both are handed by replacing node with a MathFunction node
+        :return:
+        """
+        call_statement = ast.parse(dedent("""
+        self.distance(a, b)
+        """))
+
+        node = self.transformer.visit(call_statement)
+        self.assertIsInstance(node.body[0], sm.MathFunction)
+
+        call_statement = ast.parse(dedent("""
+        int(b)
+        """))
+
+        node = self.transformer.visit(call_statement)
+        self.assertIsInstance(node.body[0], sm.MathFunction)
+
+        call_statement = ast.parse(dedent("""
+        blobulate(x)
+        """))
+
+        node = self.transformer.visit(call_statement)
+        self.assertIsInstance(node.body[0], cn.FunctionCall)
+
+    def test_subscript(self):
+        """
+        subscripted variables that are parameters to the kernel function
+        should be converted to GridElements, this will allow subsequent transforms
+        to get the right n-d -> 1-d conversions and detect subscripts that are part
+        of interior points or neighbor iterators
+        :return:
+        """
+        subscript_statement = ast.parse(dedent("""
+        a[x]
+        """))
+        self.transformer.arg_name_map['a'] = 'name_0'
+        node = self.transformer.visit(subscript_statement)
+        self.assertIsInstance(node.body[0], sm.GridElement)
+
+        subscript_statement = ast.parse(dedent("""
+        a[:-1]
+        """))
+        self.transformer.arg_name_map['a'] = 'name_0'
+        self.assertRaises(StencilException, self.transformer.visit, subscript_statement)

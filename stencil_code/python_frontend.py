@@ -1,6 +1,7 @@
 
 import ast
 
+from _ast import Index
 from ctree.transformations import PyBasicConversions
 from ctree.c.nodes import SymbolRef
 from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
@@ -79,11 +80,21 @@ class PythonToStencilModel(PyBasicConversions):
         return node
 
     def visit_Subscript(self, node):
+        """
+        subscripts in stencil specializers must be simple Index class, essentially
+        just a variable
+        :param node:
+        :return:
+        """
         value = self.visit(node.value)
-        sliced = self.visit(node.slice.value)
-        if isinstance(sliced, str):
-            sliced = SymbolRef(sliced)
-        return GridElement(
-            grid_name=self.arg_name_map[value.name],
-            target=sliced
-        )
+        if isinstance(node.slice, Index):
+            sliced = self.visit(node.slice.value)
+            if isinstance(sliced, str):
+                sliced = SymbolRef(sliced)
+            return GridElement(
+                grid_name=self.arg_name_map[value.name],
+                target=sliced
+            )
+        else:
+            raise StencilException("{} subscript {} should be a Index not a {}".format(
+                node.value.id, node.slice, node.slice.__class__.__name__))
