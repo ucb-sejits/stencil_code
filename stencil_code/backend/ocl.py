@@ -68,7 +68,7 @@ class StencilOclTransformer(StencilBackend):
         self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
-        self.forced_local_size = None
+        #self.forced_local_size = None
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -92,6 +92,7 @@ class StencilOclTransformer(StencilBackend):
 
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
+        # TODO: use local size computed by tuner in program_config
         self.local_block = SymbolRef.unique()
         # generate the proper array macros.
         arg_cfg = self.arg_cfg
@@ -100,21 +101,22 @@ class StencilOclTransformer(StencilBackend):
 
         if self.testing:
             local_size = (1, 1, 1)
-        elif self.kernel.forced_local_size is not None:
-            local_size = self.kernel.forced_local_size
-            print("setting forced local size {}".format(local_size))
-            desired_device_number = -1
-            device = cl.clGetDeviceIDs()[desired_device_number]
-            lcs = LocalSizeComputer(global_size, device)
-            virtual_global_size = lcs.compute_virtual_global_size(local_size)
-            self.global_size = global_size
-            self.local_size = local_size
-            self.virtual_global_size = virtual_global_size
+        # elif self.kernel.forced_local_size is not None:
+        #     local_size = self.kernel.forced_local_size
+        #     print("setting forced local size {}".format(local_size))
+        #     desired_device_number = -1
+        #     device = cl.clGetDeviceIDs()[desired_device_number]
+        #     lcs = LocalSizeComputer(global_size, device)
+        #     virtual_global_size = lcs.compute_virtual_global_size(local_size)
+        #     self.global_size = global_size
+        #     self.local_size = local_size
+        #     self.virtual_global_size = virtual_global_size
         else:
             desired_device_number = -1
             device = cl.clGetDeviceIDs()[desired_device_number]
             lcs = LocalSizeComputer(global_size, device)
-            local_size = lcs.compute_local_size_bulky()
+            local_size = lcs.compute_local_size_bulky() #use config from tuner, don't need to instantiate lcs!
+            #local_size = #something from tuning_config?? that we set somwhere...passed in??
             virtual_global_size = lcs.compute_virtual_global_size(local_size)
             self.global_size = global_size
             self.local_size = local_size

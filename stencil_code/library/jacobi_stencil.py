@@ -54,3 +54,5 @@ if __name__ == '__main__':  # pragma no cover
 
     check = py(in_img)
     numpy.testing.assert_array_almost_equal(out_img, check, decimal=3)
+    # can compare outputs from tuning by running many times and printing outputted function
+    # may not need to compare for correctness every time? (lots of printing happening)

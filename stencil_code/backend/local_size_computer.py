@@ -119,8 +119,8 @@ class LocalSizeComputer(object):
         return sum([product([f * 2 for f in face]) for face in itertools.permutations(vector, len(vector)-1)])
 
     def compute_local_size_bulky(self):
-        print ("shape ", self.shape, " minimize between returned local dimensions and these")
-        print ("max work group size ", self.max_work_group_size, " want volume to be <= this")
+        # print ("shape ", self.shape, " minimize between returned local dimensions and these")
+        # print ("max work group size ", self.max_work_group_size, " want volume to be <= this")
         """
         compute a local size that leans toward minimizing the surface area to volume
         ratio of the n-dimensional local_size shape.
