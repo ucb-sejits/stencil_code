@@ -255,6 +255,7 @@ class SpecializedStencil(LazySpecializedFunction):
             if self._tuner is not None:
                 pass
                 # self._tuner.manager.finish()
+                # IDEA: best config is none when try to finish, just check for this case
             manip = ConfigurationManipulator()
             lsc = LocalSizeComputer(self.args[0].shape)
             bulky_results = lsc.compute_local_size_bulky()
