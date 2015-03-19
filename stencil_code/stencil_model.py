@@ -17,9 +17,10 @@ class StencilModelNode(ast.AST):
 class InteriorPointsLoop(StencilModelNode):
     _fields = ['target', 'body']
 
-    def __init__(self, target=None, body=None):
+    def __init__(self, target=None, body=None, grid_name=None):
         self.target = target
         self.body = body
+        self.grid_name = grid_name
         super(InteriorPointsLoop, self).__init__()
 
 
@@ -28,8 +29,10 @@ class NeighborPointsLoop(StencilModelNode):
                'neighbor_target', 'body']
 
     def __init__(self, neighbor_id=None, grid_name=None,
+                 reference_point=None,
                  neighbor_target=None, body=None):
         self.neighbor_id = neighbor_id
+        self.reference_point = reference_point
         self.grid_name = grid_name
         self.neighbor_target = neighbor_target
         self.body = body

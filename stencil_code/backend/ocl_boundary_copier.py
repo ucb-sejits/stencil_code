@@ -10,7 +10,7 @@ import ctypes as ct
 from ctree.c.nodes import Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     AddAssign, ArrayRef, FunctionCall, If
 from ctree.ocl.macros import get_global_id
-
+from ctree.util import strides
 
 class OclBoundaryCopier(object):
     """
@@ -137,8 +137,7 @@ class OclBoundaryCopier(object):
         dim = self.dimensions
         index = get_global_id(dim - 1)
         for d in reversed(range(dim - 1)):
-            stride = self.grid.strides[d] // \
-                self.grid.itemsize
+            stride = strides(self.grid.shape)[d]
             index = Add(
                 index,
                 Mul(
@@ -157,8 +156,7 @@ class OclBoundaryCopier(object):
         if dim - 1 == self.dimension:
             index = Add(index, Constant(self.shape[dim-1] - self.halo[dim-1]))
         for d in reversed(range(dim - 1)):
-            stride = self.grid.strides[d] // \
-                self.grid.itemsize
+            stride = strides(self.grid.shape)[d]
             add_amount = Add(get_global_id(d), Constant(self.global_offset[d]))
             if d == self.dimension:
                 add_amount = Add(add_amount, Constant(self.shape[self.dimension] - self.halo[self.dimension]))

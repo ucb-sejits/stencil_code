@@ -1,4 +1,5 @@
 import ctypes as ct
+from copy import deepcopy
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
@@ -8,6 +9,7 @@ from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
 from ctree.cpp.nodes import CppDefine
 from ctree.ocl.nodes import OclFile
 from ctree.templates.nodes import StringTemplate
+from ctree.util import strides
 import pycl as cl
 from stencil_code.backend.local_size_computer import LocalSizeComputer
 
@@ -53,14 +55,15 @@ def check_ocl_error(code_block, message="kernel"):
 
 
 class StencilOclTransformer(StencilBackend):
-    def __init__(self, input_grids=None, output_grid=None, kernel=None,
+    def __init__(self, parent_lazy_specializer=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
                  testing=False):
         super(StencilOclTransformer, self).__init__(
-            input_grids, output_grid, kernel, arg_cfg, fusable_nodes, testing)
+            parent_lazy_specializer, arg_cfg, fusable_nodes, testing)
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
+        self.local_block = None
         self.macro_defns = []
         self.project = None
         self.local_size = None
@@ -68,7 +71,7 @@ class StencilOclTransformer(StencilBackend):
         self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
-        #self.forced_local_size = None
+        self.output_grid = arg_cfg[0]
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -90,9 +93,9 @@ class StencilOclTransformer(StencilBackend):
             """))
         return node
 
+    # noinspection PyPep8Naming
     def visit_FunctionDecl(self, node):
         # This function grabs the input and output grid names which are used to
-        # TODO: use local size computed by tuner in program_config
         self.local_block = SymbolRef.unique()
         # generate the proper array macros.
         arg_cfg = self.arg_cfg
@@ -122,17 +125,18 @@ class StencilOclTransformer(StencilBackend):
             self.local_size = local_size
             self.virtual_global_size = virtual_global_size
 
-        super(StencilOclTransformer, self).visit_FunctionDecl(node)
-        for index, param in enumerate(node.params[:-1]):
-            # TODO: Transform numpy type to ctype
-            param.type = ct.POINTER(ct.c_float)()
+        self.function_decl_helper(node)
+
+        for param in node.params:
             param.set_global()
+
+        for param in node.params[:-1]:
             param.set_const()
+
         node.set_kernel()
         node.params[-1].set_global()
-        node.params[-1].type = ct.POINTER(ct.c_float)()
-        node.params.append(SymbolRef(self.local_block.name,
-                                     ct.POINTER(ct.c_float)()))
+        node.params[-1].type = node.params[0].type
+        node.params.append(SymbolRef(self.local_block.name, node.params[0].type))
         node.params[-1].set_local()
         node.defn = node.defn[0]
 
@@ -163,10 +167,6 @@ class StencilOclTransformer(StencilBackend):
                                                   [boundary_kernel]))
 
             self.boundary_kernels = boundary_kernels
-
-            # ctree.browser_show_ast(node)
-            # import ctree
-            # ctree.browser_show_ast(boundary_kernels[0])
         else:
             self.project.files.append(OclFile('kernel', [node]))
 
@@ -195,7 +195,7 @@ class StencilOclTransformer(StencilBackend):
         import operator
         local_mem_size = reduce(
             operator.mul,
-            (size + 2 * self.kernel.ghost_depth[index]
+            (size + 2 * self.parent_lazy_specializer.ghost_depth[index]
              for index, size in enumerate(local_size)),
             ct.sizeof(cl.cl_float())
         )
@@ -210,7 +210,7 @@ class StencilOclTransformer(StencilBackend):
         defn.extend(setargs)
         enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
             SymbolRef('queue'), SymbolRef('kernel'),
-            Constant(self.kernel.dim), NULL(),
+            Constant(self.parent_lazy_specializer.dim), NULL(),
             SymbolRef('global'), SymbolRef('local'),
             Constant(0), NULL(), NULL()
         ])
@@ -227,8 +227,7 @@ class StencilOclTransformer(StencilBackend):
                     ArrayDef(
                         SymbolRef(global_for_dim_name(dim), ct.c_ulong()),
                         arg_cfg[0].ndim,
-                        Array(body=[Constant(d)
-                         for d in self.boundary_handlers[dim].global_size])
+                        Array(body=[Constant(d) for d in self.boundary_handlers[dim].global_size])
                     ),
                     ArrayDef(
                         SymbolRef(local_for_dim_name(dim), ct.c_ulong()),
@@ -253,7 +252,7 @@ class StencilOclTransformer(StencilBackend):
                 enqueue_call = FunctionCall(
                     SymbolRef('clEnqueueNDRangeKernel'), [
                         SymbolRef('queue'), SymbolRef(kernel_dim_name(dim)),
-                        Constant(self.kernel.dim), NULL(),
+                        Constant(self.parent_lazy_specializer.dim), NULL(),
                         SymbolRef(global_for_dim_name(dim)),
                         SymbolRef(local_for_dim_name(dim)),
                         Constant(0), NULL(), NULL()
@@ -264,26 +263,6 @@ class StencilOclTransformer(StencilBackend):
                 params.extend([
                     SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
                 ])
-
-        # finish_call = FunctionCall(SymbolRef('clFinish'),
-        # [SymbolRef('queue')])
-        # defn.append(finish_call)
-        # finish_call = [
-        #     Assign(
-        #         SymbolRef("error_code", ct.c_int()),
-        #         FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')])
-        #     ),
-        #     If(
-        #         NotEq(SymbolRef("error_code"), Constant(0)),
-        #         FunctionCall(
-        #             SymbolRef("printf"),
-        #             [
-        #                 String("OPENCL KERNEL RETURNED ERROR CODE %d"),
-        #                 SymbolRef("error_code")
-        #             ]
-        #         )
-        #     )
-        # ]
 
         finish_call = check_ocl_error(
             FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
@@ -318,8 +297,7 @@ class StencilOclTransformer(StencilBackend):
     def gen_global_macro(self):
         index = "(d%d)" % (self.output_grid.ndim - 1)
         for x in reversed(range(self.output_grid.ndim - 1)):
-            ndim = str(int(self.output_grid.strides[x] /
-                           self.output_grid.itemsize))
+            ndim = str(int(strides(self.output_grid.shape)[x]))
             index += "+((d%s) * %s)" % (str(x), ndim)
         return index
 
@@ -361,8 +339,7 @@ class StencilOclTransformer(StencilBackend):
         dim = self.output_grid.ndim
         index = get_global_id(dim - 1)
         for d in reversed(range(dim - 1)):
-            stride = self.output_grid.strides[d] // \
-                self.output_grid.itemsize
+            stride = strides(self.output_grid.shape)[d]
             index = Add(
                 index,
                 Mul(
@@ -464,7 +441,7 @@ class StencilOclTransformer(StencilBackend):
                                         SymbolRef('get_group_id'),
                                         [Constant(d)]),
                                         get_local_size(d))
-                                ), Constant(self.kernel.ghost_depth[d]))),
+                                ), Constant(self.parent_lazy_specializer.ghost_depth[d]))),
                                     Constant(0), Constant(
                                         self.arg_cfg[0].shape[d]-1
                                     )
@@ -524,6 +501,8 @@ class StencilOclTransformer(StencilBackend):
                                    Constant(self.ghost_depth[d]))))
             self.var_list.append("local_id%d" % d)
 
+        self.index_target_dict[node.target] = global_idx
+
         for child in map(self.visit, node.body):
             if isinstance(child, list):
                 self.stencil_op.extend(child)
@@ -546,57 +525,77 @@ class StencilOclTransformer(StencilBackend):
         else:
             body.extend(self.stencil_op)
 
-        # this does not help fix the failure
-        # body.append(FunctionCall(SymbolRef("barrier"),
-        #                          [SymbolRef("CLK_GLOBAL_MEM_FENCE")]))
-        # body.extend(self.stencil_op)
-        #
-        # this line does seem to fix the problem, seems to suggest some timing
-        # issue
-        #
-        # body.append(If(conditional,
-        #                [StringTemplate("out_grid[global_index]+=0;")]))
-        #
-        # the following fixes the problem too, suggests timing issues
-        #
-        # body.append(FunctionCall(SymbolRef("printf"), [String("gid %d\\n"),
-        #                                                SymbolRef("global_index")]))
-        # from ctree.ocl.macros import get_group_id
-        # body.append(
-        #     FunctionCall(
-        #         SymbolRef("printf"),
-        #         [
-        #             String("group_id %2d %2d gid %2d %2d %2d\\n"),
-        #             get_global_id(0),
-        #             get_group_id(1),
-        #             get_global_id(0),
-        #             get_global_id(1),
-        #             SymbolRef('global_index'),
-        #         ]
-        #     )
-        # )
         return body
 
-    # Handle array references
+    # noinspection PyPep8Naming
+    def visit_NeighborPointsLoop(self, node):
+        """
+        unrolls the neighbor points loop, appending each current block of the body to a new
+        body for each neighbor point, a side effect of this is local python functions of the
+        neighbor point can be collapsed out, for example, a custom python distance function based
+        on neighbor distance can be resolved at transform time
+        DANGER: this blows up on large neighborhoods
+        :param node:
+        :return:
+        """
+        # TODO: unrolling blows up when neighborhood size is large.
+        neighbors_id = node.neighbor_id
+        # grid_name = node.grid_name
+        # grid = self.input_dict[grid_name]
+        zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])
+        self.neighbor_target = node.neighbor_target
+        # self.neighbor_grid_name = grid_name
+
+        # self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
+        body = []
+        for x in self.parent_lazy_specializer.neighbors(zero_point, neighbors_id):
+            # TODO: add line below to manage indices that refer to neighbor points loop
+            # self.var_list.append(node.neighbor_target)
+            self.offset_list = list(x)
+            self.offset_dict[self.neighbor_target] = list(x)
+            for statement in node.body:
+                body.append(self.visit(deepcopy(statement)))
+                # body.append(StringTemplate('printf("acc = %d\\n", acc);'))
+        self.neighbor_target = None
+        return body
+
+    # noinspection PyPep8Naming
     def visit_GridElement(self, node):
+        """
+        handles code generation for array references.
+        if a reference to the interior points loop index variable is found replace it with
+        the global_index
+        if a reference to the neighbor points index variable is found and the grid_name we are working
+        on is the first parameter then reference the local memory block, this is because the local
+        memory block is the current work_group elements mapped into a larger space that includes the
+        ghost zone
+
+        :param node:
+        :return:
+        """
         grid_name = node.grid_name
         target = node.target
-        if isinstance(target, SymbolRef):
 
+        if isinstance(target, SymbolRef):
             target_name = target.name
-            if target_name == self.kernel_target:
-                if grid_name == self.output_grid_name:
-                    return ArrayRef(SymbolRef(self.output_grid_name),
-                                    SymbolRef(self.output_index))
-                elif grid_name in self.input_dict:
-                    pt = list(map(lambda x: SymbolRef(x), self.var_list))
+            if target_name in self.index_target_dict:
+                return ArrayRef(SymbolRef(grid_name), SymbolRef(self.index_target_dict[target_name]))
+
+            elif target_name in self.offset_dict:
+                if node.grid_name == self.input_names[0]:
+                    pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
+                                  self.var_list, self.offset_list))
                     index = self.local_array_macro(pt)
                     return ArrayRef(self.local_block, index)
+                else:
+                    raise StencilException(
+                        "{}[{}] neighbor index does not reference first input {}".format(
+                            node.grid_name, target_name, self.input_names[0]
+                        )
+                    )
             else:
-                pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
-                              self.var_list, self.offset_list))
-                index = self.local_array_macro(pt)
-                return ArrayRef(self.local_block, index)
+                return ArrayRef(SymbolRef(grid_name), target)
+
         elif isinstance(target, FunctionCall) or \
                 isinstance(target, MathFunction):
             return ArrayRef(SymbolRef(grid_name), self.visit(target))
