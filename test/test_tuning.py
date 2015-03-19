@@ -20,10 +20,10 @@ class TestTuning(unittest.TestCase):
         specialized_stencil._tuner.report(time=10.0)
 
         print tuner_config
-        input_grid = np.ones([256, 256])
-        specialized_stencil.args_to_subconfig([input_grid])
-        tuner_config = next(specialized_stencil._tuner.configs)
-        print tuner_config
+        # input_grid = np.ones([256, 256])
+        # specialized_stencil.args_to_subconfig([input_grid])
+        # tuner_config = next(specialized_stencil._tuner.configs)
+        # print tuner_config
         # how to test to see if changes if change input size?
 
 
