@@ -251,7 +251,7 @@ class SpecializedStencil(LazySpecializedFunction):
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
 
-    def args_to_subconfig(self, args):
+    def args_to_subconfig(self, args, kwargs):
         """
         Generates a configuration for the transform method based on the
         arguments passed into the stencil.

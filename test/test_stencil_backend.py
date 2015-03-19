@@ -1,40 +1,79 @@
 import unittest
 
 import numpy as np
-from stencil_code.backend.c import StencilCTransformer
-from stencil_code.neighborhood import Neighborhood
+from textwrap import dedent
 
-from stencil_code.stencil_kernel import Stencil
+import ctree.c.nodes as ctree_nodes
+
+import stencil_code.stencil_model as stencil_model
+from stencil_code.library.diagnostic_stencil import DiagnosticStencil
+from stencil_code.backend.stencil_backend import StencilBackend
+
+from stencil_code.stencil_kernel import Stencil, StencilArgConfig
 from stencil_code.backend.omp import *
 from stencil_code.stencil_exception import StencilException
-from ctree.transformations import PyBasicConversions
-
-
-class LookupStencil(Stencil):
-    neighborhoods = [Neighborhood.moore_neighborhood(radius=1, dim=2)]
-
-    def kernel(self, in_grid, lut, out_grid):
-        for x in self.interior_points(out_grid):
-            acc = 0
-            for n in self.neighbors(x, 0):
-                acc += in_grid[n]
-            out_grid[x] = lut[acc]
 
 
 class TestStencilBackend(unittest.TestCase):
+    """
+    StencilBackend will be called after the PythonToStencilModel transform so it
+    expects:
+    self removed from kernel parameters
+    other kernel parameters have been renamed
+    """
 
-    def test_lookup_table(self):
-        in_grid = np.zeros([10, 10])
-        in_grid[5, :] = 1
-        lookup_table = np.zeros([10])
+    def setUp(self):
+        self.diagnostic_stencil = DiagnosticStencil(backend='c')
+        self.simple_arg_config = [StencilArgConfig(5, np.float32, 2, (5, 5))]
 
-        lookup_stencil = LookupStencil(backend='c')
+    def test_function_decl_helper(self):
+        """
+        The function_decl helper
+        parameters in tree are initially untyped, but are given types based on FunctionDecl node
+        arg_cfg, initially does not include the output so it grows by 1
 
-        out_grid = lookup_stencil(in_grid, lookup_table)
-        print(in_grid)
-        print("X"*80)
-        print(out_grid)
+        :return:
+        """
+        stencil_backend = StencilBackend(
+            parent_lazy_specializer=self.diagnostic_stencil,
+            arg_cfg=self.simple_arg_config
+        )
 
+        shape = (5, 5)
+        input_grid = np.ones(shape, dtype=np.float32)
+        function_decl = FunctionDecl(
+            return_type=None, name='kernel',
+            params=[SymbolRef('name_0'), SymbolRef('name_1')],
+            defn=None,
+        )
 
+        self.assertIsNone(function_decl.params[0].type)
+        self.assertIsNone(function_decl.params[1].type)
+        self.assertEqual(len(stencil_backend.arg_cfg), 1)
+        stencil_backend.function_decl_helper(function_decl)
+        self.assertIsNotNone(function_decl.params[0].type)
+        self.assertIsNotNone(function_decl.params[1].type)
+        self.assertEqual(len(stencil_backend.arg_cfg), 2)
 
-        print(lookup_stencil)
+        output_grid = self.diagnostic_stencil(input_grid)
+
+        self.assertIsNotNone(output_grid)
+
+    def test_interior_points_loop(self):
+        stencil_backend = StencilBackend(
+            parent_lazy_specializer=self.diagnostic_stencil,
+            arg_cfg=self.simple_arg_config
+        )
+
+        shape = (5, 5)
+        input_grid = np.ones(shape, dtype=np.float32)
+
+        kernel_def = ast.parse(dedent("""
+        Iabc
+        """))
+        interior_points_node = stencil_model.InteriorPointsLoop(
+            target="name0", body=[], grid_name="name_0"
+        )
+        node = stencil_backend.visit(interior_points_node)
+
+        self.assertIsNotNone(node)

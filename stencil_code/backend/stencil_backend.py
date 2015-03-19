@@ -64,33 +64,6 @@ class StencilBackend(NodeTransformer):
         return "x%d" % self.next_fresh_var
 
     # noinspection PyPep8Naming
-    def visit_NeighborPointsLoop(self, node):
-        """
-        unrolls the neighbor points loop, appending each current block of the body to a new
-        body for each neighbor point, a side effect of this is local python functions of the
-        neighbor point can be collapsed out, for example, a custom python distance function based
-        on neighbor distance can be resolved at transform time
-        DANGER: this blows up on large neighborhoods
-        :param node:
-        :return:
-        """
-        # TODO: unrolling blows up when neighborhood size is large.
-        neighbors_id = node.neighbor_id
-        zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])
-        self.neighbor_target = node.neighbor_target
-
-        self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
-        body = []
-        for x in self.parent_lazy_specializer.neighbors(zero_point, neighbors_id):
-            # TODO: add line below to manage indices that refer to neighbor points loop
-            self.offset_list = list(x)
-            self.offset_dict[self.neighbor_target] = list(x)
-            for statement in node.body:
-                body.append(self.visit(deepcopy(statement)))
-        self.index_target_dict.pop(node.neighbor_target, None)
-        return body
-
-    # noinspection PyPep8Naming
     def visit_InteriorPointsLoop(self, node):
         """
         generate the c for loops necessary to represent the interior points iteration
@@ -191,6 +164,33 @@ class StencilBackend(NodeTransformer):
 
         self.kernel_target = None
         return ret_node
+
+    # noinspection PyPep8Naming
+    def visit_NeighborPointsLoop(self, node):
+        """
+        unrolls the neighbor points loop, appending each current block of the body to a new
+        body for each neighbor point, a side effect of this is local python functions of the
+        neighbor point can be collapsed out, for example, a custom python distance function based
+        on neighbor distance can be resolved at transform time
+        DANGER: this blows up on large neighborhoods
+        :param node:
+        :return:
+        """
+        # TODO: unrolling blows up when neighborhood size is large.
+        neighbors_id = node.neighbor_id
+        zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])
+        self.neighbor_target = node.neighbor_target
+
+        self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
+        body = []
+        for x in self.parent_lazy_specializer.neighbors(zero_point, neighbors_id):
+            # TODO: add line below to manage indices that refer to neighbor points loop
+            self.offset_list = list(x)
+            self.offset_dict[self.neighbor_target] = list(x)
+            for statement in node.body:
+                body.append(self.visit(deepcopy(statement)))
+        self.index_target_dict.pop(node.neighbor_target, None)
+        return body
 
     # noinspection PyPep8Naming
     def visit_GridElement(self, node):
