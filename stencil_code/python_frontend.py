@@ -1,11 +1,12 @@
 
 import ast
-import ctree
 
+from _ast import Index
 from ctree.transformations import PyBasicConversions
 from ctree.c.nodes import SymbolRef
 from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
     MathFunction
+from .stencil_exception import StencilException
 
 import sys
 
@@ -20,6 +21,9 @@ class PythonToStencilModel(PyBasicConversions):
     def visit_FunctionDef(self, node):
         if node.name == 'kernel':
             node.args.args = node.args.args[1:]
+        else:
+            raise StencilException("AST, FunctionDef '{}' found, should only be 'kernel'".format(node.name))
+
         if self.arg_names is not None:  # pragma no cover
             for index, arg in enumerate(node.args.args):
                 new_name = self.arg_names[index]
@@ -45,11 +49,13 @@ class PythonToStencilModel(PyBasicConversions):
            type(node.iter.func) is ast.Attribute:
             if node.iter.func.attr is 'interior_points':
                 return InteriorPointsLoop(target=node.target.id,
-                                          body=node.body)
+                                          body=node.body,
+                                          grid_name=self.arg_name_map[node.iter.args[0].id])
             elif node.iter.func.attr is 'neighbors':
                 # neighbor method should have default neighbor id of 0
                 neighbor_id = 0 if len(node.iter.args) < 2 else node.iter.args[1].n
                 return NeighborPointsLoop(
+                    reference_point=node.iter.args[0].id,
                     neighbor_id=neighbor_id,
                     neighbor_target=node.target.id,
                     body=node.body
@@ -74,11 +80,21 @@ class PythonToStencilModel(PyBasicConversions):
         return node
 
     def visit_Subscript(self, node):
+        """
+        subscripts in stencil specializers must be simple Index class, essentially
+        just a variable
+        :param node:
+        :return:
+        """
         value = self.visit(node.value)
-        sliced = self.visit(node.slice.value)
-        if isinstance(sliced, str):
-            sliced = SymbolRef(sliced)
-        return GridElement(
-            grid_name=self.arg_name_map[value.name],
-            target=sliced
-        )
+        if isinstance(node.slice, Index):
+            sliced = self.visit(node.slice.value)
+            if isinstance(sliced, str):
+                sliced = SymbolRef(sliced)
+            return GridElement(
+                grid_name=self.arg_name_map[value.name],
+                target=sliced
+            )
+        else:
+            raise StencilException("{} subscript {} should be a Index not a {}".format(
+                node.value.id, node.slice, node.slice.__class__.__name__))

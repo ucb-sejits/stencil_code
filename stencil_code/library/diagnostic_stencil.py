@@ -4,7 +4,6 @@ import numpy.testing
 
 
 class DiagnosticStencil(Stencil):
-    # neighborhoods = [[(0, -1), (0, 1)], [(-1, 0), (1, 0)]]
     neighborhoods = [
         [(0, -1)], [(0, 1)], [(-1, 0)], [(1, 0)]
     ]
