@@ -26,13 +26,13 @@ class StencilOmpTransformer(StencilBackend):  # pragma: no cover
             def_name = "_%s_array_macro" % node.params[index].name
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
-                ndim = str(int(strides(arg)[x]/arg.itemsize))
+                ndim = str(int(strides(arg.shape)[x]))
                 calc += "+((_d%s) * %s)" % (str(x), ndim)
             calc += ")"
             params = ["_d"+str(x) for x in range(arg.ndim)]
             node.defn.insert(0, CppDefine(def_name, params, calc))
-        for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
-            node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
+        # for index, arg in enumerate(self.arg_cfg + (self.arg_cfg[0],)):
+        #     node.params[index].type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
 
         abs_decl = FunctionDecl(
             c_int(), SymbolRef('abs'), [SymbolRef('n', c_int())]
