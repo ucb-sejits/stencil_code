@@ -14,17 +14,22 @@ class TestTuning(unittest.TestCase):
     def test_opentuner_reset(self):
         specialized_stencil = SpecializedStencil(DiagnosticStencil(), 'ocl')
         input_grid = np.ones([100, 100])
-        # self.assertEquals(input_grid.shape, (100, 100))
         specialized_stencil.args_to_subconfig([input_grid])
-        tuner_config = next(specialized_stencil._tuner.configs)
-        specialized_stencil._tuner.report(time=10.0)
+        for _ in range(50):
+            tuner_config = next(specialized_stencil._tuner.configs)
+            specialized_stencil._tuner.report(time=10.0)
 
-        print tuner_config
-        # input_grid = np.ones([256, 256])
-        # specialized_stencil.args_to_subconfig([input_grid])
-        # tuner_config = next(specialized_stencil._tuner.configs)
-        # print tuner_config
-        # how to test to see if changes if change input size?
+        input_grid = np.ones([256, 256])
+        specialized_stencil.args_to_subconfig([input_grid])
+        for _ in range(50):
+            tuner_config = next(specialized_stencil._tuner.configs)
+            specialized_stencil._tuner.report(time=10.0)
+        #     print tuner_config
+
+        # for any given problem, where a problem is specific to the size we
+        # instatiate it with, the best_result for that driver won't be set until
+        # the 5th desired_result is run and reported back
+        # this must be the case within one "session"
 
 
 

@@ -1,14 +1,11 @@
 """
 This version was taken from the stencil_specializer project and has all asp
 stuff removed in order to work on a direct c-tree llvm implementation
-
 The main driver, intercepts the kernel() call and invokes the other components.
-
 Stencil kernel classes are sub-classed from the StencilKernel class
 defined here. At initialization time, the text of the kernel() method
 is parsed into a Python AST, then converted into a StencilModel by
 stencil_python_front_end.
-
 During each call to kernel(), stencil_unroll_neighbor_iter is called
 to unroll neighbor loops, stencil_convert is invoked to convert the
 model to C++, and an external compiler tool is invoked to generate a
@@ -19,20 +16,17 @@ from __future__ import print_function
 import math
 
 from collections import namedtuple
+from ctree.opentuner.driver import OpenTunerDriver
 from ctree.transforms.declaration_filler import DeclarationFiller
 from numpy import zeros
 
 from ctree.jit import LazySpecializedFunction, ConcreteSpecializedFunction
 from ctree.ocl.nodes import OclFile
 import ctree.np
+from opentuner.search.manipulator import ConfigurationManipulator, EnumParameter
 from opentuner.search.objective import MinimizeTime
 from stencil_code.backend.local_size_computer import LocalSizeComputer
-from stencil_code.opentuner_driver import StencilOpenTunerDriver
 from stencil_code.stencil_exception import StencilException
-
-from ctree.opentuner.driver import OpenTunerDriver
-from opentuner.search.manipulator import ConfigurationManipulator
-from opentuner.search.manipulator import EnumParameter
 
 _ = ctree.np  # Make PEP8 happy, and pycharm
 from ctree.ocl import get_context_and_queue_from_devices
@@ -60,6 +54,7 @@ except ImportError:
     hmarray, empty_like, Loop = (None, None, None)
 
 import copy
+from ctree.templates.nodes import StringTemplate
 
 
 def product(nums):
@@ -71,7 +66,6 @@ def product(nums):
 
 class ConcreteStencil(ConcreteSpecializedFunction):
     """StencilFunction
-
     The standard concrete specialized function that is returned when using the
     C or OpenMP backend.
     """
@@ -81,9 +75,8 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         self.output = None
         self._c_function = lambda v, *args, **kw: 0
 
-    def finalize(self, tree, entry_name, entry_type, output):
+    def finalize(self, tree, entry_name, entry_type, output, lsf):
         """
-
         :param tree: A project node containing any files to be compiled for
                      this specialized function.
         :type tree: Project node
@@ -96,17 +89,31 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         :param output: the stencil result buffer
         :return:
         """
+        # self.output = output
+        # self._c_function = self._compile(entry_name, tree, entry_type)
+        # return self
+
         self.output = output
+        tree.files[0].body.insert(0, StringTemplate("""
+        #include <sys/time.h>
+        double wall_time () {
+          struct timeval t;
+          gettimeofday (&t, NULL);
+          return 1.*t.tv_sec + 1.e-6*t.tv_usec;
+        }
+        """, {})
+        )
+        tree.files[0].body[-1].defn.insert(0, StringTemplate("double start_time2 = wall_time();"))
+        tree.files[0].body[-1].defn.append(StringTemplate("*duration = wall_time() - start_time2;"))
         self._c_function = self._compile(entry_name, tree, entry_type)
+        self.lsf = lsf
         return self
 
     def __call__(self, *args):
         """__call__
-
         :param *args: Arguments to be passed to our C function, the types
                       should match the types specified by the `entry_type`
                       that was passed to :attr: `finalize`.
-
         """
         # TODO: provide stronger type checking to give users better error
         # messages.
@@ -118,12 +125,13 @@ class ConcreteStencil(ConcreteSpecializedFunction):
             output = np.zeros_like(args[0])
         args += (output, byref(duration))
         self._c_function(*args)
+        print("Time {:0.10f}".format(duration.value))
+        self.lsf.report(time=duration.value)
         return output
 
 
 class OclStencilFunction(ConcreteSpecializedFunction):
     """OclStencilFunction
-
     The ConcreteSpecializedFunction used by the OpenCL backend.  Allows us to
     leverage pycl for handling numpy arrays and buffers cleanly.
     """
@@ -163,7 +171,6 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
     def __call__(self, *args):
         """__call__
-
         :param *args:
         """
         if hmarray and isinstance(args[0], hmarray):
@@ -245,7 +252,6 @@ class SpecializedStencil(LazySpecializedFunction):
         arguments to the specialized function call are passed to
         args_to_subconfig where they can be processed to a form usable by the
         specializer. For more information consult the ctree docs.
-
         :param stencil_kernel: The Kernel object containing the kernel function.
         :param backend_name: the type of specialized kernel to generate
 \        """
@@ -254,16 +260,14 @@ class SpecializedStencil(LazySpecializedFunction):
         self.output = None
         self.args = None
         self.fusable_nodes = None
-        self.tuning_driver = None
         backend_key = "{}_{}".format(backend_name, boundary_handling)
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
 
-    def args_to_subconfig(self, args, kwargs):
+    def args_to_subconfig(self, args, *kwargs):
         """
         Generates a configuration for the transform method based on the
         arguments passed into the stencil.
-
         :param args: StencilGrid instances being passed as params.
         :return: Tuple of information about the StencilGrids
         """
@@ -274,16 +278,13 @@ class SpecializedStencil(LazySpecializedFunction):
         )
         if self.backend == StencilOclTransformer:
             if self._tuner is not None:
-                pass
-                # self._tuner.manager.finish()
+                self._tuner.manager.finish()
                 # IDEA: best config is none when try to finish, just check for this case
             manip = ConfigurationManipulator()
             lsc = LocalSizeComputer(self.args[0].shape)
-            bulky_results = lsc.compute_local_size_bulky()
-            sizes_to_try = bulky_results[1] # NEED TO UNCOMMENT CHANGES FROM OCL BACKEND TO DO THIS
+            sizes_to_try = lsc.get_sizes_tried()
             manip.add_parameter(EnumParameter('local_work_size', sizes_to_try))
             self._tuner = OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
-            # self.tuning_driver.reset(manipulator=manip, objective=MinimizeTime())
 
         return args_subconfig
 
@@ -306,6 +307,7 @@ class SpecializedStencil(LazySpecializedFunction):
         #     for d in range(len(self.input_grids[0].shape) - 1):
         #         params.append(IntegerParameter("block_factor_%s" % d, 4, 8))
         #     return BruteForceTuningDriver(params, MinimizeTime())
+
         if self.backend == StencilOclTransformer:
             return None
         else:
@@ -317,7 +319,6 @@ class SpecializedStencil(LazySpecializedFunction):
         """
         Transforms the python AST representing our un-specialized stencil
         kernel into a c_ast which can be JIT compiled.
-
         :param tree: python AST of the kernel method.
         :param program_config: The configuration generated by args_to_subconfig
         :return: A ctree Project node, and our entry point type signature.
@@ -425,7 +426,7 @@ class SpecializedStencil(LazySpecializedFunction):
         else:
             concrete_function = ConcreteStencil()
             finalized = concrete_function.finalize(project, entry_point,
-                                                   entry_type, self.output)
+                                                   entry_type, self.output, self)
         self.output = None
         self.fusable_nodes = []
         return finalized
@@ -492,7 +493,6 @@ class Stencil(object):
         StencilKernel will store the kernel method and replace it with a
         lazy specialized class, which when called will begin the JIT
         specialization process using ctree's infrastructure.
-
         :param backend: Optional backend that should be used by ctree.
         Supported backends are c, omp (openmp), and ocl (opencl).
         :param neighborhood_definition: an iterable of neighborhoods

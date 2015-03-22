@@ -118,9 +118,10 @@ class StencilOclTransformer(StencilBackend):
             desired_device_number = -1
             device = cl.clGetDeviceIDs()[desired_device_number]
             lcs = LocalSizeComputer(global_size, device)
-            local_size = lcs.compute_local_size_bulky() #use config from tuner, don't need to instantiate lcs!
-            #local_size = #something from tuning_config?? that we set somwhere...passed in??
+            # local_size = lcs.compute_local_size_bulky()
+            local_size = next(self.parent_lazy_specializer.specializer._tuner.configs)['local_work_size']
             virtual_global_size = lcs.compute_virtual_global_size(local_size)
+            print local_size
             self.global_size = global_size
             self.local_size = local_size
             self.virtual_global_size = virtual_global_size
