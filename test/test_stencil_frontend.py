@@ -1,10 +1,11 @@
-from _ast import FunctionDef, For, Slice
+from _ast import FunctionDef, For, Attribute, Name
 import unittest
 
 import ast
 from textwrap import dedent
 
 import ctree.c.nodes as cn
+from ctree.c.nodes import SymbolRef, Constant
 
 from stencil_code.stencil_kernel import Stencil
 from stencil_code.neighborhood import Neighborhood
@@ -21,6 +22,19 @@ class TestStencil(Stencil):
         for x in self.interior_points(out_grid):
             for n in self.neighbors(x, 0):
                 out_grid[x] += in_grid[n]
+
+
+class TestStencilSelfRef(Stencil):
+    neighborhoods = [Neighborhood.moore_neighborhood(radius=1, dim=2)]
+
+    def __init__(self, backend='c', neighborhoods=None, boundary_handling='copy', **kwargs):
+        self.weight = 0.555
+        super(TestStencilSelfRef, self).__init__(backend, neighborhoods, boundary_handling, **kwargs)
+    
+    def kernel(self, in_grid, out_grid):
+        for x in self.interior_points(out_grid):
+            for n in self.neighbors(x, 0):
+                out_grid[x] += self.weight * in_grid[n] * self.distance(n, x)
 
 
 class TestStencilFrontend(unittest.TestCase):
@@ -142,3 +156,20 @@ class TestStencilFrontend(unittest.TestCase):
         """))
         self.transformer.arg_name_map['a'] = 'name_0'
         self.assertRaises(StencilException, self.transformer.visit, subscript_statement)
+
+    def test_attribute(self):
+        # this stencil has an instance variable "weight"
+        # this should be converted to a constant
+        stencil = TestStencilSelfRef()
+        transformer = PythonToStencilModel(stencil)
+        
+        node = Attribute(SymbolRef("self"), "weight", None)
+        new_node = transformer.visit(node)
+        self.assertIsInstance(new_node, Constant)
+
+        # should not alter self.distance, that is handled magically at Call Node
+        # node = ast.parse("self.distance(x)")
+        node = Attribute(Name("self", None), "distance", None)
+
+        new_node = transformer.visit(node)
+        self.assertNotIsInstance(new_node, Constant)

@@ -2,29 +2,26 @@ from __future__ import print_function
 from stencil_code.stencil_kernel import Stencil
 import numpy
 import numpy.testing
+from stencil_code.neighborhood import Neighborhood
 
 
-class DiagnosticStencil(Stencil):
-    neighborhoods = [
-        [(0, -1)], [(0, 1)], [(-1, 0)], [(1, 0)]
-    ]
+class JacobiNd(Stencil):
+    def __init__(self, backend, dimensions, boundary_handling, **kwargs):
+        neighborhoods = [Neighborhood.von_neuman_neighborhood(radius=1, dim=dimensions, include_origin=False)]
+        super(JacobiNd, self).__init__(backend, neighborhoods, boundary_handling, **kwargs)
+        self.neighbor_weight = 1.0 / len(neighborhoods[0])
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
+            out_grid[x] = 0.0
             for y in self.neighbors(x, 0):
-                out_grid[x] += 2.0 * in_grid[y]
-            for y in self.neighbors(x, 1):
-                out_grid[x] += 4.0 * in_grid[y]
-            for y in self.neighbors(x, 2):
-                out_grid[x] += 8.0 * in_grid[y]
-            for y in self.neighbors(x, 3):
-                    out_grid[x] += 16.0 * in_grid[y]
+                out_grid[x] += self.neighbor_weight * in_grid[y]
 
 
 if __name__ == '__main__':  # pragma no cover
     import argparse
 
-    parser = argparse.ArgumentParser("Run diagnostic stencil")
+    parser = argparse.ArgumentParser("Run jacobi stencil")
     parser.add_argument('-r', '--rows', action="store", dest="rows", type=int, default=10)
     parser.add_argument('-c', '--cols', action="store", dest="cols", type=int, default=10)
     parser.add_argument('-l', '--log', action="store_true", dest="log")
@@ -48,7 +45,7 @@ if __name__ == '__main__':  # pragma no cover
 
     in_img = numpy.ones([rows, cols]).astype(numpy.float32)
 
-    stencil = DiagnosticStencil(backend=backend, boundary_handling=boundary_handling)
+    stencil = JacobiNd(backend=backend, dimensions=2, boundary_handling=boundary_handling)
 
     out_img = stencil(in_img)
 

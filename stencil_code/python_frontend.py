@@ -1,9 +1,10 @@
 
 import ast
-
+from _ast import Name
 from _ast import Index
+from numbers import Number
 from ctree.transformations import PyBasicConversions
-from ctree.c.nodes import SymbolRef
+from ctree.c.nodes import SymbolRef, Constant
 from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
     MathFunction
 from .stencil_exception import StencilException
@@ -12,13 +13,19 @@ import sys
 
 
 class PythonToStencilModel(PyBasicConversions):
-    def __init__(self, arg_names=None):
+    def __init__(self, stencil_kernel=None, arg_names=None):
         super(PythonToStencilModel, self).__init__()
+        self.stencil_kernel = stencil_kernel
         self.arg_names = arg_names
         self.arg_name_map = {}
 
-    # Strip self parameter from kernel
+    # noinspection PyPep8Naming
     def visit_FunctionDef(self, node):
+        """
+        strip self parameter from the kernel
+        :param node:
+        :return:
+        """
         if node.name == 'kernel':
             node.args.args = node.args.args[1:]
         else:
@@ -43,6 +50,7 @@ class PythonToStencilModel(PyBasicConversions):
                     arg.id = name
         return super(PythonToStencilModel, self).visit_FunctionDef(node)
 
+    # noinspection PyPep8Naming
     def visit_For(self, node):
         node.body = list(map(self.visit, node.body))
         if type(node.iter) is ast.Call and \
@@ -62,6 +70,7 @@ class PythonToStencilModel(PyBasicConversions):
                 )
         return super(PythonToStencilModel, self).visit_For(node)  # pragma no cover
 
+    # noinspection PyPep8Naming
     def visit_Call(self, node):
         node = super(PythonToStencilModel, self).visit_Call(node)
 
@@ -79,6 +88,7 @@ class PythonToStencilModel(PyBasicConversions):
             return MathFunction(func=func_name, args=node.args)
         return node
 
+    # noinspection PyPep8Naming
     def visit_Subscript(self, node):
         """
         subscripts in stencil specializers must be simple Index class, essentially
@@ -98,3 +108,24 @@ class PythonToStencilModel(PyBasicConversions):
         else:
             raise StencilException("{} subscript {} should be a Index not a {}".format(
                 node.value.id, node.slice, node.slice.__class__.__name__))
+
+    # noinspection PyPep8Naming
+    def visit_Attribute(self, node):
+        """
+        This allows a reference to a numeric value of the stencil_kernel in
+        the kernel function, other uses will most likely blow up
+        :param node:
+        :return:
+        """
+        if isinstance(node.value, Name):
+            if node.value.id == 'self' and self.stencil_kernel is not None:
+                value = getattr(self.stencil_kernel, node.attr)
+                if isinstance(value, Number):
+                    return Constant(value)
+        if isinstance(node.value, SymbolRef):
+            if node.value.name == 'self' and self.stencil_kernel is not None:
+                value = getattr(self.stencil_kernel, node.attr)
+                if isinstance(value, Number):
+                    return Constant(value)
+
+        return node

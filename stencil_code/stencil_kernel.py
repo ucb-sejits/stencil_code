@@ -301,7 +301,7 @@ class SpecializedStencil(LazySpecializedFunction):
         # unroll_factor = 2**tuning_configuration['unroll_factor']
         unroll_factor = 0
 
-        tree = PythonToStencilModel().visit(tree)
+        tree = PythonToStencilModel(self.kernel).visit(tree)
 
         backend_transformer = self.backend(
             self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
