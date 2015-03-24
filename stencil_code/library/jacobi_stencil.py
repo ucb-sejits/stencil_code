@@ -5,52 +5,47 @@ import numpy.testing
 
 
 class Jacobi(Stencil):
-    # neighborhoods = [[(0, -1), (0, 1)], [(-1, 0), (1, 0)]]
-
-    # def kernel(self, in_grid, out_grid):
-    #     for x in self.interior_points(out_grid):
-    #         for y in self.neighbors(x, 0):
-    #             out_grid[x] += .1 * in_grid[y]
-    #         for y in self.neighbors(x, 1):
-    #             out_grid[x] += .3 * in_grid[y]
-    #
-    neighborhoods = [[(0, -1)], [(-1, 0)], [(0, 1)], [(1, 0)]]
+    neighborhoods = [[(0, -1), (0, 1), (-1, 0), (1, 0)]]
 
     def kernel(self, in_grid, out_grid):
         for x in self.interior_points(out_grid):
-            out_grid[x] = 1
+            out_grid[x] = 0.0
             for y in self.neighbors(x, 0):
-                out_grid[x] += 2 * in_grid[y]
-            for y in self.neighbors(x, 1):
-                out_grid[x] += 4 * in_grid[y]
-            for y in self.neighbors(x, 2):
-                out_grid[x] += 8 * in_grid[y]
-            for y in self.neighbors(x, 3):
-                out_grid[x] += 16 * in_grid[y]
+                out_grid[x] += .25 * in_grid[y]
 
 
 if __name__ == '__main__':  # pragma no cover
-    import sys
-    import logging
-    logging.basicConfig(level=20)
+    import argparse
 
-    height = 23 if len(sys.argv) < 2 else int(sys.argv[1])
-    width = 23 if len(sys.argv) < 3 else int(sys.argv[2])
+    parser = argparse.ArgumentParser("Run jacobi stencil")
+    parser.add_argument('-r', '--rows', action="store", dest="rows", type=int, default=10)
+    parser.add_argument('-c', '--cols', action="store", dest="cols", type=int, default=10)
+    parser.add_argument('-l', '--log', action="store_true", dest="log")
+    parser.add_argument('-b', '--backend', action="store", dest="backend", default="c")
+    parser.add_argument('-bh', '--boundary_handling', action="store", dest="boundary_handling", default="clamp")
+    parser.add_argument('-pr', '--print-rows', action="store", dest="print_rows", type=int, default=-1)
+    parser.add_argument('-pc', '--print-cols', action="store", dest="print_cols", type=int, default=-1)
 
-    # in_img = numpy.random.random([height, width]).astype(numpy.float32) * 100
-    in_img = numpy.ones([height, width]).astype(numpy.float32)
+    parse_result = parser.parse_args()
 
-    jacobi_stencil = Jacobi(backend='ocl')
-    py = Jacobi(backend='c')
+    if parse_result.log:
+        import logging
+        logging.basicConfig(level=20)
 
-    out_img = jacobi_stencil(in_img)
-    for i, r in enumerate(out_img):
-        if i > len(out_img)-22:
-            print("grid {:3d}  ".format(i), end="")
-            for j, c in enumerate(r):
-                if j < 60:
-                    print("{!s:3s}".format(int(c)), end="")
-            print()
+    rows = parse_result.rows
+    cols = parse_result.cols
+    backend = parse_result.backend
+    boundary_handling = parse_result.boundary_handling
+    print_rows = parse_result.print_rows if parse_result.print_rows >= 0 else min(10, rows)
+    print_cols = parse_result.print_cols if parse_result.print_cols >= 0 else min(10, cols)
 
-    check = py(in_img)
-    numpy.testing.assert_array_almost_equal(out_img, check, decimal=3)
+    in_img = numpy.ones([rows, cols]).astype(numpy.float32)
+
+    stencil = Jacobi(backend=backend, boundary_handling=boundary_handling)
+
+    out_img = stencil(in_img)
+
+    for index1 in range(print_rows):
+        for index2 in range(print_cols):
+            print("{:6s}".format(str(out_img[(index1, index2)])), end="")
+        print()
