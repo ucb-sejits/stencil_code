@@ -371,7 +371,7 @@ class SpecializedStencil(LazySpecializedFunction):
                 kernels = []
                 for index, kernel in enumerate(project.find_all(OclFile)):
                     # print("XXX index {} kernel {}".format(index, kernel.name))
-                    print("Kernel Codegen\n".format(kernel.codegen()))
+                    # print("Kernel Codegen\n".format(kernel.codegen()))
                     program = clCreateProgramWithSource(
                         concrete_function.context, kernel.codegen()).build()
                     if index == 0:
