@@ -1,5 +1,6 @@
 from __future__ import print_function
-from stencil_code.stencil_kernel import StencilKernel
+from stencil_code.neighborhood import Neighborhood
+from stencil_code.stencil_kernel import Stencil
 import numpy as np
 
 import logging
@@ -8,10 +9,12 @@ logging.basicConfig(level=0)
 __author__ = 'chick'
 
 
-class Jacobi3D(StencilKernel):
-
+class Jacobi3D(Stencil):
     def __init__(self, alpha, beta):
-        super(Jacobi3D, self).__init__(backend='c')
+        super(Jacobi3D, self).__init__(
+            backend='c',
+            neighborhoods=[Neighborhood.von_neuman_neighborhood(radius=1, dim=3, include_origin=False)]
+            )
         self.alpha = alpha
         self.beta = beta
 
