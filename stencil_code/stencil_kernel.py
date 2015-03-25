@@ -330,7 +330,7 @@ class SpecializedStencil(LazySpecializedFunction):
         # unroll_factor = 2**tuning_configuration['unroll_factor']
         unroll_factor = 0
 
-        tree = PythonToStencilModel().visit(tree)
+        tree = PythonToStencilModel(self.kernel).visit(tree)
 
         backend_transformer = self.backend(
             self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
@@ -400,7 +400,7 @@ class SpecializedStencil(LazySpecializedFunction):
                 kernels = []
                 for index, kernel in enumerate(project.find_all(OclFile)):
                     # print("XXX index {} kernel {}".format(index, kernel.name))
-                    print("Kernel Codegen\n".format(kernel.codegen()))
+                    # print("Kernel Codegen\n".format(kernel.codegen()))
                     program = clCreateProgramWithSource(
                         concrete_function.context, kernel.codegen()).build()
                     if index == 0:

@@ -38,7 +38,7 @@ if __name__ == '__main__':  # pragma: no cover
 
     kernel = TwoDHeatFlow(backend='ocl')
     py_kernel = TwoDHeatFlow(backend='python')
-    simulation_space = numpy.random.random(time_steps, width, height).astype(numpy.float32) * 1024
+    simulation_space = numpy.random.random([time_steps, width, height]).astype(numpy.float32) * 1024
 
     with Timer() as t:
         a = kernel(simulation_space)
