@@ -283,6 +283,7 @@ class SpecializedStencil(LazySpecializedFunction):
             manip = ConfigurationManipulator()
             lsc = LocalSizeComputer(self.args[0].shape)
             sizes_to_try = lsc.get_sizes_tried()
+            print(sizes_to_try)
             manip.add_parameter(EnumParameter('local_work_size', sizes_to_try))
             self._tuner = OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
 
