@@ -57,9 +57,9 @@ def check_ocl_error(code_block, message="kernel"):
 class StencilOclTransformer(StencilBackend):
     def __init__(self, parent_lazy_specializer=None,
                  block_padding=None, arg_cfg=None, fusable_nodes=None,
-                 testing=False):
+                 testing=False, tuning_cfg=None):
         super(StencilOclTransformer, self).__init__(
-            parent_lazy_specializer, arg_cfg, fusable_nodes, testing)
+            parent_lazy_specializer, arg_cfg, fusable_nodes, testing, tuning_cfg)
         self.block_padding = block_padding
         self.stencil_op = []
         self.load_mem_block = []
@@ -72,6 +72,8 @@ class StencilOclTransformer(StencilBackend):
         self.boundary_kernels = None
         self.boundary_handlers = None
         self.output_grid = arg_cfg[0]
+
+    LWS_TUNING_PARAM = 'local_work_size'
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -119,9 +121,9 @@ class StencilOclTransformer(StencilBackend):
             device = cl.clGetDeviceIDs()[desired_device_number]
             lcs = LocalSizeComputer(global_size, device)
             # local_size = lcs.compute_local_size_bulky()
-            local_size = next(self.parent_lazy_specializer.specializer._tuner.configs)['local_work_size']
+            local_size = self.tuning_cfg[self.LWS_TUNING_PARAM]
             virtual_global_size = lcs.compute_virtual_global_size(local_size)
-            print local_size
+            # print local_size
             self.global_size = global_size
             self.local_size = local_size
             self.virtual_global_size = virtual_global_size

@@ -14,6 +14,7 @@ is cached for future calls.
 """
 from __future__ import print_function
 import math
+import time
 
 from collections import namedtuple
 from ctree.opentuner.driver import OpenTunerDriver
@@ -154,7 +155,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self.output = None
         self._c_function = lambda: 0
 
-    def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
+    def finalize(self, tree, entry_type, entry_name, kernel, output_grid, lsf):
         """
         finalize
         :param tree: the transformed tree
@@ -167,6 +168,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self.kernel = kernel
         self.output = output_grid
         self._c_function = self._compile(entry_name, tree, entry_type)
+        self.lsf = lsf
         return self
 
     def __call__(self, *args):
@@ -193,6 +195,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                 # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         cl_error = 0
+        start = time.time()
         if isinstance(self.kernel, list):
             kernels = len(self.kernel)
             if kernels == 2:
@@ -210,6 +213,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         else:
             cl_error = self._c_function(self.queue, self.kernel, *buffers)
 
+        end = time.time()
         if cl.cl_errnum(cl_error) != cl.cl_errnum.CL_SUCCESS:
             raise StencilException(
                 "Error executing stencil kernel: opencl {} {}".format(
@@ -224,6 +228,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         )
         evt.wait()
 
+        print("Time {:0.10f}".format(end - start))
+        self.lsf.report(time=(end - start))
         return buf
 
     def __del__(self):
@@ -260,6 +266,7 @@ class SpecializedStencil(LazySpecializedFunction):
         self.output = None
         self.args = None
         self.fusable_nodes = None
+        self.last_shape = None
         backend_key = "{}_{}".format(backend_name, boundary_handling)
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
@@ -277,16 +284,16 @@ class SpecializedStencil(LazySpecializedFunction):
             for arg in args
         )
         if self.backend == StencilOclTransformer:
-            if self._tuner is not None:
-                self._tuner.manager.finish()
-                # IDEA: best config is none when try to finish, just check for this case
-            manip = ConfigurationManipulator()
-            lsc = LocalSizeComputer(self.args[0].shape)
-            sizes_to_try = lsc.get_sizes_tried()
-            print(sizes_to_try)
-            manip.add_parameter(EnumParameter('local_work_size', sizes_to_try))
-            self._tuner = OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
-
+            if self.last_shape is None or self.last_shape != self.args[0].shape:
+                if self._tuner is not None:
+                    self._tuner.manager.finish()
+                self.last_shape = self.args[0].shape
+                manip = ConfigurationManipulator()
+                lsc = LocalSizeComputer(self.args[0].shape)
+                sizes_to_try = lsc.get_sizes_tried()
+                print(sizes_to_try)
+                manip.add_parameter(EnumParameter('local_work_size', sizes_to_try))
+                self._tuner = OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
         return args_subconfig
 
     def get_tuning_driver(self):
@@ -334,7 +341,8 @@ class SpecializedStencil(LazySpecializedFunction):
         tree = PythonToStencilModel(self.kernel).visit(tree)
 
         backend_transformer = self.backend(
-            self.kernel, arg_cfg=argument_configuration, fusable_nodes=None
+            self.kernel, arg_cfg=argument_configuration, fusable_nodes=None,
+            tuning_cfg=tuning_configuration
         )
         project = Project(files=[tree])
         tree = backend_transformer.visit(project)
@@ -422,7 +430,7 @@ class SpecializedStencil(LazySpecializedFunction):
                 finalized = concrete_function.finalize(
                     project, entry_type, entry_point,
                     stencil_kernel_ptr,
-                    self.output
+                    self.output, self
                 )
         else:
             concrete_function = ConcreteStencil()

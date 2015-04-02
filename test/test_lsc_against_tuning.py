@@ -5,8 +5,6 @@ from stencil_code.backend.local_size_computer import LocalSizeComputer
 import opentuner
 from opentuner import ConfigurationManipulator
 from opentuner import EnumParameter
-from opentuner import IntegerParameter
-from opentuner import MeasurementInterface
 from opentuner import Result
 from opentuner.api import TuningRunManager
 from opentuner.measurement.interface import DefaultMeasurementInterface
@@ -50,7 +48,6 @@ import argparse
 
 
 def test_func(cfg, max_work_group_size):
-    # return cfg['local_work_size'][0]
     local_work_size = cfg['local_work_size']
     volume, surface_area = 1, 0
     for d in local_work_size:
@@ -59,7 +56,7 @@ def test_func(cfg, max_work_group_size):
     if volume > max_work_group_size:
         ratio = float("inf")
     else:
-        ratio = surface_area / float(volume) #want to minimize this ratio
+        ratio = surface_area / float(volume)
     return ratio
 
 
@@ -71,8 +68,7 @@ def main():
     shape = tuple(args.dimensions)
     lsc = LocalSizeComputer(shape)
     bulky_results = lsc.compute_local_size_bulky()
-    sizes_to_try = bulky_results[1]
-    manipulator.add_parameter(EnumParameter('local_work_size', sizes_to_try))
+    manipulator.add_parameter(EnumParameter('local_work_size', lsc.get_sizes_tried()))
     interface = DefaultMeasurementInterface(args=args,
                                             manipulator=manipulator,
                                             project_name='examples',
@@ -92,9 +88,10 @@ def main():
 
     best_cfg = api.get_best_configuration()
     api.finish()
-    print 'best local_work_size found was', best_cfg['local_work_size']
-    print "lsc compute bulky :", bulky_results[0]
-    assert best_cfg['local_work_size'] == bulky_results[0] or best_cfg['local_work_size'] == (bulky_results[0][1], bulky_results[0][0])
+    print "best local_work_size found was {}".format(best_cfg['local_work_size'])
+    print "lsc compute bulky : {}".format(bulky_results)
+    assert best_cfg['local_work_size'] == bulky_results or \
+           best_cfg['local_work_size'] == (bulky_results[1], bulky_results[0])
 
 if __name__ == '__main__':
     main()

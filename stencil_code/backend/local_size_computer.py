@@ -138,12 +138,6 @@ class LocalSizeComputer(object):
         best_local_size = None
         largest_volume = 0
         for candidate_local_size in self.get_local_size(0, self.max_work_group_size, perfect_fit_only=True):
-            # do not test local sizes equivalent to shape of data because turn out to be invalid when larger than 22x22
-            max_all_dim = True
-            for dim in range(self.dimensions):
-                max_all_dim = max_all_dim and (self.shape[dim] == candidate_local_size[dim])
-            if not max_all_dim:
-                self.sizes_tried.append(candidate_local_size)
             ratio = (LocalSizeComputer.volume(candidate_local_size)) / \
                 float(LocalSizeComputer.surface_area(candidate_local_size))
             # print("shape {!s:12s} local_size {!s:12} product {!s:12s} sum {!s:12s} ratio {!s:12s}".format(
@@ -152,9 +146,11 @@ class LocalSizeComputer(object):
             #     LocalSizeComputer.surface_area(candidate_local_size),
             #     ratio
             # ))
-            if ratio > largest_volume and product(candidate_local_size) <= self.max_work_group_size:
-                largest_volume = ratio
-                best_local_size = candidate_local_size
+            if product(candidate_local_size) <= self.max_work_group_size:
+                self.sizes_tried.append(candidate_local_size)
+                if ratio > largest_volume:
+                    largest_volume = ratio
+                    best_local_size = candidate_local_size
 
         if best_local_size is not None:
             best_local_size = [min(self.shape[dim], value) for dim, value in enumerate(best_local_size)]

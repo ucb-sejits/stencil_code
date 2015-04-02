@@ -9,7 +9,7 @@ from stencil_code.stencil_exception import StencilException
 
 class StencilBackend(NodeTransformer):
     def __init__(self, parent_lazy_specializer=None, arg_cfg=None,
-                 fusable_nodes=None, testing=False):
+                 fusable_nodes=None, testing=False, tuning_cfg=None):
         try:
             dir(self).index("visit_InteriorPointsLoop")
         except ValueError:
@@ -35,6 +35,7 @@ class StencilBackend(NodeTransformer):
         self.constants = parent_lazy_specializer.constants if parent_lazy_specializer else []
         self.distance = parent_lazy_specializer.distance if parent_lazy_specializer else None
         self.arg_cfg = arg_cfg
+        self.tuning_cfg = tuning_cfg
         self.fusable_nodes = fusable_nodes
         self.testing = testing
         super(StencilBackend, self).__init__()

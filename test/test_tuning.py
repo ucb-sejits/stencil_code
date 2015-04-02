@@ -1,9 +1,7 @@
 import unittest
-from opentuner.resultsdb.models import Result
 from stencil_code.library.diagnostic_stencil import DiagnosticStencil
 from stencil_code.library.jacobi_stencil import Jacobi
 
-from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_kernel import Stencil, SpecializedStencil
 
 import numpy as np
@@ -26,11 +24,14 @@ class TestTuning(unittest.TestCase):
             specialized_stencil._tuner.report(time=10.0)
         #     print tuner_config
 
-        # for any given problem, where a problem is specific to the size we
-        # instatiate it with, the best_result for that driver won't be set until
-        # the 5th desired_result is run and reported back
-        # this must be the case within one "session"
+    def test_jacobi_reset(self):
+        rows, cols = 64, 64
+        in_img = np.ones([rows, cols]).astype(np.float32)
+        stencil = Jacobi(backend="ocl", boundary_handling="clamp")
 
+        for _ in range(7):
+            out_img = stencil(in_img)
 
-
-
+        in_img2 = np.ones([100,200]).astype(np.float32)
+        for _ in range(7):
+            out_img = stencil(in_img2)
