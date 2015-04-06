@@ -35,3 +35,6 @@ class TestTuning(unittest.TestCase):
         in_img2 = np.ones([100,200]).astype(np.float32)
         for _ in range(7):
             out_img = stencil(in_img2)
+
+        for _ in range(2):
+            out_img = stencil(in_img)

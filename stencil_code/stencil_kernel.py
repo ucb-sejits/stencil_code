@@ -267,6 +267,7 @@ class SpecializedStencil(LazySpecializedFunction):
         self.args = None
         self.fusable_nodes = None
         self.last_shape = None
+        self.tuners = {}
         backend_key = "{}_{}".format(backend_name, boundary_handling)
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
@@ -285,15 +286,17 @@ class SpecializedStencil(LazySpecializedFunction):
         )
         if self.backend == StencilOclTransformer:
             if self.last_shape is None or self.last_shape != self.args[0].shape:
-                if self._tuner is not None:
-                    self._tuner.manager.finish()
+                # if self._tuner is not None:
+                #     self._tuner.manager.finish()
                 self.last_shape = self.args[0].shape
-                manip = ConfigurationManipulator()
-                lsc = LocalSizeComputer(self.args[0].shape)
-                sizes_to_try = lsc.get_sizes_tried()
-                print(sizes_to_try)
-                manip.add_parameter(EnumParameter('local_work_size', sizes_to_try))
-                self._tuner = OpenTunerDriver(manipulator=manip, objective=MinimizeTime())
+                if self.last_shape not in self.tuners:
+                    manip = ConfigurationManipulator()
+                    lsc = LocalSizeComputer(self.args[0].shape)
+                    sizes_to_try = lsc.get_sizes_tried()
+                    manip.add_parameter(EnumParameter('local_work_size', sizes_to_try))
+                    db = 'sqlite:///opentuner.db/{}.db'.format(str(self.last_shape).replace(" ",""))
+                    self.tuners[self.last_shape] = OpenTunerDriver(db=db, manipulator=manip, objective=MinimizeTime())
+                self._tuner = self.tuners[self.last_shape]
         return args_subconfig
 
     def get_tuning_driver(self):
