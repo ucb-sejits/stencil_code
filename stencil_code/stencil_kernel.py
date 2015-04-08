@@ -56,6 +56,7 @@ except ImportError:
 
 import copy
 from ctree.templates.nodes import StringTemplate
+from ctree.util import Timer
 
 
 def product(nums):
@@ -195,25 +196,24 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                 # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         cl_error = 0
-        start = time.time()
-        if isinstance(self.kernel, list):
-            kernels = len(self.kernel)
-            if kernels == 2:
-                cl_error = self._c_function(self.queue, self.kernel[0],
-                                            self.kernel[1], *buffers)
-            elif kernels == 3:
-                cl_error = self._c_function(self.queue, self.kernel[0],
-                                            self.kernel[1], self.kernel[2],
-                                            *buffers)
-            elif kernels == 4:
-                cl_error = self._c_function(
-                    self.queue, self.kernel[0], self.kernel[1], self.kernel[2],
-                    self.kernel[3], *buffers
-                )
-        else:
-            cl_error = self._c_function(self.queue, self.kernel, *buffers)
+        with Timer() as t:
+            if isinstance(self.kernel, list):
+                kernels = len(self.kernel)
+                if kernels == 2:
+                    cl_error = self._c_function(self.queue, self.kernel[0],
+                                                self.kernel[1], *buffers)
+                elif kernels == 3:
+                    cl_error = self._c_function(self.queue, self.kernel[0],
+                                                self.kernel[1], self.kernel[2],
+                                                *buffers)
+                elif kernels == 4:
+                    cl_error = self._c_function(
+                        self.queue, self.kernel[0], self.kernel[1], self.kernel[2],
+                        self.kernel[3], *buffers
+                    )
+            else:
+                cl_error = self._c_function(self.queue, self.kernel, *buffers)
 
-        end = time.time()
         if cl.cl_errnum(cl_error) != cl.cl_errnum.CL_SUCCESS:
             raise StencilException(
                 "Error executing stencil kernel: opencl {} {}".format(
@@ -228,8 +228,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         )
         evt.wait()
 
-        print("Time {:0.10f}".format(end - start))
-        self.lsf.report(time=(end - start))
+        print("Time {:0.10f}".format(t.interval))
+        self.lsf.report(time=t.interval)
         return buf
 
     def __del__(self):
