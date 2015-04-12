@@ -95,22 +95,6 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         self._c_function = self._compile(entry_name, tree, entry_type)
         return self
 
-        # self.output = output
-        # tree.files[0].body.insert(0, StringTemplate("""
-        # #include <sys/time.h>
-        # double wall_time () {
-        #   struct timeval t;
-        #   gettimeofday (&t, NULL);
-        #   return 1.*t.tv_sec + 1.e-6*t.tv_usec;
-        # }
-        # """, {})
-        # )
-        # tree.files[0].body[-1].defn.insert(0, StringTemplate("double start_time2 = wall_time();"))
-        # tree.files[0].body[-1].defn.append(StringTemplate("*duration = wall_time() - start_time2;"))
-        # self._c_function = self._compile(entry_name, tree, entry_type)
-        # self.lsf = lsf
-        # return self
-
     def __call__(self, *args):
         """__call__
         :param *args: Arguments to be passed to our C function, the types
@@ -127,8 +111,6 @@ class ConcreteStencil(ConcreteSpecializedFunction):
             output = np.zeros_like(args[0])
         args += (output, byref(duration))
         self._c_function(*args)
-        # print("Time {:0.10f}".format(duration.value))
-        # self.lsf.report(time=duration.value)
         return output
 
 
@@ -155,6 +137,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self.kernel = []
         self.output = None
         self._c_function = lambda: 0
+        self.lsf = None
 
     def finalize(self, tree, entry_type, entry_name, kernel, output_grid, lsf):
         """
@@ -164,6 +147,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         :param entry_name:
         :param kernel: the kernel generated that will be used in __call__
         :param output_grid:
+        :param lsf:
         :return: a specialized function
         """
         self.kernel = kernel
