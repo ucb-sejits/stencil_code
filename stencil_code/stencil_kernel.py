@@ -91,25 +91,25 @@ class ConcreteStencil(ConcreteSpecializedFunction):
         :param output: the stencil result buffer
         :return:
         """
-        # self.output = output
-        # self._c_function = self._compile(entry_name, tree, entry_type)
-        # return self
-
         self.output = output
-        tree.files[0].body.insert(0, StringTemplate("""
-        #include <sys/time.h>
-        double wall_time () {
-          struct timeval t;
-          gettimeofday (&t, NULL);
-          return 1.*t.tv_sec + 1.e-6*t.tv_usec;
-        }
-        """, {})
-        )
-        tree.files[0].body[-1].defn.insert(0, StringTemplate("double start_time2 = wall_time();"))
-        tree.files[0].body[-1].defn.append(StringTemplate("*duration = wall_time() - start_time2;"))
         self._c_function = self._compile(entry_name, tree, entry_type)
-        self.lsf = lsf
         return self
+
+        # self.output = output
+        # tree.files[0].body.insert(0, StringTemplate("""
+        # #include <sys/time.h>
+        # double wall_time () {
+        #   struct timeval t;
+        #   gettimeofday (&t, NULL);
+        #   return 1.*t.tv_sec + 1.e-6*t.tv_usec;
+        # }
+        # """, {})
+        # )
+        # tree.files[0].body[-1].defn.insert(0, StringTemplate("double start_time2 = wall_time();"))
+        # tree.files[0].body[-1].defn.append(StringTemplate("*duration = wall_time() - start_time2;"))
+        # self._c_function = self._compile(entry_name, tree, entry_type)
+        # self.lsf = lsf
+        # return self
 
     def __call__(self, *args):
         """__call__
@@ -127,8 +127,8 @@ class ConcreteStencil(ConcreteSpecializedFunction):
             output = np.zeros_like(args[0])
         args += (output, byref(duration))
         self._c_function(*args)
-        print("Time {:0.10f}".format(duration.value))
-        self.lsf.report(time=duration.value)
+        # print("Time {:0.10f}".format(duration.value))
+        # self.lsf.report(time=duration.value)
         return output
 
 
