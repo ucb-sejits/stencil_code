@@ -1,4 +1,5 @@
 from __future__ import print_function
+from ctree.util import Timer
 from stencil_code.stencil_kernel import Stencil
 import numpy
 import numpy.testing
@@ -43,7 +44,10 @@ if __name__ == '__main__':  # pragma no cover
 
     stencil = Jacobi(backend=backend, boundary_handling=boundary_handling)
 
-    out_img = stencil(in_img)
+    with Timer() as t:
+        out_img = stencil(in_img)
+
+    print("Jacobi process {}x{} matrix in {} seconds".format(rows, cols, t.interval))
 
     for index1 in range(print_rows):
         for index2 in range(print_cols):
