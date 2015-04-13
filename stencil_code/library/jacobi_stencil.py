@@ -25,6 +25,8 @@ if __name__ == '__main__':  # pragma no cover
     parser.add_argument('-bh', '--boundary_handling', action="store", dest="boundary_handling", default="clamp")
     parser.add_argument('-pr', '--print-rows', action="store", dest="print_rows", type=int, default=-1)
     parser.add_argument('-pc', '--print-cols', action="store", dest="print_cols", type=int, default=-1)
+    parser.add_argument('-i', '--iterations', action="store", type=int, default=-1)
+
 
     parse_result = parser.parse_args()
 
@@ -34,6 +36,7 @@ if __name__ == '__main__':  # pragma no cover
 
     rows = parse_result.rows
     cols = parse_result.cols
+    iterations = parse_result.iterations
     backend = parse_result.backend
     boundary_handling = parse_result.boundary_handling
     print_rows = parse_result.print_rows if parse_result.print_rows >= 0 else min(10, rows)
@@ -43,9 +46,11 @@ if __name__ == '__main__':  # pragma no cover
 
     stencil = Jacobi(backend=backend, boundary_handling=boundary_handling)
 
-    out_img = stencil(in_img)
+    for trial in range(iterations):
+        out_img = stencil(in_img)
+    print("Optimal Local Size {}".format(stencil.specializer._tuner.manager.get_best_configuration()))
 
-    for index1 in range(print_rows):
-        for index2 in range(print_cols):
-            print("{:6s}".format(str(out_img[(index1, index2)])), end="")
-        print()
+    # for index1 in range(print_rows):
+    #     for index2 in range(print_cols):
+    #         print("{:6s}".format(str(out_img[(index1, index2)])), end="")
+    #     print()
