@@ -48,7 +48,7 @@ if __name__ == '__main__':  # pragma no cover
 
     for trial in range(iterations):
         out_img = stencil(in_img)
-    print("Optimal Local Size {}".format(stencil.specializer._tuner.manager.get_best_configuration()))
+    print("Optimal Local Size {}".format(stencil.specializer._tuner.get_best_configuration()))
 
     # for index1 in range(print_rows):
     #     for index2 in range(print_cols):
