@@ -14,7 +14,7 @@ if __name__ == '__main__':  # pragma no cover
     parser.add_argument('-r', '--rows', action="store", dest="rows", type=int, default=10)
     parser.add_argument('-c', '--cols', action="store", dest="cols", type=int, default=10)
     parser.add_argument('-l', '--log', action="store_true", dest="log")
-    parser.add_argument('-b', '--backend', action="store", dest="backend", default="c")
+    # parser.add_argument('-b', '--backend', action="store", dest="backend", default="c")
     parser.add_argument('-bh', '--boundary_handling', action="store", dest="boundary_handling", default="clamp")
     parser.add_argument('-pr', '--print-rows', action="store", dest="print_rows", type=int, default=-1)
     parser.add_argument('-pc', '--print-cols', action="store", dest="print_cols", type=int, default=-1)
@@ -33,13 +33,13 @@ if __name__ == '__main__':  # pragma no cover
     rows = parse_result.rows
     cols = parse_result.cols
     iterations = parse_result.iterations
-    backend = parse_result.backend
+    # backend = parse_result.backend
     boundary_handling = parse_result.boundary_handling
     print_rows = parse_result.print_rows if parse_result.print_rows >= 0 else min(10, rows)
     print_cols = parse_result.print_cols if parse_result.print_cols >= 0 else min(10, cols)
 
     in_img = numpy.ones([rows, cols]).astype(numpy.float32)
-    stencil = Jacobi(backend=backend, boundary_handling=boundary_handling)
+    stencil = Jacobi(backend='ocl', boundary_handling=boundary_handling)
 
     out = sys.stdout
     f = open("jacobi_raw_output.txt", "w")
