@@ -212,7 +212,6 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         )
         evt.wait()
 
-        print("Time {:0.10f}".format(t.interval))
         self.lsf.report(time=t.interval)
         return buf
 
