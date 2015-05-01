@@ -159,10 +159,14 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
-        if hmarray and isinstance(args[0], hmarray):
+        if hmarray \
+                and isinstance(args[0], hmarray):
             output = empty_like(args[0])
         else:
             output = np.zeros_like(args[0])
+            # if self.lsf > 1:
+            # TODO add pointer to parent lsf
+            # output = np.zeros((4,8,8))
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
@@ -248,6 +252,7 @@ class SpecializedStencil(LazySpecializedFunction):
         self.args = None
         self.fusable_nodes = None
         backend_key = "{}_{}".format(backend_name, boundary_handling)
+        self.num_convolutions = 1
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
 
@@ -404,8 +409,11 @@ class SpecializedStencil(LazySpecializedFunction):
 
     def generate_output(self, program_cfg):
         arg_cfg, tune_cfg = program_cfg
-        if self.output is None:
+        if self.num_convolutions == 1 and self.output is None:
             self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
+        elif self.num_convolutions > 1 and self.output is None:
+            output_shape = (self.num_convolutions,) + arg_cfg[0].shape
+            self.output = zeros(output_shape, arg_cfg[0].dtype)
         return self.output
 
     def get_ir_nodes(self, args):
@@ -453,7 +461,8 @@ class Stencil(object):
     composable = True
 
     def __call__(self, *args, **kwargs):
-        return self.specializer(*args, **kwargs)
+        x = self.specializer(*args, **kwargs)
+        return x
 
     def __init__(self, backend='ocl', neighborhoods=None,
                  boundary_handling='clamp', **kwargs):
@@ -586,7 +595,7 @@ class Stencil(object):
             dims = (range(self.ghost_depth[index], dim -
                           self.ghost_depth[index], stride) for index, dim in
                     enumerate(x.shape))
-        else:
+        else:  # TODO: test that this only does interior for zero boundary handling
             dims = (range(self.ghost_depth[index], dim -
                           self.ghost_depth[index], stride) for index, dim in
                     enumerate(x.shape))
@@ -652,3 +661,31 @@ class Stencil(object):
         """
         for halo_point in HaloEnumerator(self.ghost_depth, grid.shape):
             yield halo_point
+
+
+class MultiConvolutionStencilKernel(Stencil):
+
+
+    @abc.abstractmethod
+    def kernel(self, *args):
+        """subclasses must implement this"""
+        return
+
+    def python_kernel_wrapper(self, *args):
+        """
+        create an output buffer based on input_buffer then call the kernel
+        :param args:
+        :return:
+        """
+        input_grid = args[0]
+        output_shape = (self.num_convolutions,) + input_grid.shape
+        output_grids = np.zeros(output_shape)
+
+        self.kernel(*(args + (output_grids,)))
+
+        if self.is_copied:
+            for output in output_grids:
+                for point in self.halo_points(input_grid):
+                    output[point] = input_grid[point]
+
+        return output_grids

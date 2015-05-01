@@ -39,6 +39,22 @@ class NeighborPointsLoop(StencilModelNode):
         super(NeighborPointsLoop, self).__init__()
 
 
+class MultiPointsLoop(StencilModelNode):
+    _fields = ['grid_name', 'input_target', 'output_target',
+               'coefficient', 'body']
+
+    def __init__(self, grid_name=None, input_target=None,
+                 output_target=None, coefficient=None,
+                 reference_point=None, body=None):
+        self.reference_point = reference_point
+        self.grid_name = grid_name
+        self.input_target = input_target
+        self.output_target = output_target
+        self.coefficient = coefficient
+        self.body = body
+        super(MultiPointsLoop, self).__init__()
+
+
 class MathFunction(StencilModelNode):
     _fields = ['func', 'args']
 

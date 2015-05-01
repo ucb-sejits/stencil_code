@@ -17,11 +17,14 @@ class ConvolutionFilter(Stencil):
         neighbors, coefficients, _ = \
             Neighborhood.compute_from_indices(convolution_array)
         self.neighbor_to_coefficient = dict(zip(neighbors, coefficients))
+        self.my_neighbors = numpy.array(neighbors)  # delete later, for testing purposes
         self.coefficients = numpy.array(coefficients)
         self.stride = stride
         super(ConvolutionFilter, self).__init__(
             neighborhoods=[neighbors], backend=backend, boundary_handling='copy'
         )
+        # hack
+        self.num_convolutions = 1
 
     def __call__(self, *args, **kwargs):
         """
@@ -44,8 +47,13 @@ class ConvolutionFilter(Stencil):
 
     def kernel(self, input_grid, coefficients, output_grid):
         for point in self.interior_points(output_grid, stride=self.stride):
-            for n in self.neighbors(point, 0):
-                output_grid[point] += input_grid[n] * self.distance(point, n)
+            for n in self.neighbors(point, 0):  # iterator that yields indices of neighbors (in input grid)
+                output_grid[point] += input_grid[n] * self.distance(point, n)  # weighting by distance to point
+        #
+        # for point in self.interior_points(output_grid, stride=self.stride):
+        #     for n in range(len(self.my_neighbors)):
+        #         output_grid[point] += input_grid[point + self.my_neighbors[n]] * self.coefficients[n]
+
 
 
 if __name__ == '__main__':  # pragma no cover

@@ -6,7 +6,7 @@ from numbers import Number
 from ctree.transformations import PyBasicConversions
 from ctree.c.nodes import SymbolRef, Constant
 from .stencil_model import GridElement, InteriorPointsLoop, NeighborPointsLoop, \
-    MathFunction
+    MathFunction, MultiPointsLoop
 from .stencil_exception import StencilException
 
 import sys
@@ -68,6 +68,14 @@ class PythonToStencilModel(PyBasicConversions):
                     neighbor_target=node.target.id,
                     body=node.body
                 )
+            elif node.iter.func.attr is 'neighbor_and_coefficient':
+                return MultiPointsLoop(
+                    input_target=node.target.elts[0].id,
+                    output_target=node.target.elts[1].id,
+                    coefficient=node.target.elts[2].id,
+                    reference_point=node.iter.args[0].id,
+                    body=node.body
+                )
         return super(PythonToStencilModel, self).visit_For(node)  # pragma no cover
 
     # noinspection PyPep8Naming
@@ -101,7 +109,12 @@ class PythonToStencilModel(PyBasicConversions):
             sliced = self.visit(node.slice.value)
             if isinstance(sliced, str):
                 sliced = SymbolRef(sliced)
+            # if not hasattr(value, 'name'):
+            #     array_name = value.name
+            # else:
+            #     array_name = self.arg_name_map[value.name]
             return GridElement(
+                # grid_name=array_name,
                 grid_name=self.arg_name_map[value.name],
                 target=sliced
             )
