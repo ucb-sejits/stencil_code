@@ -37,7 +37,7 @@ class MultiConvolutionFilter(MultiConvolutionStencilKernel):
         self.my_neighbors = numpy.array(neighbors_list)  # this is not safe, doesn't consider boundaries yet
         self.coefficients = numpy.array(coefficients_list)
         super(MultiConvolutionFilter, self).__init__(
-            neighborhoods=neighbors_list, backend=backend, boundary_handling='copy'
+            neighborhoods=neighbors_list, backend=backend, boundary_handling='zero'
         )
         self.specializer.num_convolutions = self.num_convolutions
 
@@ -134,7 +134,7 @@ if __name__ == '__main__':  # pragma no cover
 
     # in_grid = numpy.random.random([10, 5])
     # in_grid = numpy.array([numpy.ones([8, 8]).astype(numpy.float32), numpy.ones([8, 8]).astype(numpy.float32)])
-    in_grid = numpy.ones([8, 8]).astype(numpy.float32)
+    in_grid = numpy.ones([8, 8, 16]).astype(numpy.float32)
     # stencil = numpy.array(
     #     [
     #         [
@@ -154,43 +154,82 @@ if __name__ == '__main__':  # pragma no cover
     #         ],
     #     ]
     # )
-    stencil = numpy.array(  # TODO: make all these floats
+    stencil = numpy.array(
         [
             [
-                [1, 1, 1],
-                [1, 100, 1],
-                [1, 1, 1],
+                [
+                    [1, 1, 1],
+                    [1, 1, 1],
+                    [1, 1, 1],
+                ],
+                [
+                    [1, 1, 1],
+                    [1, 100, 1],
+                    [1, 1, 1],
+                ],
+                [
+                    [1, 1, 1],
+                    [1, 1, 1],
+                    [1, 1, 1],
+                ],
             ],
             [
-                [2, 2, 2],
-                [2, 200, 2],
-                [2, 2, 2],
-            ],
-            [
-                [1, 1, 1],
-                [1, 100, 1],
-                [1, 1, 1],
-            ],
-            [
-                [2, 2, 2],
-                [2, 200, 2],
-                [2, 2, 2],
+                [
+                    [2, 2, 2],
+                    [2, 2, 2],
+                    [2, 2, 2],
+                ],
+                [
+                    [2, 2, 2],
+                    [2, 200, 2],
+                    [2, 2, 2],
+                ],
+                [
+                    [2, 2, 2],
+                    [2, 2, 2],
+                    [2, 2, 2],
+                ],
             ]
         ]
     )
+    # stencil = numpy.array(  # TODO: make all these floats
+    #     [
+    #         [
+    #             [1, 1, 1],
+    #             [1, 100, 1],
+    #             [1, 1, 1],
+    #         ],
+    #         # [
+    #         #     [2, 2, 2],
+    #         #     [2, 200, 2],
+    #         #     [2, 2, 2],
+    #         # ],
+    #         # [
+    #         #     [1, 1, 1],
+    #         #     [1, 100, 1],
+    #         #     [1, 1, 1],
+    #         # ],
+    #         # [
+    #         #     [2, 2, 2],
+    #         #     [2, 200, 2],
+    #         #     [2, 2, 2],
+    #         # ]
+    #     ]
+    # )
 
     ocl_convolve_filter = MultiConvolutionFilter(convolution_arrays=stencil,
                                                  backend='ocl')
     ocl_out_grid = ocl_convolve_filter(in_grid)
     print(ocl_out_grid)
+    print(ocl_out_grid.shape)
     # for i in [0, 1, 6, 7]:
-    for conv in range(ocl_convolve_filter.num_convolutions):
-        print("convolution {}".format(conv))
-        # for conv in range(ocl_convolve_filter.num_convolutions):
-        for r in ocl_out_grid[conv]:
-            for c in r:
-                print("{:4.0f}".format(c), end="")
-            print()
+    # for conv in range(ocl_convolve_filter.num_convolutions):
+    #     print("convolution {}".format(conv))
+    #     # for conv in range(ocl_convolve_filter.num_convolutions):
+    #     for r in ocl_out_grid[conv]:
+    #         for c in r:
+    #             print("{:4.0f}".format(c), end="")
+    #         print()
     exit(0)
 
     # # in_grid = numpy.random.random([10, 5])

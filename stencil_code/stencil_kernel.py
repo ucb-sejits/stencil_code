@@ -120,7 +120,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
     The ConcreteSpecializedFunction used by the OpenCL backend.  Allows us to
     leverage pycl for handling numpy arrays and buffers cleanly.
     """
-    def __init__(self):
+    def __init__(self, lsf=None):
         """__init__
         Creates a context and queue that can be reused across calls to this
         function.
@@ -138,6 +138,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self.kernel = []
         self.output = None
         self._c_function = lambda: 0
+        self.lsf = lsf
 
     def finalize(self, tree, entry_type, entry_name, kernel, output_grid):
         """
@@ -162,11 +163,10 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         if hmarray \
                 and isinstance(args[0], hmarray):
             output = empty_like(args[0])
+        elif self.lsf.num_convolutions > 1:
+            output = np.zeros((2, 8, 8, 16)).astype(args[0].dtype)
         else:
             output = np.zeros_like(args[0])
-            # if self.lsf > 1:
-            # TODO add pointer to parent lsf
-            # output = np.zeros((4,8,8))
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
@@ -265,10 +265,11 @@ class SpecializedStencil(LazySpecializedFunction):
         :return: Tuple of information about the StencilGrids
         """
         self.args = args
-        return tuple(
+        subconfig = tuple(
             StencilArgConfig(len(arg), arg.dtype, arg.ndim, arg.shape)
             for arg in args
         )
+        return subconfig
 
     # def get_tuning_driver(self):
     #     """
@@ -368,7 +369,7 @@ class SpecializedStencil(LazySpecializedFunction):
             entry_type = CFUNCTYPE(c_int32, *param_types)
 
         if self.backend == StencilOclTransformer:
-            concrete_function = OclStencilFunction()
+            concrete_function = OclStencilFunction(lsf=self)
             if self.kernel.is_copied:
                 args = [
                     project, entry_type, entry_point,

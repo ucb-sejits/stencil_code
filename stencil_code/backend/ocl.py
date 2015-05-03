@@ -1,5 +1,6 @@
 from collections import namedtuple
 import ctypes as ct
+import numpy as np
 from copy import deepcopy
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
@@ -18,12 +19,6 @@ from stencil_code.stencil_exception import StencilException
 from stencil_code.stencil_model import MathFunction
 from stencil_code.backend.stencil_backend import StencilBackend
 from stencil_code.backend.ocl_boundary_copier import boundary_kernel_factory
-
-import numpy as np
-
-
-StencilArgConfig = namedtuple(
-'StencilArgConfig', ['size', 'dtype', 'ndim', 'shape'])
 
 
 def kernel_dim_name(cur_dim):
@@ -60,6 +55,10 @@ def check_ocl_error(code_block, message="kernel"):
         )
     ]
 
+StencilArgConfig = namedtuple(
+    'StencilArgConfig', ['size', 'dtype', 'ndim', 'shape']
+)
+
 
 class StencilOclTransformer(StencilBackend):
     def __init__(self, parent_lazy_specializer=None,
@@ -78,22 +77,14 @@ class StencilOclTransformer(StencilBackend):
         self.virtual_global_size = None
         self.boundary_kernels = None
         self.boundary_handlers = None
-        self.output_grid = arg_cfg[0]
         self.loop_vars = {}
-
-
+        self.output_grid = arg_cfg[0]
+        # if self.parent_lazy_specializer.num_convolutions > 1:
+        #     self.output_grid = arg_cfg[-1]
         if self.parent_lazy_specializer.num_convolutions > 1:
-            # should this somehow already be in the arguments?
-            output_shape = (self.parent_lazy_specializer.num_convolutions,) + arg_cfg[0].shape
-            output_grids = np.zeros(output_shape)
-            self.output_grid = StencilArgConfig(len(output_grids), output_grids.dtype, output_grids.ndim, output_grids.shape)
-            # self.ghost_depth = (1,1,1)
-
-    def __repr__(self):
-        return "StencilOclTransformer"
-
-    def __str__(self):
-        return "StencilOclTransformer"
+            output_shape = (self.parent_lazy_specializer.num_convolutions,) + self.arg_cfg[0].shape
+            output = np.zeros(output_shape).astype(self.arg_cfg[0].dtype)
+            self.output_grid = (StencilArgConfig(len(output), output.dtype, output.ndim, output.shape),)
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -155,20 +146,12 @@ class StencilOclTransformer(StencilBackend):
         # boundary kernels to handle the on-gpu boundary copy
         if self.is_copied:
             device = cl.clGetDeviceIDs()[-1]
-            # self.boundary_handlers = boundary_kernel_factory(
-            #     self.ghost_depth, self.output_grid,
-            #     node.params[0].name,
-            #     node.params[-2].name,  # second last parameter is output
-            #     device
-            # )
-            self.boundary_handlers = []
-            # for i in range(self.parent_lazy_specializer.num_convolutions):
-            #     self.boundary_handlers += boundary_kernel_factory(
-            #                         self.ghost_depth, self.input_grids[0],
-            #                         node.params[0].name,
-            #                         node.params[-2].name,  # second last parameter is output
-            #                         device
-            #                         )
+            self.boundary_handlers = boundary_kernel_factory(
+                self.ghost_depth, self.output_grid,
+                node.params[0].name,
+                node.params[-2].name,  # second last parameter is output
+                device
+            )
             boundary_kernels = [
                 FunctionDecl(
                     name=boundary_handler.kernel_name,
@@ -300,14 +283,12 @@ class StencilOclTransformer(StencilBackend):
         return control
 
     def global_array_macro(self, point):
-        # dim = len(self.output_grid.shape)
         dim = len(self.input_grids[0].shape)
         index = point[dim - 1]
         for d in reversed(range(dim - 1)):
             index = Add(
                 Mul(
                     index,
-                    # Constant(self.output_grid.shape[d])
                     Constant(self.input_grids[0].shape[d])
                 ),
                 point[d]
@@ -316,15 +297,13 @@ class StencilOclTransformer(StencilBackend):
         return FunctionCall(SymbolRef("global_array_macro"), point)
 
     def gen_global_macro(self):
-        # index = "(d%d)" % (self.output_grid.ndim - 1)
         index = "(d%d)" % (self.input_grids[0].ndim - 1)
-        for x in reversed(range(self.output_grid.ndim - 1)):
-            ndim = str(int(strides(self.output_grid.shape)[x]))
+        for x in reversed(range(self.input_grids[0].ndim - 1)):
+            ndim = str(int(strides(self.input_grids[0].shape)[x]))
             index += "+((d%s) * %s)" % (str(x), ndim)
         return index
 
     def local_array_macro(self, point):
-        # dim = len(self.output_grid.shape)
         dim = len(self.input_grids[0].shape)
         index = get_local_id(dim)
         for d in reversed(range(dim)):
@@ -341,7 +320,6 @@ class StencilOclTransformer(StencilBackend):
         return FunctionCall(SymbolRef("local_array_macro"), point)
 
     def gen_local_macro(self):
-        # dim = len(self.output_grid.shape)
         dim = len(self.input_grids[0].shape)
         index = SymbolRef("d%d" % (dim - 1))
         for d in reversed(range(dim - 1)):
@@ -360,10 +338,10 @@ class StencilOclTransformer(StencilBackend):
         return index
 
     def gen_global_index(self):
-        dim = self.output_grid.ndim
+        dim = self.input_grids[0].ndim
         index = get_global_id(dim - 1)
         for d in reversed(range(dim - 1)):
-            stride = strides(self.output_grid.shape)[d]
+            stride = strides(self.input_grids[0].shape)[d]
             index = Add(
                 index,
                 Mul(
@@ -374,7 +352,6 @@ class StencilOclTransformer(StencilBackend):
         return index
 
     def load_shared_memory_block(self, target, ghost_depth):
-        # dim = len(self.output_grid.shape)
         dim = len(self.input_grids[0].shape)
         body = []
         thread_id, num_threads, block_size = gen_decls(dim, ghost_depth)
@@ -479,7 +456,6 @@ class StencilOclTransformer(StencilBackend):
         )
         return body
 
-    # noinspection PyPep8Naming
     def visit_SymbolRef(self, node):
         if node.name in self.loop_vars:
             return self.loop_vars[node.name]
@@ -488,7 +464,6 @@ class StencilOclTransformer(StencilBackend):
 
     # noinspection PyPep8Naming
     def visit_InteriorPointsLoop(self, node):
-        # dim = len(self.output_grid.shape)
         dim = len(self.input_grids[0].shape)
         self.kernel_target = node.target
         condition = And(
@@ -543,7 +518,6 @@ class StencilOclTransformer(StencilBackend):
                 self.stencil_op.append(child)
 
         conditional = None
-        # for dim in range(len(self.output_grid.shape)):
         for dim in range(len(self.input_grids[0].shape)):
             if self.virtual_global_size[dim] != self.global_size[dim]:
                 if conditional is None:
@@ -639,9 +613,10 @@ class StencilOclTransformer(StencilBackend):
                 # self.var_list.append(node.neighbor_target)
                 self.offset_list = list(x)
                 self.offset_dict[self.input_target] = list(x)
-                # self.index_target_dict[self.output_target] = Add((Mul(SymbolRef("conv_id"), Constant(product(self.input_grids[0].shape)))), SymbolRef('global_index'))
-                self.index_target_dict[self.output_target] = Add((Mul(Constant(conv_id), Constant(product(self.input_grids[0].shape)))), SymbolRef('global_index'))
-                self.loop_vars[self.coefficient] = Constant(self.parent_lazy_specializer.coefficients[(conv_id, neighbor_num)])
+                offset = conv_id * product(self.input_grids[0].shape)
+                self.index_target_dict[self.output_target] = Add(Constant(offset), SymbolRef('global_index'))
+                self.loop_vars[self.coefficient] = \
+                    Constant(self.parent_lazy_specializer.coefficients[(conv_id, neighbor_num)])
                 for statement in node.body:
                     body.append(self.visit(deepcopy(statement)))
                     # body.append(StringTemplate('printf("acc = %d\\n", acc);'))
