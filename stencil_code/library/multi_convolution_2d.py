@@ -136,11 +136,12 @@ if __name__ == '__main__':  # pragma no cover
     # in_grid = numpy.array([numpy.ones([8, 8]).astype(numpy.float32), numpy.ones([8, 8]).astype(numpy.float32)])
     in_grid = numpy.ones([8, 8]).astype(numpy.float32)
     base_stencil = numpy.random.random((5, 5)).astype(numpy.float32)
-    stencil = numpy.empty((4, 5, 5)).astype(numpy.float32)
-    for i in range(4):
+    stencil = numpy.empty((6, 5, 5)).astype(numpy.float32)
+    for i in range(6):
         for j in range(5):
             for k in range(5):
-                stencil[i][j][k] = base_stencil[j][k]
+                # stencil[i][j][k] = base_stencil[j][k]
+                stencil[i][j][k] = float(i+1)
 
     ocl_convolve_filter = MultiConvolutionFilter(convolution_arrays=stencil,
                                                  backend='ocl')
