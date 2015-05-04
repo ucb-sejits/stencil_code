@@ -21,7 +21,7 @@ class ConvolutionFilter(Stencil):
         self.coefficients = numpy.array(coefficients)
         self.stride = stride
         super(ConvolutionFilter, self).__init__(
-            neighborhoods=[neighbors], backend=backend, boundary_handling='copy'
+            neighborhoods=[neighbors], backend=backend, boundary_handling='zero'
         )
         # hack
         self.num_convolutions = 1
@@ -64,20 +64,35 @@ if __name__ == '__main__':  # pragma no cover
     in_grid = numpy.ones([8, 8, 16]).astype(numpy.float32)
     stencil = numpy.array(
         [
+            # [
+            #     [1, 1, 1],
+            #     [1, 1, 1],
+            #     [1, 1, 1],
+            # ],
+            # [
+            #     [1, 1, 1],
+            #     [1, 100, 1],
+            #     [1, 1, 1],
+            # ],
+            # [
+            #     [1, 1, 1],
+            #     [1, 1, 1],
+            #     [1, 1, 1],
+            # ],
             [
-                [1, 1, 1],
-                [1, 1, 1],
-                [1, 1, 1],
+                [2, 2, 2],
+                [2, 2, 2],
+                [2, 2, 2],
             ],
             [
-                [1, 1, 1],
-                [1, 100, 1],
-                [1, 1, 1],
+                [2, 2, 2],
+                [2, 200, 2],
+                [2, 2, 2],
             ],
             [
-                [1, 1, 1],
-                [1, 1, 1],
-                [1, 1, 1],
+                [2, 2, 2],
+                [2, 2, 2],
+                [2, 2, 2],
             ],
         ]
     )

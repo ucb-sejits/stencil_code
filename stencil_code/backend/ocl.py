@@ -85,6 +85,7 @@ class StencilOclTransformer(StencilBackend):
             output_shape = (self.parent_lazy_specializer.num_convolutions,) + self.arg_cfg[0].shape
             output = np.zeros(output_shape).astype(self.arg_cfg[0].dtype)
             self.output_grid = (StencilArgConfig(len(output), output.dtype, output.ndim, output.shape),)
+            print self.output_grid[0].shape
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):

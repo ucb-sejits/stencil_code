@@ -134,94 +134,27 @@ if __name__ == '__main__':  # pragma no cover
 
     # in_grid = numpy.random.random([10, 5])
     # in_grid = numpy.array([numpy.ones([8, 8]).astype(numpy.float32), numpy.ones([8, 8]).astype(numpy.float32)])
-    in_grid = numpy.ones([8, 8, 16]).astype(numpy.float32)
-    stencil = numpy.array(
-        [
-            [
-                [
-                    [1, 1, 1],
-                    [1, 1, 1],
-                    [1, 1, 1],
-                ],
-                [
-                    [1, 1, 1],
-                    [1, 100, 1],
-                    [1, 1, 1],
-                ],
-                [
-                    [1, 1, 1],
-                    [1, 1, 1],
-                    [1, 1, 1],
-                ],
-            ],
-            [
-                [
-                    [2, 2, 2],
-                    [2, 2, 2],
-                    [2, 2, 2],
-                ],
-                [
-                    [2, 2, 2],
-                    [2, 200, 2],
-                    [2, 2, 2],
-                ],
-                [
-                    [2, 2, 2],
-                    [2, 2, 2],
-                    [2, 2, 2],
-                ],
-            ],
-            [
-                [
-                    [1, 1, 1],
-                    [1, 1, 1],
-                    [1, 1, 1],
-                ],
-                [
-                    [1, 1, 1],
-                    [1, 100, 1],
-                    [1, 1, 1],
-                ],
-                [
-                    [1, 1, 1],
-                    [1, 1, 1],
-                    [1, 1, 1],
-                ],
-            ],
-            [
-                [
-                    [2, 2, 2],
-                    [2, 2, 2],
-                    [2, 2, 2],
-                ],
-                [
-                    [2, 2, 2],
-                    [2, 200, 2],
-                    [2, 2, 2],
-                ],
-                [
-                    [2, 2, 2],
-                    [2, 2, 2],
-                    [2, 2, 2],
-                ],
-            ]
-        ]
-    )
+    in_grid = numpy.ones([8, 8]).astype(numpy.float32)
+    base_stencil = numpy.random.random((5, 5)).astype(numpy.float32)
+    stencil = numpy.empty((4, 5, 5)).astype(numpy.float32)
+    for i in range(4):
+        for j in range(5):
+            for k in range(5):
+                stencil[i][j][k] = base_stencil[j][k]
 
     ocl_convolve_filter = MultiConvolutionFilter(convolution_arrays=stencil,
                                                  backend='ocl')
     ocl_out_grid = ocl_convolve_filter(in_grid)
     # print(ocl_out_grid)
     # print(ocl_out_grid.shape)
-    for conv in range(ocl_convolve_filter.num_convolutions):
-        for i in [0, 1, 6, 7]:
-            print("convolution {}".format(conv))
-            # for conv in range(ocl_convolve_filter.num_convolutions):
-            for r in ocl_out_grid[conv]:
-                for c in r:
-                    for j in c:
-                        print("{:4.0f}".format(j), end="")
-                print()
+    for conv in range(ocl_convolve_filter.specializer.num_convolutions):
+        print("convolution {}".format(conv))
+        # for conv in range(ocl_convolve_filter.num_convolutions):
+        # print(ocl_out_grid.shape)
+        for r in ocl_out_grid[conv]:
+            for c in r:
+                print("{:4.0f}, ".format(c), end="")
+            print()
     exit(0)
 
     # # in_grid = numpy.random.random([10, 5])
