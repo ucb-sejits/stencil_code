@@ -132,23 +132,23 @@ if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 
+    in_rows = 20
+    in_cols = 20
     num_conv = 5
-    rows = 20
-    cols = 20
-    in_grid = numpy.ones([rows, cols]).astype(numpy.float32)
-    base_stencil = numpy.ones((5, 5)).astype(numpy.float32)
-    stencil = numpy.empty((num_conv, 5, 5)).astype(numpy.float32)
+    conv_rows = 5
+    conv_cols = 5
+    in_grid = numpy.ones([in_rows, in_cols]).astype(numpy.float32)
+    base_stencil = numpy.ones((conv_rows, conv_cols)).astype(numpy.float32)
+    stencil = numpy.empty((num_conv, conv_rows, conv_cols)).astype(numpy.float32)
     for i in range(num_conv):
-        for j in range(5):
-            for k in range(5):
+        for j in range(conv_rows):
+            for k in range(conv_cols):
                 # stencil[i][j][k] = base_stencil[j][k]
                 stencil[i][j][k] = float(i+1)
 
     ocl_convolve_filter = MultiConvolutionFilter(convolution_arrays=stencil,
                                                  backend='ocl')
     ocl_out_grid = ocl_convolve_filter(in_grid)
-    # print(ocl_out_grid)
-    # print(ocl_out_grid.shape)
     for conv in range(ocl_convolve_filter.specializer.num_convolutions):
         print("convolution {}".format(conv))
         # for conv in range(ocl_convolve_filter.num_convolutions):
