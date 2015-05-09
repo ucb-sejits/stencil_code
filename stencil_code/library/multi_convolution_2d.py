@@ -132,12 +132,13 @@ if __name__ == '__main__':  # pragma no cover
     import logging
     logging.basicConfig(level=20)
 
-    # in_grid = numpy.random.random([10, 5])
-    # in_grid = numpy.array([numpy.ones([8, 8]).astype(numpy.float32), numpy.ones([8, 8]).astype(numpy.float32)])
-    in_grid = numpy.ones([8, 8]).astype(numpy.float32)
-    base_stencil = numpy.random.random((5, 5)).astype(numpy.float32)
-    stencil = numpy.empty((6, 5, 5)).astype(numpy.float32)
-    for i in range(6):
+    num_conv = 5
+    rows = 20
+    cols = 20
+    in_grid = numpy.ones([rows, cols]).astype(numpy.float32)
+    base_stencil = numpy.ones((5, 5)).astype(numpy.float32)
+    stencil = numpy.empty((num_conv, 5, 5)).astype(numpy.float32)
+    for i in range(num_conv):
         for j in range(5):
             for k in range(5):
                 # stencil[i][j][k] = base_stencil[j][k]
@@ -154,7 +155,7 @@ if __name__ == '__main__':  # pragma no cover
         # print(ocl_out_grid.shape)
         for r in ocl_out_grid[conv]:
             for c in r:
-                print("{:4.0f}, ".format(c), end="")
+                print("{:4.0f} ".format(c), end="")
             print()
     exit(0)
 
