@@ -610,7 +610,6 @@ class StencilOclTransformer(StencilBackend):
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
             for conv_id in range(self.parent_lazy_specializer.num_convolutions):
-                # TODO: add line below to manage indices that refer to neighbor points loop
                 # self.var_list.append(node.neighbor_target)
                 self.offset_list = list(x)
                 self.offset_dict[self.input_target] = list(x)
