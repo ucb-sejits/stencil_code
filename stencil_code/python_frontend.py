@@ -68,7 +68,7 @@ class PythonToStencilModel(PyBasicConversions):
                     neighbor_target=node.target.id,
                     body=node.body
                 )
-            elif node.iter.func.attr is 'neighbor_and_coefficient':
+            elif node.iter.func.attr is 'multi_points':
                 return MultiPointsLoop(
                     input_target=node.target.elts[0].id,
                     output_target=node.target.elts[1].id,

@@ -49,23 +49,21 @@ class MultiConvolutionFilter(MultiConvolutionStencilKernel):
         ]
         return super(MultiConvolutionFilter, self).__call__(*new_args, **kwargs)
 
-    def neighbor_and_coefficient(self, point):
-        """
-        :param point: a tuple indexes into one point of the input grid
-        :return:
-        """
+    def multi_points(self, point):
+        channel = point[0]
         for conv_id in range(self.num_convolutions):
             neighbor_count = 0
             for neighbor in self.neighbors(point, conv_id):
                 input_index = point
-                output_index = (conv_id,) + neighbor
-                coefficient = self.coefficients[(conv_id, neighbor_count)]
+                output_index = point[1:]
+                # self.coefficients should be flattened
+                coefficient = self.coefficients[conv_id][channel][neighbor_count]
                 yield input_index, output_index, coefficient
                 neighbor_count += 1
 
     def kernel(self, input_grid, coefficients, output_grid):
         for point in self.interior_points(input_grid, stride=self.stride):
-            for input_index, output_index, coefficient in self.neighbor_and_coefficient(point):
+            for input_index, output_index, coefficient in self.multi_points(point):
                 output_grid[output_index] += input_grid[input_index] * coefficient
 
 

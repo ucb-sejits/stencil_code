@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
-    FunctionDecl, GtE, NotEq, Sub, Cast, Return, Array, BinaryOp
+    FunctionDecl, GtE, NotEq, Sub, Cast, Return, Array, BinaryOp, AugAssign
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
     clSetKernelArg, NULL
 from ctree.cpp.nodes import CppDefine
@@ -79,8 +79,6 @@ class StencilOclTransformer(StencilBackend):
         self.boundary_handlers = None
         self.loop_vars = {}
         self.output_grid = arg_cfg[0]
-        # if self.parent_lazy_specializer.num_convolutions > 1:
-        #     self.output_grid = arg_cfg[-1]
         if self.parent_lazy_specializer.num_convolutions > 1:
             output_shape = (self.parent_lazy_specializer.num_convolutions,) + self.arg_cfg[0].shape
             output = np.zeros(output_shape).astype(self.arg_cfg[0].dtype)
@@ -576,37 +574,19 @@ class StencilOclTransformer(StencilBackend):
         :param node:
         :return:
         """
-        # neighbors_id = node.neighbor_id
-        # grid_name = node.grid_name
-        # grid = self.input_dict[grid_name]
-        zero_point = tuple([0 for x in range(self.parent_lazy_specializer.dim)])  # this should be ok b/c input space
+        zero_point = tuple([0 for _ in range(self.parent_lazy_specializer.dim)])
         # self.neighbor_target = node.neighbor_target
         # self.neighbor_grid_name = grid_name
         self.input_target = node.input_target
         self.output_target = node.output_target
         self.coefficient = node.coefficient
 
-        # # self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
-        # body = []
-        # for conv_id in range(self.parent_lazy_specializer.num_convolutions):
-        #     neighbor_num = 0
-        #     for x in self.parent_lazy_specializer.neighbors(zero_point, conv_id):
-        #         # TODO: add line below to manage indices that refer to neighbor points loop
-        #         # self.var_list.append(node.neighbor_target)
-        #         self.offset_list = list(x)
-        #         self.offset_dict[self.input_target] = list(x)
-        #         # self.index_target_dict[self.output_target] = Add((Mul(SymbolRef("conv_id"), Constant(product(self.input_grids[0].shape)))), SymbolRef('global_index'))
-        #         self.index_target_dict[self.output_target] = Add((Mul(Constant(conv_id), Constant(product(self.input_grids[0].shape)))), SymbolRef('global_index'))
-        #         self.loop_vars[self.coefficient] = Constant(self.parent_lazy_specializer.coefficients[(conv_id, neighbor_num)])
-        #         for statement in node.body:
-        #             body.append(self.visit(deepcopy(statement)))
-        #             # body.append(StringTemplate('printf("acc = %d\\n", acc);'))
-        #         neighbor_num += 1
-        # # self.neighbor_target = None
-        # return body
-
-        # self.index_target_dict[node.neighbor_target] = self.index_target_dict[node.reference_point]
         body = []
+        targets = []
+
+        for conv_id in range(self.parent_lazy_specializer.num_convolutions):
+            body.append(Assign(SymbolRef("accumulator{}".format(conv_id), ct.c_float()), Constant(0.0)))
+
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
             for conv_id in range(self.parent_lazy_specializer.num_convolutions):
@@ -618,10 +598,15 @@ class StencilOclTransformer(StencilBackend):
                 self.loop_vars[self.coefficient] = \
                     Constant(self.parent_lazy_specializer.coefficients[(conv_id, neighbor_num)])
                 for statement in node.body:
-                    body.append(self.visit(deepcopy(statement)))
-                    # body.append(StringTemplate('printf("acc = %d\\n", acc);'))
+                    # body.append(self.visit(deepcopy(statement)))
+                    statement = self.visit(deepcopy(statement))
+                    body.append(AugAssign(SymbolRef("accumulator{}".format(conv_id)), '+', statement.value))
+                    if neighbor_num == 0:
+                        targets.append(statement.target)
             neighbor_num += 1
-        # self.neighbor_target = None
+        self.neighbor_target = None
+        for conv_id in range(self.parent_lazy_specializer.num_convolutions):
+            body.append(AugAssign(targets[conv_id], '+', SymbolRef('accumulator{}'.format(conv_id))))
         return body
 
     # noinspection PyPep8Naming
