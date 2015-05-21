@@ -79,11 +79,11 @@ class StencilOclTransformer(StencilBackend):
         self.boundary_handlers = None
         self.loop_vars = {}
         self.output_grid = arg_cfg[0]
-        if self.parent_lazy_specializer.num_convolutions > 1:
-            output_shape = (self.parent_lazy_specializer.num_convolutions,) + self.arg_cfg[0].shape
-            output = np.zeros(output_shape).astype(self.arg_cfg[0].dtype)
-            self.output_grid = (StencilArgConfig(len(output), output.dtype, output.ndim, output.shape),)
-            print self.output_grid[0].shape
+        # if self.parent_lazy_specializer.num_convolutions > 1:
+        #     output_shape = (self.parent_lazy_specializer.num_convolutions,) + self.arg_cfg[0].shape
+        #     output = np.zeros(output_shape).astype(self.arg_cfg[0].dtype)
+        #     self.output_grid = (StencilArgConfig(len(output), output.dtype, output.ndim, output.shape),)
+            # print self.output_grid[0].shape
 
     # noinspection PyPep8Naming
     def visit_Project(self, node):
@@ -126,7 +126,32 @@ class StencilOclTransformer(StencilBackend):
             self.local_size = local_size
             self.virtual_global_size = virtual_global_size
 
-        self.function_decl_helper(node)
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            if len(self.arg_cfg) == len(node.params) - 1:
+                # typically passed in arguments will not include output, in which case
+                # it is coerced to be the same type as the first argument
+                self.arg_cfg += (self.arg_cfg[0],)
+
+            for index, arg in enumerate(self.arg_cfg):
+                # fix up type of parameters, build a dictionary mapping param name to argument info
+                param = node.params[index]
+                param.type = np.ctypeslib.ndpointer(arg.dtype, arg.ndim, arg.shape)()
+                self.input_dict[param.name] = arg
+                self.input_names.append(param.name)
+            self.output_grid_name = node.params[-1].name
+            channel_kernels = []
+            for c in range(3):
+                channel_kernels.append(FunctionDecl(name="kernel_c{}".format(c),
+                                                    params=node.params,
+                                                    defn=[node.defn[c]]))
+            for c in range(3):
+                self.channel = c
+                channel_kernels[c].defn = list(map(self.visit, channel_kernels[c].defn))[0]
+                channel_kernels[c].name = "kernel_c{}".format(c)
+                channel_kernels[c].set_kernel()
+
+        else:
+            self.function_decl_helper(node)  # this does the visiting
 
         for param in node.params:
             param.set_global()
@@ -139,7 +164,8 @@ class StencilOclTransformer(StencilBackend):
         node.params[-1].type = node.params[0].type
         node.params.append(SymbolRef(self.local_block.name, node.params[0].type))
         node.params[-1].set_local()
-        node.defn = node.defn[0]
+        if self.parent_lazy_specializer.num_convolutions == 1:
+            node.defn = node.defn[0]
 
         # if boundary handling is copy we have to generate a collection of
         # boundary kernels to handle the on-gpu boundary copy
@@ -168,11 +194,15 @@ class StencilOclTransformer(StencilBackend):
                                                   [boundary_kernel]))
 
             self.boundary_kernels = boundary_kernels
+        elif self.parent_lazy_specializer.num_convolutions > 1:
+            for c in range(3):
+                self.project.files.append(OclFile("kernel_c{}".format(c), [channel_kernels[c]]))
         else:
             self.project.files.append(OclFile('kernel', [node]))
 
         # print(self.project.files[0])
         # print(self.project.files[-1])
+        # above this line is kernel creation, below is line is constructing stencil_control
 
         defn = [
             ArrayDef(
@@ -192,6 +222,17 @@ class StencilOclTransformer(StencilBackend):
             FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
             Ref(SymbolRef('buf%d' % d))
         ) for d in range(len(arg_cfg) + 1)]
+        #############
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            setargs = []
+            for c in range(3):
+                setargs += [clSetKernelArg(
+                    SymbolRef('kernel_c{}'.format(c)),
+                    Constant(d),
+                    FunctionCall(SymbolRef('sizeof'), [SymbolRef('cl_mem')]),
+                    Ref(SymbolRef('buf%d' % d))
+                ) for d in range(len(arg_cfg) + 1)]
+        ####################
         from functools import reduce
         import operator
         local_mem_size = reduce(
@@ -200,23 +241,43 @@ class StencilOclTransformer(StencilBackend):
              for index, size in enumerate(local_size)),
             ct.sizeof(cl.cl_float())
         )
-        setargs.append(
-            clSetKernelArg(
-                'kernel', len(arg_cfg) + 1,
-                local_mem_size,
-                NULL()
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            for c in range(3):
+                setargs.append(
+                clSetKernelArg(
+                    'kernel_c{}'.format(c), len(arg_cfg) + 1,
+                    local_mem_size,
+                    NULL()
+                )
             )
-        )
+        else:
+            setargs.append(
+                clSetKernelArg(
+                    'kernel', len(arg_cfg) + 1,
+                    local_mem_size,
+                    NULL()
+                )
+            )
 
         defn.extend(setargs)
-        enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
-            SymbolRef('queue'), SymbolRef('kernel'),
-            Constant(self.parent_lazy_specializer.dim), NULL(),
-            SymbolRef('global'), SymbolRef('local'),
-            Constant(0), NULL(), NULL()
-        ])
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            for c in range(3):
+                enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
+                    SymbolRef('queue'), SymbolRef('kernel_c{}'.format(c)),
+                    Constant(self.parent_lazy_specializer.dim), NULL(),
+                    SymbolRef('global'), SymbolRef('local'),
+                    Constant(0), NULL(), NULL()
+                ])
+                defn.extend(check_ocl_error(enqueue_call, "clEnqueueNDRangeKernel"))
+        else:
+            enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
+                SymbolRef('queue'), SymbolRef('kernel'),
+                Constant(self.parent_lazy_specializer.dim), NULL(),
+                SymbolRef('global'), SymbolRef('local'),
+                Constant(0), NULL(), NULL()
+            ])
 
-        defn.extend(check_ocl_error(enqueue_call, "clEnqueueNDRangeKernel"))
+            defn.extend(check_ocl_error(enqueue_call, "clEnqueueNDRangeKernel"))
 
         params = [
             SymbolRef('queue', cl.cl_command_queue()),
@@ -265,6 +326,13 @@ class StencilOclTransformer(StencilBackend):
                     SymbolRef(kernel_dim_name(dim), cl.cl_kernel())
                 ])
 
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            params = params[:-1]
+            for c in range(3):
+                params.extend([
+                    SymbolRef('kernel_c{}'.format(c), cl.cl_kernel())
+                ])
+
         finish_call = check_ocl_error(
             FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
             "clFinish"
@@ -279,7 +347,7 @@ class StencilOclTransformer(StencilBackend):
                                params=params,
                                defn=defn)
 
-        return control
+        return control  # FunctionDecl of stencil_control
 
     def global_array_macro(self, point):
         dim = len(self.input_grids[0].shape)
@@ -421,6 +489,7 @@ class StencilOclTransformer(StencilBackend):
                         SymbolRef('r_%d' % (d + 1))
                     )
                 )
+        input_array = 0 if self.parent_lazy_specializer.num_convolutions == 1 else self.channel
         body.append(
             For(
                 Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
@@ -432,7 +501,7 @@ class StencilOclTransformer(StencilBackend):
                         SymbolRef('tid')
                     ),
                     ArrayRef(
-                        SymbolRef(self.input_names[0]),
+                        SymbolRef(self.input_names[input_array]),
                         self.global_array_macro(
                             [FunctionCall(
                                 SymbolRef('clamp'),
@@ -502,6 +571,8 @@ class StencilOclTransformer(StencilBackend):
         body.extend(self.load_mem_block)
         body.append(FunctionCall(SymbolRef("barrier"),
                                  [SymbolRef("CLK_LOCAL_MEM_FENCE")]))
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            self.var_list = []
         for d in range(0, dim):
             body.append(Assign(SymbolRef('local_id%d' % d, ct.c_int()),
                                Add(get_local_id(d),
@@ -511,6 +582,8 @@ class StencilOclTransformer(StencilBackend):
         self.index_target_dict[node.target] = global_idx
 
         for child in map(self.visit, node.body):
+            if self.parent_lazy_specializer.num_convolutions > 1:
+                self.stencil_op = []
             if isinstance(child, list):
                 self.stencil_op.extend(child)
             else:
@@ -584,7 +657,7 @@ class StencilOclTransformer(StencilBackend):
         body = []
         targets = []
 
-        for conv_id in range(self.parent_lazy_specializer.num_convolutions):
+        for conv_id in range(self.parent_lazy_specializer.num_convolutions): # this works
             body.append(Assign(SymbolRef("accumulator{}".format(conv_id), ct.c_float()), Constant(0.0)))
 
         neighbor_num = 0
@@ -596,10 +669,10 @@ class StencilOclTransformer(StencilBackend):
                 offset = conv_id * product(self.input_grids[0].shape)
                 self.index_target_dict[self.output_target] = Add(Constant(offset), SymbolRef('global_index'))
                 self.loop_vars[self.coefficient] = \
-                    Constant(self.parent_lazy_specializer.coefficients[(conv_id, neighbor_num)])
+                    Constant(self.parent_lazy_specializer.coefficients[(conv_id, self.channel, neighbor_num)])
                 for statement in node.body:
-                    # body.append(self.visit(deepcopy(statement)))
-                    statement = self.visit(deepcopy(statement))
+                    y = deepcopy(statement)
+                    statement = self.visit(y)
                     body.append(AugAssign(SymbolRef("accumulator{}".format(conv_id)), '+', statement.value))
                     if neighbor_num == 0:
                         targets.append(statement.target)
@@ -632,7 +705,9 @@ class StencilOclTransformer(StencilBackend):
                 return ArrayRef(SymbolRef(grid_name), SymbolRef(self.index_target_dict[target_name]))
 
             elif target_name in self.offset_dict:
-                if node.grid_name == self.input_names[0]:
+                if node.grid_name == self.input_names[0] or (self.parent_lazy_specializer.num_convolutions > 1 and (node.grid_name == self.input_names[1] or node.grid_name == self.input_names[2])):
+                    v = self.var_list
+                    o = self.offset_list
                     pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                                   self.var_list, self.offset_list))
                     index = self.local_array_macro(pt)

@@ -163,8 +163,9 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         if hmarray \
                 and isinstance(args[0], hmarray):
             output = empty_like(args[0])
-        elif self.lsf.num_convolutions > 1:
-            output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
+        # elif self.lsf.num_convolutions > 1:  # and multiple kernels???
+            # output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
+            # output = empty_like(args[0][0])
         else:
             output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
@@ -183,7 +184,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                 # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         cl_error = 0
-        if isinstance(self.kernel, list):
+        if isinstance(self.kernel, list):  # this is the call!!!
             kernels = len(self.kernel)
             if kernels == 2:
                 cl_error = self._c_function(self.queue, self.kernel[0],
@@ -252,7 +253,7 @@ class SpecializedStencil(LazySpecializedFunction):
         self.args = None
         self.fusable_nodes = None
         backend_key = "{}_{}".format(backend_name, boundary_handling)
-        self.num_convolutions = 1
+        self.num_convolutions = 1  # does this need to be here or no
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
 
@@ -271,7 +272,7 @@ class SpecializedStencil(LazySpecializedFunction):
         )
         return subconfig
 
-    # def get_tuning_driver(self):
+    # def get_tuning_driver(self): # add input grid argument to tune properly
     #     """
     #     Returns the tuning driver used for this Specialized Function.
     #     Initializes a brute force tuning driver that explores the space of
@@ -358,6 +359,8 @@ class SpecializedStencil(LazySpecializedFunction):
             entry_point = "stencil_control"
             param_types.append(param_types[0])
             entry_type = [c_int32, cl.cl_command_queue, cl.cl_kernel]
+            if self.num_convolutions > 1:
+                entry_type.extend([cl.cl_kernel, cl.cl_kernel])  # adding two extra kernels to have 3
             if self.kernel.is_copied:
                 for _ in range(self.kernel.dim):
                     entry_type.append(cl.cl_kernel)
@@ -390,11 +393,37 @@ class SpecializedStencil(LazySpecializedFunction):
                 args.append(self.output)
 
                 finalized = concrete_function.finalize(*args)
+            elif self.num_convolutions > 1:
+                # kernel = project.find(OclFile)
+                # program = clCreateProgramWithSource(concrete_function.context,
+                #                                     kernel.codegen()).build()
+                # stencil_kernel_ptr = program['stencil_kernel']  # what is this stencil_kernel???
+                # finalized = concrete_function.finalize(
+                #     project, entry_type, entry_point,
+                #     stencil_kernel_ptr,
+                #     self.output
+                # )
+                args = [
+                    project, entry_type, entry_point,
+                ]
+                kernels = []
+                for index, kernel in enumerate(project.find_all(OclFile)):
+                    # print("XXX index {} kernel {}".format(index, kernel.name))
+                    # print("Kernel Codegen\n".format(kernel.codegen()))
+                    program = clCreateProgramWithSource(
+                        concrete_function.context, kernel.codegen()).build()
+                    ocl_kernel_name = kernel.name
+                    kernel_ptr = program[ocl_kernel_name]
+                    kernels.append(kernel_ptr)
+                args.append(kernels)
+                args.append(self.output)
+                finalized = concrete_function.finalize(*args)
+
             else:
                 kernel = project.find(OclFile)
                 program = clCreateProgramWithSource(concrete_function.context,
                                                     kernel.codegen()).build()
-                stencil_kernel_ptr = program['stencil_kernel']
+                stencil_kernel_ptr = program['stencil_kernel']  # what is this stencil_kernel???
                 finalized = concrete_function.finalize(
                     project, entry_type, entry_point,
                     stencil_kernel_ptr,
@@ -410,11 +439,12 @@ class SpecializedStencil(LazySpecializedFunction):
 
     def generate_output(self, program_cfg):
         arg_cfg, tune_cfg = program_cfg
-        if self.num_convolutions == 1 and self.output is None:
-            self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
-        elif self.num_convolutions > 1 and self.output is None:
-            output_shape = (self.num_convolutions,) + arg_cfg[0].shape
-            self.output = zeros(output_shape, arg_cfg[0].dtype)
+        self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
+        # if self.num_convolutions == 1 and self.output is None:
+        #     self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
+        # elif self.num_convolutions > 1 and self.output is None:
+        #     output_shape = arg_cfg[0].shape
+        #     self.output = zeros(output_shape, arg_cfg[0].dtype)
         return self.output
 
     def get_ir_nodes(self, args):
@@ -508,6 +538,7 @@ class Stencil(object):
         self.is_warped = boundary_handling == 'warp'
         self.is_copied = boundary_handling == 'copy'
         self.is_zeroed = boundary_handling == 'zero'
+        self.multiple_kernels = False
 
         # this is used to communicate shape info from interior points to
         # neighbors

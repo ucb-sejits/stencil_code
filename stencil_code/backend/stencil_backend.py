@@ -56,7 +56,7 @@ class StencilBackend(NodeTransformer):
             self.input_names.append(param.name)
         self.output_grid_name = node.params[-1].name
 
-        node.defn = list(map(self.visit, node.defn))
+        node.defn = list(map(self.visit, node.defn))  # after this call, the outside is still a FunctionDecl, but the inside is all C, no more LoopsNodes
         node.name = "stencil_kernel"
 
     def gen_fresh_var(self):
