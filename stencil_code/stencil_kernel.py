@@ -163,9 +163,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         if hmarray \
                 and isinstance(args[0], hmarray):
             output = empty_like(args[0])
-        # elif self.lsf.num_convolutions > 1:  # and multiple kernels???
-            # output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
-            # output = empty_like(args[0][0])
+        elif self.lsf.num_convolutions > 1:  # and multiple kernels???
+            output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
         else:
             output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
@@ -394,15 +393,6 @@ class SpecializedStencil(LazySpecializedFunction):
 
                 finalized = concrete_function.finalize(*args)
             elif self.num_convolutions > 1:
-                # kernel = project.find(OclFile)
-                # program = clCreateProgramWithSource(concrete_function.context,
-                #                                     kernel.codegen()).build()
-                # stencil_kernel_ptr = program['stencil_kernel']  # what is this stencil_kernel???
-                # finalized = concrete_function.finalize(
-                #     project, entry_type, entry_point,
-                #     stencil_kernel_ptr,
-                #     self.output
-                # )
                 args = [
                     project, entry_type, entry_point,
                 ]
@@ -439,12 +429,12 @@ class SpecializedStencil(LazySpecializedFunction):
 
     def generate_output(self, program_cfg):
         arg_cfg, tune_cfg = program_cfg
-        self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
-        # if self.num_convolutions == 1 and self.output is None:
-        #     self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
-        # elif self.num_convolutions > 1 and self.output is None:
-        #     output_shape = arg_cfg[0].shape
-        #     self.output = zeros(output_shape, arg_cfg[0].dtype)
+        # self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
+        if self.num_convolutions == 1 and self.output is None:
+            self.output = zeros(arg_cfg[0].shape, arg_cfg[0].dtype)
+        elif self.num_convolutions > 1 and self.output is None:
+            output_shape = (self.num_convolutions,) + arg_cfg[0].shape
+            self.output = zeros(output_shape, arg_cfg[0].dtype)
         return self.output
 
     def get_ir_nodes(self, args):

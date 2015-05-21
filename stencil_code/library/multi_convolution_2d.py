@@ -135,9 +135,12 @@ if __name__ == '__main__':  # pragma no cover
     num_threads = 1024
 
     # Setup buffers
-    bottom = np.random.rand(3, 227, 227).astype(np.float32) * 255.0
-    top = np.zeros((96, 227, 227)).astype(np.float32)
-    weights = np.random.rand(96, 3, 5, 5).astype(np.float32) * 2.0 - 1.0
+    input_height = 20
+    input_width = 20
+    num_conv = 2
+    bottom = np.random.rand(3, input_height, input_width).astype(np.float32) * 255.0
+    top = np.zeros((96, input_height, input_width)).astype(np.float32)
+    weights = np.random.rand(num_conv, 3, 5, 5).astype(np.float32) * 2.0 - 1.0
 
     channels, height, width = bottom.shape
     padding = 2
@@ -177,23 +180,12 @@ if __name__ == '__main__':  # pragma no cover
     ocl_convolve_filter = MultiConvolutionFilter(convolution_arrays=weights,
                                                  backend='ocl')
     ocl_out_grid = ocl_convolve_filter(bottom)
-    # print(ocl_out_grid)
+    print(ocl_out_grid)
 
-    ############################################################
+    for conv in range(num_conv)
+        for r in range(input_width):
+            for c in range(input_height):
+                print("expected, actual: {} {}".format(top_gpu.get()[conv][r][c], ocl_out_grid[conv][r][c]))
 
-
-    # for channel in range(3):
-    #     for r in bottom[channel]:
-    #         for c in r:
-    #             print("{:4.0f} ".format(c), end="")
-    #         print()
-
-    for conv in range(ocl_convolve_filter.specializer.num_convolutions):
-        print("convolution {}".format(conv))
-        for channel in range(3):
-            for r in ocl_out_grid:
-                for c in r:
-                    print("{:4.0f} ".format(c), end="")
-                print()
     exit(0)
 
