@@ -139,7 +139,7 @@ if __name__ == '__main__':  # pragma no cover
     input_width = 20
     num_conv = 2
     bottom = np.random.rand(3, input_height, input_width).astype(np.float32) * 255.0
-    top = np.zeros((96, input_height, input_width)).astype(np.float32)
+    top = np.zeros((num_conv, input_height, input_width)).astype(np.float32)
     weights = np.random.rand(num_conv, 3, 5, 5).astype(np.float32) * 2.0 - 1.0
 
     channels, height, width = bottom.shape
