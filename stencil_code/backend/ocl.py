@@ -5,7 +5,7 @@ from copy import deepcopy
 
 from ctree.c.nodes import If, Lt, Constant, And, SymbolRef, Assign, Add, Mul, \
     Div, Mod, For, AddAssign, ArrayRef, FunctionCall, String, ArrayDef, Ref, \
-    FunctionDecl, GtE, NotEq, Sub, Cast, Return, Array, BinaryOp, AugAssign
+    FunctionDecl, GtE, NotEq, Sub, Cast, Return, Array, BinaryOp, AugAssign, Or, Gt
 from ctree.ocl.macros import get_global_id, get_local_id, get_local_size, \
     clSetKernelArg, NULL
 from ctree.cpp.nodes import CppDefine
@@ -490,38 +490,64 @@ class StencilOclTransformer(StencilBackend):
                     )
                 )
         input_array = 0 if self.parent_lazy_specializer.num_convolutions == 1 else self.channel
-        body.append(
-            For(
-                Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
-                Lt(SymbolRef('tid'), SymbolRef('block_size')),
-                AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
-                local_indices + [Assign(
-                    ArrayRef(
-                        target,
-                        SymbolRef('tid')
-                    ),
-                    ArrayRef(
-                        SymbolRef(self.input_names[input_array]),
-                        self.global_array_macro(
-                            [FunctionCall(
-                                SymbolRef('clamp'),
-                                [Cast(ct.c_int(), Sub(Add(
+        if self.parent_lazy_specializer.num_convolutions == 1:
+            body.append(
+                For(
+                    Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
+                    Lt(SymbolRef('tid'), SymbolRef('block_size')),
+                    AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
+                    local_indices + [Assign(
+                        ArrayRef(
+                            target,
+                            SymbolRef('tid')
+                        ),
+                        ArrayRef(
+                            SymbolRef(self.input_names[input_array]),
+                            self.global_array_macro(
+                                [FunctionCall(
+                                    SymbolRef('clamp'),
+                                    [Cast(ct.c_int(), Sub(Add(
+                                        SymbolRef("local_id%d" % (dim - d - 1)),
+                                        Mul(FunctionCall(
+                                            SymbolRef('get_group_id'),
+                                            [Constant(d)]),
+                                            get_local_size(d))
+                                    ), Constant(self.parent_lazy_specializer.ghost_depth[d]))),
+                                        Constant(0), Constant(
+                                            self.arg_cfg[0].shape[d]-1
+                                        )
+                                    ]
+                                ) for d in range(0, dim)]
+                            )
+                        )
+                    )]
+                )
+            )
+        else:
+            loop_code = local_indices + []  # does copy
+            global_indices = [Cast(ct.c_int(), Sub(Add(
                                     SymbolRef("local_id%d" % (dim - d - 1)),
                                     Mul(FunctionCall(
                                         SymbolRef('get_group_id'),
                                         [Constant(d)]),
                                         get_local_size(d))
-                                ), Constant(self.parent_lazy_specializer.ghost_depth[d]))),
-                                    Constant(0), Constant(
-                                        self.arg_cfg[0].shape[d]-1
-                                    )
-                                ]
-                            ) for d in range(0, dim)]
-                        )
-                    )
-                )]
+                                    ), Constant(self.parent_lazy_specializer.ghost_depth[d]))) for d in range(0, dim)]
+            loop_code.append(Assign(SymbolRef("global_id0", ct.c_int()), global_indices[0]))
+            loop_code.append(Assign(SymbolRef("global_id1", ct.c_int()), global_indices[1]))
+            loop_code.append(If(cond=Or(Lt(SymbolRef("global_id0"), Constant(0)),
+                                        Or(Lt(SymbolRef("global_id1"), Constant(0)),
+                                           Or(Gt(SymbolRef("global_id0"), Constant(self.arg_cfg[0].shape[0]-1)),
+                                              Gt(SymbolRef("global_id1"), Constant(self.arg_cfg[0].shape[1]-1))))),
+                                then=Assign(ArrayRef(target, SymbolRef('tid')), Constant(0)),
+                                elze=Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), self.global_array_macro((SymbolRef("global_id0"), SymbolRef("global_id1")))))))
+            body.append(
+                For(
+                    Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
+                    Lt(SymbolRef('tid'), SymbolRef('block_size')),
+                    AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
+                    loop_code
+                )
             )
-        )
         return body
 
     def visit_SymbolRef(self, node):
