@@ -260,6 +260,10 @@ class StencilOclTransformer(StencilBackend):
             )
 
         defn.extend(setargs)
+        finish_call = check_ocl_error(
+            FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
+            "clFinish"
+        )
         if self.parent_lazy_specializer.num_convolutions > 1:
             for c in range(3):
                 enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
@@ -269,6 +273,7 @@ class StencilOclTransformer(StencilBackend):
                     Constant(0), NULL(), NULL()
                 ])
                 defn.extend(check_ocl_error(enqueue_call, "clEnqueueNDRangeKernel"))
+                defn.extend(finish_call)
         else:
             enqueue_call = FunctionCall(SymbolRef('clEnqueueNDRangeKernel'), [
                 SymbolRef('queue'), SymbolRef('kernel'),
@@ -333,10 +338,10 @@ class StencilOclTransformer(StencilBackend):
                     SymbolRef('kernel_c{}'.format(c), cl.cl_kernel())
                 ])
 
-        finish_call = check_ocl_error(
-            FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
-            "clFinish"
-        )
+        # finish_call = check_ocl_error(
+        #     FunctionCall(SymbolRef('clFinish'), [SymbolRef('queue')]),
+        #     "clFinish"
+        # )
         defn.extend(finish_call)
         defn.append(Return(SymbolRef("error_code")))
 
