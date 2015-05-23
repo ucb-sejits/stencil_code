@@ -688,8 +688,8 @@ class StencilOclTransformer(StencilBackend):
         body = []
         targets = []
 
-        for conv_id in range(self.parent_lazy_specializer.num_convolutions): # this works
-            body.append(Assign(SymbolRef("accumulator{}".format(conv_id), ct.c_float()), Constant(0.0)))
+        # for conv_id in range(self.parent_lazy_specializer.num_convolutions): # this works
+        #     body.append(Assign(SymbolRef("accumulator{}".format(conv_id), ct.c_float()), Constant(0.0)))
 
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
@@ -702,15 +702,16 @@ class StencilOclTransformer(StencilBackend):
                 self.loop_vars[self.coefficient] = \
                     Constant(self.parent_lazy_specializer.coefficients[(conv_id, self.channel, neighbor_num)])
                 for statement in node.body:
-                    y = deepcopy(statement)
-                    statement = self.visit(y)
-                    body.append(AugAssign(SymbolRef("accumulator{}".format(conv_id)), '+', statement.value))
-                    if neighbor_num == 0:
-                        targets.append(statement.target)
+                    body.append(self.visit(deepcopy(statement)))
+                    # y = deepcopy(statement)
+                    # statement = self.visit(statement)
+                    # body.append(AugAssign(SymbolRef("accumulator{}".format(conv_id)), '+', statement.value))
+                    # if neighbor_num == 0:
+                    #     targets.append(statement.target)
             neighbor_num += 1
         self.neighbor_target = None
-        for conv_id in range(self.parent_lazy_specializer.num_convolutions):
-            body.append(AugAssign(targets[conv_id], '+', SymbolRef('accumulator{}'.format(conv_id))))
+        # for conv_id in range(self.parent_lazy_specializer.num_convolutions):
+        #     body.append(AugAssign(targets[conv_id], '+', SymbolRef('accumulator{}'.format(conv_id))))
         return body
 
     # noinspection PyPep8Naming
