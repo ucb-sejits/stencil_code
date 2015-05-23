@@ -19,6 +19,7 @@ from __future__ import print_function
 import math
 
 from collections import namedtuple
+import time
 from ctree.transforms.declaration_filler import DeclarationFiller
 from numpy import zeros
 
@@ -183,7 +184,9 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                 # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         cl_error = 0
-        if isinstance(self.kernel, list):  # this is the call!!!
+        print("calling function")
+        start = time.time()
+        if isinstance(self.kernel, list):
             kernels = len(self.kernel)
             if kernels == 2:
                 cl_error = self._c_function(self.queue, self.kernel[0],
@@ -199,6 +202,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                 )
         else:
             cl_error = self._c_function(self.queue, self.kernel, *buffers)
+        end = time.time()
+        print(end - start)
 
         if cl.cl_errnum(cl_error) != cl.cl_errnum.CL_SUCCESS:
             raise StencilException(

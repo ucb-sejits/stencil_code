@@ -737,8 +737,6 @@ class StencilOclTransformer(StencilBackend):
 
             elif target_name in self.offset_dict:
                 if node.grid_name == self.input_names[0] or (self.parent_lazy_specializer.num_convolutions > 1 and (node.grid_name == self.input_names[1] or node.grid_name == self.input_names[2])):
-                    v = self.var_list
-                    o = self.offset_list
                     pt = list(map(lambda x, y: Add(SymbolRef(x), Constant(y)),
                                   self.var_list, self.offset_list))
                     index = self.local_array_macro(pt)
