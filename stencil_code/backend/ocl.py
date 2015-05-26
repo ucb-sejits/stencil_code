@@ -421,7 +421,7 @@ class StencilOclTransformer(StencilBackend):
                     Constant(stride)
                 )
             )
-        return index
+        return Mul(index, Constant(self.parent_lazy_specializer.num_convolutions))
 
     def load_shared_memory_block(self, target, ghost_depth):
         dim = len(self.input_grids[0].shape)
@@ -679,39 +679,23 @@ class StencilOclTransformer(StencilBackend):
         :return:
         """
         zero_point = tuple([0 for _ in range(self.parent_lazy_specializer.dim)])
-        # self.neighbor_target = node.neighbor_target
-        # self.neighbor_grid_name = grid_name
         self.input_target = node.input_target
         self.output_target = node.output_target
         self.coefficient = node.coefficient
 
         body = []
-        targets = []
-
-        # for conv_id in range(self.parent_lazy_specializer.num_convolutions): # this works
-        #     body.append(Assign(SymbolRef("accumulator{}".format(conv_id), ct.c_float()), Constant(0.0)))
-
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
             for conv_id in range(self.parent_lazy_specializer.num_convolutions):
-                # self.var_list.append(node.neighbor_target)
                 self.offset_list = list(x)
                 self.offset_dict[self.input_target] = list(x)
-                offset = conv_id * product(self.input_grids[0].shape)
-                self.index_target_dict[self.output_target] = Add(Constant(offset), SymbolRef('global_index'))
+                self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(conv_id))
                 self.loop_vars[self.coefficient] = \
                     Constant(self.parent_lazy_specializer.coefficients[(conv_id, self.channel, neighbor_num)])
                 for statement in node.body:
                     body.append(self.visit(deepcopy(statement)))
-                    # y = deepcopy(statement)
-                    # statement = self.visit(statement)
-                    # body.append(AugAssign(SymbolRef("accumulator{}".format(conv_id)), '+', statement.value))
-                    # if neighbor_num == 0:
-                    #     targets.append(statement.target)
             neighbor_num += 1
         self.neighbor_target = None
-        # for conv_id in range(self.parent_lazy_specializer.num_convolutions):
-        #     body.append(AugAssign(targets[conv_id], '+', SymbolRef('accumulator{}'.format(conv_id))))
         return body
 
     # noinspection PyPep8Naming
