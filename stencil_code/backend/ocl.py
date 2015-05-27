@@ -529,30 +529,132 @@ class StencilOclTransformer(StencilBackend):
                 )
             )
         else:
-            loop_code = local_indices + []  # does copy
-            global_indices = [Cast(ct.c_int(), Sub(Add(
-                                    SymbolRef("local_id%d" % (dim - d - 1)),
-                                    Mul(FunctionCall(
-                                        SymbolRef('get_group_id'),
-                                        [Constant(d)]),
-                                        get_local_size(d))
-                                    ), Constant(self.parent_lazy_specializer.ghost_depth[d]))) for d in range(0, dim)]
-            loop_code.append(Assign(SymbolRef("global_id0", ct.c_int()), global_indices[0]))
-            loop_code.append(Assign(SymbolRef("global_id1", ct.c_int()), global_indices[1]))
-            loop_code.append(If(cond=Or(Lt(SymbolRef("global_id0"), Constant(0)),
-                                        Or(Lt(SymbolRef("global_id1"), Constant(0)),
-                                           Or(Gt(SymbolRef("global_id0"), Constant(self.arg_cfg[0].shape[0]-1)),
-                                              Gt(SymbolRef("global_id1"), Constant(self.arg_cfg[0].shape[1]-1))))),
-                                then=Assign(ArrayRef(target, SymbolRef('tid')), Constant(0)),
-                                elze=Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), self.global_array_macro((SymbolRef("global_id0"), SymbolRef("global_id1")))))))
-            body.append(
-                For(
-                    Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
-                    Lt(SymbolRef('tid'), SymbolRef('block_size')),
-                    AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
-                    loop_code
-                )
-            )
+            b_size = product(d + 4 for d in self.local_size)
+            body.append(Assign(SymbolRef("local_id0", ct.c_int()), Constant(0)))
+            body.append(Assign(SymbolRef("local_id1", ct.c_int()), Constant(0)))
+            body.append(Assign(SymbolRef("r_1", ct.c_int()), Constant(0)))
+            body.append(Assign(SymbolRef("global_id0", ct.c_int()), Constant(0)))
+            body.append(Assign(SymbolRef("global_id1", ct.c_int()), Constant(0)))
+            for tid in range(0, b_size, product(self.local_size)):
+                base = None
+                for i in reversed(range(0, dim - 1)):
+                    if base is not None:
+                        base = Mul(Add(get_local_size(i + 1),
+                                       Constant(self.ghost_depth[i + 1] * 2)),
+                                   base)
+                    else:
+                        base = Add(get_local_size(i + 1),
+                                   Constant(self.ghost_depth[i + 1] * 2))
+                if base is not None:
+                    local_indices = [
+                        Assign(
+                            SymbolRef("local_id%d" % (dim - 1)),
+                            Div(Add(SymbolRef("thread_id"), Constant(tid)), base)
+                        ),
+                        Assign(
+                            SymbolRef("r_%d" % (dim - 1)),
+                            Mod(Add(SymbolRef("thread_id"), Constant(tid)), base)
+                        )
+                    ]
+                else:
+                    local_indices = [
+                        Assign(
+                            SymbolRef("local_id%d" % (dim - 1)),
+                            Add(SymbolRef("thread_id"), Constant(tid))
+                        ),
+                        Assign(
+                            SymbolRef("r_%d" % (dim - 1)),
+                            Add(SymbolRef("thread_id"), Constant(tid))
+                        )
+                    ]
+                for d in reversed(range(0, dim - 1)):
+                    base = None
+                    for i in reversed(range(d + 1, dim)):
+                        if base is not None:
+                            base = Mul(
+                                Add(get_local_size(i),
+                                    ghost_depth[i] * 2),
+                                base
+                            )
+                        else:
+                            base = Add(get_local_size(i), Constant(ghost_depth[i] * 2))
+                    if base is not None and d != 0:
+                        local_indices.append(
+                            Assign(
+                                SymbolRef("local_id%d" % d),
+                                Div(SymbolRef('r_%d' % (d + 1)), base)
+                            )
+                        )
+                        local_indices.append(
+                            Assign(
+                                SymbolRef("r_%d" % d),
+                                Mod(SymbolRef('r_%d' % (d + 1)), base)
+                            )
+                        )
+                    else:
+                        local_indices.append(
+                            Assign(
+                                SymbolRef("local_id%d" % d),
+                                SymbolRef('r_%d' % (d + 1))
+                            )
+                        )
+                global_indices = [Cast(ct.c_int(), Sub(Add(
+                                        SymbolRef("local_id%d" % (dim - d - 1)),
+                                        Mul(FunctionCall(
+                                            SymbolRef('get_group_id'),
+                                            [Constant(d)]),
+                                            get_local_size(d))
+                                        ), Constant(0))) for d in range(0, dim)]
+                body.extend(local_indices)
+                body.append(Assign(SymbolRef("global_id0"), global_indices[0]))
+                body.append(Assign(SymbolRef("global_id1"), global_indices[1]))
+                body.append(Assign(ArrayRef(target,
+                                            Add(SymbolRef("thread_id"),
+                                                Constant(tid))),
+                                   ArrayRef(SymbolRef(self.input_names[input_array]),
+                                            self.global_array_macro((SymbolRef("global_id0"), SymbolRef("global_id1"))))))
+            # tail end:
+            body.append(Assign(SymbolRef("local_id1"), Div(Sub(Sub(SymbolRef("block_size"), SymbolRef("thread_id")), Constant(1)), Add(get_local_size(1), Constant(4)))))
+            body.append(Assign(SymbolRef("local_id0"), Mod(Sub(Sub(SymbolRef("block_size"), SymbolRef("thread_id")), Constant(1)), Add(get_local_size(1), Constant(4)))))
+            body.append(Assign(SymbolRef("global_id0"), global_indices[0]))
+            body.append(Assign(SymbolRef("global_id1"), global_indices[1]))
+            body.append(Assign(ArrayRef(target,
+                                        Sub(Sub(SymbolRef("block_size"), SymbolRef("thread_id")), Constant(1))),
+                               ArrayRef(SymbolRef(self.input_names[input_array]),
+                                        self.global_array_macro((SymbolRef("global_id0"), SymbolRef("global_id1"))))))
+# int local_id1 = (block_size -  thread_id - 1) / (get_local_size(1) + 4);
+# int r_1 = (block_size -  thread_id - 1)  % (get_local_size(1) + 4);
+# int local_id0 = r_1;
+#
+# int global_id0 = (int) (local_id1 + get_group_id(0) * get_local_size(0) - 2);
+# int global_id1 = (int) (local_id0 + get_group_id(1) * get_local_size(1) - 2);
+# name_4[(block_size - thread_id - 1)] = name_0[global_array_macro(global_id0, global_id1)];
+
+        # else:
+        #     loop_code = local_indices + []  # does copy
+        #     global_indices = [Cast(ct.c_int(), Sub(Add(
+        #                             SymbolRef("local_id%d" % (dim - d - 1)),
+        #                             Mul(FunctionCall(
+        #                                 SymbolRef('get_group_id'),
+        #                                 [Constant(d)]),
+        #                                 get_local_size(d))
+        #                             ), Constant(self.parent_lazy_specializer.ghost_depth[d]))) for d in range(0, dim)]
+        #     loop_code.append(Assign(SymbolRef("global_id0", ct.c_int()), global_indices[0]))
+        #     loop_code.append(Assign(SymbolRef("global_id1", ct.c_int()), global_indices[1]))
+        #     loop_code.append(If(cond=Or(Lt(SymbolRef("global_id0"), Constant(0)),
+        #                                 Or(Lt(SymbolRef("global_id1"), Constant(0)),
+        #                                    Or(Gt(SymbolRef("global_id0"), Constant(self.arg_cfg[0].shape[0]-1)),
+        #                                       Gt(SymbolRef("global_id1"), Constant(self.arg_cfg[0].shape[1]-1))))),
+        #                         then=Assign(ArrayRef(target, SymbolRef('tid')), Constant(0)),
+        #                         elze=Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), self.global_array_macro((SymbolRef("global_id0"), SymbolRef("global_id1")))))))
+        #     body.append(
+        #         For(
+        #             Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
+        #             Lt(SymbolRef('tid'), SymbolRef('block_size')),
+        #             AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
+        #             loop_code
+        #         )
+        #     )
         return body
 
     def visit_SymbolRef(self, node):
@@ -605,7 +707,7 @@ class StencilOclTransformer(StencilBackend):
         if self.parent_lazy_specializer.num_convolutions > 1:
             self.var_list = []
         for d in range(0, dim):
-            body.append(Assign(SymbolRef('local_id%d' % d, ct.c_int()),
+            body.append(Assign(SymbolRef('local_id%d' % d),  # , ct.c_int() was removed
                                Add(get_local_id(d),
                                    Constant(self.ghost_depth[d]))))
             self.var_list.append("local_id%d" % d)

@@ -161,6 +161,16 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
+        if self.lsf.num_convolutions > 1:
+            new_args = list(args)
+            for i in range(3):
+                s = args[i].shape
+                a = np.zeros((s[0] + 4, s[1] + 4)).astype(args[i].dtype)
+                for r in range(s[0]):
+                    for c in range(s[1]):
+                        a[r+2][c+2] = args[i][r][c]
+                new_args[i] = a
+            args = tuple(new_args)
         if hmarray \
                 and isinstance(args[0], hmarray):
             output = empty_like(args[0])
