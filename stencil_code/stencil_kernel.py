@@ -161,6 +161,14 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
+        if hmarray \
+                and isinstance(args[0], hmarray):
+            output = empty_like(args[0])
+        elif self.lsf.num_convolutions > 1:
+            # output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
+            output = np.zeros((args[0].shape[0] * args[0].shape[1], self.lsf.num_convolutions)).astype(args[0].dtype)
+        else:
+            output = np.zeros_like(args[0])
         if self.lsf.num_convolutions > 1:
             new_args = list(args)
             for i in range(3):
@@ -171,14 +179,6 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                         a[r+2][c+2] = args[i][r][c]
                 new_args[i] = a
             args = tuple(new_args)
-        if hmarray \
-                and isinstance(args[0], hmarray):
-            output = empty_like(args[0])
-        elif self.lsf.num_convolutions > 1:
-            # output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
-            output = np.zeros((args[0].shape[0] * args[0].shape[1], self.lsf.num_convolutions)).astype(args[0].dtype)
-        else:
-            output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )

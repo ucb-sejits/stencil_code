@@ -529,17 +529,8 @@ class StencilOclTransformer(StencilBackend):
                 )
             )
         else:
-            loop_code = local_indices + []
-            global_indices = [Cast(ct.c_int(), Sub(Add(
-                                    SymbolRef("local_id%d" % (dim - d - 1)),
-                                    Mul(FunctionCall(
-                                        SymbolRef('get_group_id'),
-                                        [Constant(d)]),
-                                        get_local_size(d))
-                                    ), Constant(0))) for d in range(0, dim)]
-            loop_code.append(Assign(SymbolRef("global_id0", ct.c_int()), global_indices[0]))
-            loop_code.append(Assign(SymbolRef("global_id1", ct.c_int()), global_indices[1]))
-            loop_code.append(Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), self.global_array_macro((SymbolRef("global_id0"), SymbolRef("global_id1"))))))
+            loop_code = local_indices + []  # does copy
+            loop_code.append(Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), SymbolRef('tid'))))
             body.append(
                 For(
                     Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
