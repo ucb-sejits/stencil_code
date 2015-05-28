@@ -760,6 +760,7 @@ class StencilOclTransformer(StencilBackend):
         self.coefficient = node.coefficient
 
         body = []
+        body.append(Assign(SymbolRef("neighbor", ct.c_int()), Constant(0)))
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
             for conv_id in range(self.parent_lazy_specializer.num_convolutions):
@@ -769,7 +770,11 @@ class StencilOclTransformer(StencilBackend):
                 self.loop_vars[self.coefficient] = \
                     Constant(self.parent_lazy_specializer.coefficients[(conv_id, self.channel, neighbor_num)])
                 for statement in node.body:
-                    body.append(self.visit(deepcopy(statement)))
+                    statement = self.visit(deepcopy(statement))
+                    if conv_id == 0:
+                        body.append(Assign(SymbolRef("neighbor"), statement.value.left))
+                    statement.value.left = SymbolRef("neighbor")
+                    body.append(statement)
             neighbor_num += 1
         self.neighbor_target = None
         return body
