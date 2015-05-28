@@ -3,11 +3,11 @@ from __future__ import print_function
 from stencil_code.stencil_kernel import MultiConvolutionStencilKernel
 from stencil_code.neighborhood import Neighborhood
 
-# import pycuda.autoinit
-# import pycuda.driver as cuda
-# from pycuda import gpuarray
-# from pycuda.compiler import SourceModule
-# import scikits.cuda.cublas as cublas
+import pycuda.autoinit
+import pycuda.driver as cuda
+from pycuda import gpuarray
+from pycuda.compiler import SourceModule
+import scikits.cuda.cublas as cublas
 import numpy as np
 
 # im2col CUDA kernel
@@ -123,10 +123,10 @@ class MultiConvolutionFilter(MultiConvolutionStencilKernel):
 
 if __name__ == '__main__':  # pragma no cover
 
-    # cublas_handle = cublas.cublasCreate()
-    #
-    # module = SourceModule(im2col_str)
-    # im2col = module.get_function('im2col_gpu_kernel')
+    cublas_handle = cublas.cublasCreate()
+
+    module = SourceModule(im2col_str)
+    im2col = module.get_function('im2col_gpu_kernel')
 
     num_threads = 1024
 
@@ -134,11 +134,11 @@ if __name__ == '__main__':  # pragma no cover
     input_height = 228
     input_width = 228
     num_conv = 96
-    bottom = np.ones((3, input_height, input_width)).astype(np.float32) #* 255.0
-    # bottom = np.random.rand(3, input_height, input_width).astype(np.float32) * 255.0
+    # bottom = np.ones((3, input_height, input_width)).astype(np.float32) #* 255.0
+    bottom = np.random.rand(3, input_height, input_width).astype(np.float32) * 255.0
     top = np.zeros((num_conv, input_height, input_width)).astype(np.float32)
-    weights = np.ones((num_conv, 3, 5, 5)).astype(np.float32) * 2.0 - 1.0
-    # weights = np.random.rand(num_conv, 3, 5, 5).astype(np.float32) * 2.0 - 1.0
+    # weights = np.ones((num_conv, 3, 5, 5)).astype(np.float32) * 2.0 - 1.0
+    weights = np.random.rand(num_conv, 3, 5, 5).astype(np.float32) * 2.0 - 1.0
 
     channels, height, width = bottom.shape
     padding = 2
@@ -148,10 +148,10 @@ if __name__ == '__main__':  # pragma no cover
     width_col = (width + 2 * padding - kernel_size) / stride + 1
 
     channels_col = channels * np.prod(weights.shape[2:])
-    # col_buf = gpuarray.empty((channels_col, height_col, width_col), np.float32)
-    # bottom_gpu = gpuarray.to_gpu(bottom)
-    # weights_gpu = gpuarray.to_gpu(weights)
-    # top_gpu = gpuarray.to_gpu(top)
+    col_buf = gpuarray.empty((channels_col, height_col, width_col), np.float32)
+    bottom_gpu = gpuarray.to_gpu(bottom)
+    weights_gpu = gpuarray.to_gpu(weights)
+    top_gpu = gpuarray.to_gpu(top)
 
 
     def conv(bottom, weights, top, kernel_size=np.uint32(5), padding=np.uint32(2),
@@ -169,7 +169,7 @@ if __name__ == '__main__':  # pragma no cover
                            col_buf.gpudata, n, weights.gpudata, k, np.float32(0.0),
                            top.gpudata, n)
 
-    # conv(bottom_gpu, weights_gpu, top_gpu)
+    conv(bottom_gpu, weights_gpu, top_gpu)
 
     import logging
     logging.basicConfig(level=20)
@@ -187,7 +187,7 @@ if __name__ == '__main__':  # pragma no cover
 
     np.set_printoptions(threshold=np.nan)
 
-    # np.testing.assert_almost_equal(top_gpu.get(), ocl_out_grid, decimal=2)
+    np.testing.assert_almost_equal(top_gpu.get(), ocl_out_grid, decimal=2)
     # print(top_gpu.get())
     # print(ocl_out_grid)
     print("Done.")
