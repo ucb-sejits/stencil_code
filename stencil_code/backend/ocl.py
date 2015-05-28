@@ -375,6 +375,13 @@ class StencilOclTransformer(StencilBackend):
             index += "+((d%s) * %s)" % (str(x), ndim)
         return index
 
+    def gen_ghost_global_macro(self):
+        index = "(d%d)" % (self.input_grids[0].ndim - 1)
+        for x in reversed(range(self.input_grids[0].ndim - 1)):
+            ndim = str(int(strides(self.input_grids[0].shape)[x] + 2 * self.ghost_depth[x]))
+            index += "+((d%s) * %s)" % (str(x), ndim)
+        return index
+
     def local_array_macro(self, point):
         dim = len(self.input_grids[0].shape)
         index = get_local_id(dim)
@@ -529,7 +536,13 @@ class StencilOclTransformer(StencilBackend):
                 )
             )
         else:
-            loop_code = Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), SymbolRef('tid')))
+            loop_code = local_indices + []
+            global_points = [Add(SymbolRef("local_id%d" % (dim - d - 1)),
+                                  Mul(FunctionCall(SymbolRef('get_group_id'), [Constant(d)]),get_local_size(d)))
+                             for d in range(0, dim)]
+            loop_code.append(Assign(ArrayRef(target, SymbolRef('tid')),
+                                    ArrayRef(SymbolRef(self.input_names[input_array]),
+                                             self.global_array_macro((global_points[0], global_points[1])))))
             body.append(
                 For(
                     Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
@@ -569,12 +582,20 @@ class StencilOclTransformer(StencilBackend):
             )
         body = []
 
-        self.macro_defns = [
-            CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
-                      self.gen_local_macro()),
-            CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
-                      self.gen_global_macro())
-        ]
+        if self.parent_lazy_specializer.num_convolutions > 1:
+            self.macro_defns = [
+                CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
+                          self.gen_local_macro()),
+                CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
+                          self.gen_ghost_global_macro())
+            ]
+        else:
+            self.macro_defns = [
+                CppDefine("local_array_macro", ["d%d" % i for i in range(dim)],
+                          self.gen_local_macro()),
+                CppDefine("global_array_macro", ["d%d" % i for i in range(dim)],
+                          self.gen_global_macro())
+            ]
         body.extend(self.macro_defns)
 
         global_idx = 'global_index'
