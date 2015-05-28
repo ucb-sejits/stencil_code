@@ -428,7 +428,8 @@ class StencilOclTransformer(StencilBackend):
                     Constant(stride)
                 )
             )
-        return Mul(index, Constant(self.parent_lazy_specializer.num_convolutions))
+        return index
+        # return Mul(index, Constant(self.parent_lazy_specializer.num_convolutions))
 
     def load_shared_memory_block(self, target, ghost_depth):
         dim = len(self.input_grids[0].shape)
@@ -775,7 +776,9 @@ class StencilOclTransformer(StencilBackend):
                 for a in range(unroll_factor):
                     self.offset_list = list(x)
                     self.offset_dict[self.input_target] = list(x)
-                    self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(conv_id))
+                    # self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(conv_id))
+                    offset = conv_id * product(self.input_grids[0].shape)
+                    self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(offset))
                     self.loop_vars[self.coefficient] = \
                         Constant(self.parent_lazy_specializer.coefficients[(conv_id, self.channel, neighbor_num)])
                     for statement in node.body:
@@ -792,7 +795,9 @@ class StencilOclTransformer(StencilBackend):
             for a in range(tail_end):
                 self.offset_list = list(x)
                 self.offset_dict[self.input_target] = list(x)
-                self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(conv_id))
+                # self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(conv_id))
+                offset = conv_id * product(self.input_grids[0].shape)
+                self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(offset))
                 self.loop_vars[self.coefficient] = \
                     Constant(self.parent_lazy_specializer.coefficients[(conv_id, self.channel, neighbor_num)])
                 for statement in node.body:

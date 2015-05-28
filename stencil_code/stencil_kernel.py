@@ -165,8 +165,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                 and isinstance(args[0], hmarray):
             output = empty_like(args[0])
         elif self.lsf.num_convolutions > 1:
-            # output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
-            output = np.zeros((args[0].shape[0] * args[0].shape[1], self.lsf.num_convolutions)).astype(args[0].dtype)
+            output = np.zeros((self.lsf.num_convolutions,) + args[0].shape).astype(args[0].dtype)
+            # output = np.zeros((args[0].shape[0] * args[0].shape[1], self.lsf.num_convolutions)).astype(args[0].dtype)
         else:
             output = np.zeros_like(args[0])
         if self.lsf.num_convolutions > 1:
