@@ -131,10 +131,10 @@ if __name__ == '__main__':  # pragma no cover
     num_threads = 1024
 
     # Setup buffers
-    input_height = 25
-    input_width = 25
-    num_conv = 2
-    bottom = np.ones((3, input_height, input_width)).astype(np.float32) * 255.0
+    input_height = 228
+    input_width = 228
+    num_conv = 96
+    bottom = np.ones((3, input_height, input_width)).astype(np.float32) #* 255.0
     # bottom = np.random.rand(3, input_height, input_width).astype(np.float32) * 255.0
     top = np.zeros((num_conv, input_height, input_width)).astype(np.float32)
     weights = np.ones((num_conv, 3, 5, 5)).astype(np.float32) * 2.0 - 1.0
@@ -185,9 +185,12 @@ if __name__ == '__main__':  # pragma no cover
                 new_out_grid[conv][r][c] = ocl_out_grid[c + r * input_width][conv]
     ocl_out_grid = new_out_grid
 
+    np.set_printoptions(threshold=np.nan)
+
     # np.testing.assert_almost_equal(top_gpu.get(), ocl_out_grid, decimal=2)
     # print(top_gpu.get())
-    print(ocl_out_grid)
+    # print(ocl_out_grid)
+    print("Done.")
 
     exit(0)
 
