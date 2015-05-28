@@ -131,8 +131,8 @@ if __name__ == '__main__':  # pragma no cover
     num_threads = 1024
 
     # Setup buffers
-    input_height = 228
-    input_width = 228
+    input_height = 227
+    input_width = 227
     num_conv = 96
     # bottom = np.ones((3, input_height, input_width)).astype(np.float32) #* 255.0
     bottom = np.random.rand(3, input_height, input_width).astype(np.float32) * 255.0
