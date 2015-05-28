@@ -764,7 +764,7 @@ class StencilOclTransformer(StencilBackend):
 
         body = []
         body.append(Assign(SymbolRef("neighbor", ct.c_float()), Constant(0.0)))
-        body.extend([Assign(SymbolRef("accumulator{}".format(a), ct.c_int()), Constant(0)) for a in range(8)])
+        body.extend([Assign(SymbolRef("accumulator{}".format(a), ct.c_float()), Constant(0)) for a in range(8)])
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
             conv_id = 0
