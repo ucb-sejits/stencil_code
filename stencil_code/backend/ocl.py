@@ -375,7 +375,7 @@ class StencilOclTransformer(StencilBackend):
             index += "+((d%s) * %s)" % (str(x), ndim)
         if self.parent_lazy_specializer.num_convolutions == 1:
             return index
-        return "d1 + (get_global_size(1) * d0)"
+        return "d1 + ((get_global_size(1) + 4) * d0)"
 
     def local_array_macro(self, point):
         dim = len(self.input_grids[0].shape)

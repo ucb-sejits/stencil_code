@@ -3,11 +3,11 @@ from __future__ import print_function
 from stencil_code.stencil_kernel import MultiConvolutionStencilKernel
 from stencil_code.neighborhood import Neighborhood
 
-import pycuda.autoinit
-import pycuda.driver as cuda
-from pycuda import gpuarray
-from pycuda.compiler import SourceModule
-import scikits.cuda.cublas as cublas
+# import pycuda.autoinit
+# import pycuda.driver as cuda
+# from pycuda import gpuarray
+# from pycuda.compiler import SourceModule
+# import scikits.cuda.cublas as cublas
 import numpy as np
 
 # im2col CUDA kernel
@@ -123,10 +123,10 @@ class MultiConvolutionFilter(MultiConvolutionStencilKernel):
 
 if __name__ == '__main__':  # pragma no cover
 
-    cublas_handle = cublas.cublasCreate()
-
-    module = SourceModule(im2col_str)
-    im2col = module.get_function('im2col_gpu_kernel')
+    # cublas_handle = cublas.cublasCreate()
+    #
+    # module = SourceModule(im2col_str)
+    # im2col = module.get_function('im2col_gpu_kernel')
 
     num_threads = 1024
 
@@ -148,10 +148,10 @@ if __name__ == '__main__':  # pragma no cover
     width_col = (width + 2 * padding - kernel_size) / stride + 1
 
     channels_col = channels * np.prod(weights.shape[2:])
-    col_buf = gpuarray.empty((channels_col, height_col, width_col), np.float32)
-    bottom_gpu = gpuarray.to_gpu(bottom)
-    weights_gpu = gpuarray.to_gpu(weights)
-    top_gpu = gpuarray.to_gpu(top)
+    # col_buf = gpuarray.empty((channels_col, height_col, width_col), np.float32)
+    # bottom_gpu = gpuarray.to_gpu(bottom)
+    # weights_gpu = gpuarray.to_gpu(weights)
+    # top_gpu = gpuarray.to_gpu(top)
 
 
     def conv(bottom, weights, top, kernel_size=np.uint32(5), padding=np.uint32(2),
@@ -169,7 +169,7 @@ if __name__ == '__main__':  # pragma no cover
                            col_buf.gpudata, n, weights.gpudata, k, np.float32(0.0),
                            top.gpudata, n)
 
-    conv(bottom_gpu, weights_gpu, top_gpu)
+    # conv(bottom_gpu, weights_gpu, top_gpu)
 
     import logging
     logging.basicConfig(level=20)
@@ -185,9 +185,9 @@ if __name__ == '__main__':  # pragma no cover
                 new_out_grid[conv][r][c] = ocl_out_grid[c + r * input_width][conv]
     ocl_out_grid = new_out_grid
 
-    np.testing.assert_almost_equal(top_gpu.get(), ocl_out_grid, decimal=2)
+    # np.testing.assert_almost_equal(top_gpu.get(), ocl_out_grid, decimal=2)
     # print(top_gpu.get())
-    # print(ocl_out_grid)
+    print(ocl_out_grid)
 
     exit(0)
 
