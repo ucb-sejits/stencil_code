@@ -1,5 +1,6 @@
 from __future__ import print_function
 import itertools
+from stencil_code.stencil_exception import StencilException
 
 __author__ = 'chick'
 
@@ -60,10 +61,11 @@ class OrderedHaloEnumerator(object):
         """
         def num_edges(vec):
             return len(list(filter(lambda x: x == 'e', vec)))
-        return sorted(
+        for border_type in sorted(
             list(itertools.product('ie', repeat=self.dimensions))[1:],
             key=num_edges
-        )
+        ):
+            yield border_type
 
     def __iter__(self):
         """
@@ -74,6 +76,47 @@ class OrderedHaloEnumerator(object):
         for border_key in self.ordered_border_type_enumerator():
             for border_point in self.surface_iterator(border_key):
                 yield border_point
+
+    def point_and_neighbor_vector_iterator(self):
+        """
+        This top level iterator will iterate over each class of border surface type
+        ending with the corners
+        :return:
+        """
+        for border_key in self.ordered_border_type_enumerator():
+            for border_point in self.surface_iterator(border_key):
+                yield border_point, self.neighbor_direction(border_key, border_point)
+
+    def order_of_surface_key(self, surface_key):
+        """
+        returns the number of edge components ('e's) in surface_key
+        :param surface_key:
+        :return:
+        """
+        return sum([1 if surface_key[dim] == 'e' else 0 for dim in range(self.dimensions)])
+
+    def point_to_surface_key(self, border_point):
+        return tuple(
+            'i' if self.halo[dim] <= border_point[dim] < self.shape[dim] - self.halo[dim] else 'e'
+            for dim in range(self.dimensions)
+        )
+
+    def neighbor_direction(self, surface_key, surface_point):
+        """
+        returns an eigen vector pointing the direction to either the interior or lower order surface
+        This is used for finding points suitable to be used for calculations of values to insert
+        into ghost zones
+        :param surface_key:
+        :return:
+        """
+        for dim in range(self.dimensions):
+            if surface_key[dim] == 'e':
+                direction = 1 if surface_point[dim] < self.halo[dim] else -1
+                return tuple(direction if d == dim else 0 for d in range(self.dimensions))
+
+        raise StencilException("could not find neighbor direction for key {} point {}".format(
+            surface_key, surface_point
+        ))
 
 if __name__ == '__main__':  # pragma no cover
     ordered_halo_enumerator = OrderedHaloEnumerator([1, 1], [3, 3])
