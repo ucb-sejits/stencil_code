@@ -759,18 +759,20 @@ class StencilOclTransformer(StencilBackend):
         self.output_target = node.output_target
         self.coefficient = node.coefficient
 
-        num_iterations = self.parent_lazy_specializer.num_convolutions / 8  # magic number
-        tail_end = self.parent_lazy_specializer.num_convolutions % 8
+        unroll_factor = 8
+
+        num_iterations = self.parent_lazy_specializer.num_convolutions / unroll_factor  # magic number
+        tail_end = self.parent_lazy_specializer.num_convolutions % unroll_factor
 
         body = []
         body.append(Assign(SymbolRef("neighbor", ct.c_float()), Constant(0.0)))
-        body.extend([Assign(SymbolRef("accumulator{}".format(a), ct.c_float()), Constant(0)) for a in range(8)])
+        body.extend([Assign(SymbolRef("accumulator{}".format(a), ct.c_float()), Constant(0)) for a in range(unroll_factor)])
         neighbor_num = 0
         for x in self.parent_lazy_specializer.neighbors(zero_point, 0):
             conv_id = 0
             for i in range(num_iterations):
                 targets = []
-                for a in range(8):
+                for a in range(unroll_factor):
                     self.offset_list = list(x)
                     self.offset_dict[self.input_target] = list(x)
                     self.index_target_dict[self.output_target] = Add(SymbolRef('global_index'), Constant(conv_id))
@@ -784,7 +786,7 @@ class StencilOclTransformer(StencilBackend):
                         statement.value.left = SymbolRef("neighbor")
                         body.append(Assign(SymbolRef("accumulator{}".format(a)), Add(statement.target, statement.value)))
                     conv_id += 1
-                for t in range(8):
+                for t in range(unroll_factor):
                     body.append(Assign(targets[t], SymbolRef("accumulator{}".format(t))))
             targets = []
             for a in range(tail_end):
