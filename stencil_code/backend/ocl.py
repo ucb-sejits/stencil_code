@@ -536,21 +536,91 @@ class StencilOclTransformer(StencilBackend):
                 )
             )
         else:
-            loop_code = local_indices + []
-            global_points = [Add(SymbolRef("local_id%d" % (dim - d - 1)),
+            body.extend([Assign(SymbolRef("mem_local_id%d" % (d), ct.c_int()), Constant(0)) for d in range(dim)])
+            body.extend([Assign(SymbolRef("r_%d" % (d + 1), ct.c_int()), Constant(0)) for d in range(dim - 1)])
+            block_size = product(self.local_size[d] + (2 * self.ghost_depth[d]) for d in range(dim))
+            num_threads = product(self.local_size)
+            num_iterations = block_size / num_threads
+            global_points = [Add(SymbolRef("mem_local_id%d" % (dim - d - 1)),
                                   Mul(FunctionCall(SymbolRef('get_group_id'), [Constant(d)]),get_local_size(d)))
                              for d in range(0, dim)]
-            loop_code.append(Assign(ArrayRef(target, SymbolRef('tid')),
-                                    ArrayRef(SymbolRef(self.input_names[input_array]),
-                                             self.global_array_macro((global_points[0], global_points[1])))))
-            body.append(
-                For(
-                    Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
-                    Lt(SymbolRef('tid'), SymbolRef('block_size')),
-                    AddAssign(SymbolRef('tid'), SymbolRef('num_threads')),
-                    loop_code
-                )
-            )
+            for iteration in range(num_iterations):
+                base = None
+                for i in reversed(range(0, dim - 1)):
+                    if base is not None:
+                        base = Mul(Add(get_local_size(i + 1),
+                                       Constant(self.ghost_depth[i + 1] * 2)),
+                                   base)
+                    else:
+                        base = Add(get_local_size(i + 1),
+                                   Constant(self.ghost_depth[i + 1] * 2))
+                if base is not None:
+                    local_indices = [
+                        Assign(
+                            SymbolRef("mem_local_id%d" % (dim - 1)),
+                            Div(Add(SymbolRef('thread_id'), Constant(iteration * num_threads)), base)
+                        ),
+                        Assign(
+                            SymbolRef("r_%d" % (dim - 1)),
+                            Mod(Add(SymbolRef('thread_id'), Constant(iteration * num_threads)), base)
+                        )
+                    ]
+                else:
+                    local_indices = [
+                        Assign(
+                            SymbolRef("mem_local_id%d" % (dim - 1)),
+                            SymbolRef('tid')
+                        ),
+                        Assign(
+                            SymbolRef("r_%d" % (dim - 1)),
+                            Add(SymbolRef('thread_id'), Constant(iteration * num_threads))
+                        )
+                    ]
+                for d in reversed(range(0, dim - 1)):
+                    base = None
+                    for i in reversed(range(d + 1, dim)):
+                        if base is not None:
+                            base = Mul(
+                                Add(get_local_size(i),
+                                    ghost_depth[i] * 2),
+                                base
+                            )
+                        else:
+                            base = Add(get_local_size(i), Constant(ghost_depth[i] * 2))
+                    if base is not None and d != 0:
+                        local_indices.append(
+                            Assign(
+                                SymbolRef("mem_local_id%d" % d),
+                                Div(SymbolRef('r_%d' % (d + 1)), base)
+                            )
+                        )
+                        local_indices.append(
+                            Assign(
+                                SymbolRef("r_%d" % d),
+                                Mod(SymbolRef('r_%d' % (d + 1)), base)
+                            )
+                        )
+                    else:
+                        local_indices.append(
+                            Assign(
+                                SymbolRef("mem_local_id%d" % d),
+                                SymbolRef('r_%d' % (d + 1))
+                            )
+                        )
+                body.extend(local_indices)
+                body.append(Assign(ArrayRef(target, Add(SymbolRef('thread_id'), Constant(iteration * num_threads))),
+                                   ArrayRef(SymbolRef(self.input_names[input_array]),
+                                            self.global_array_macro((global_points[0], global_points[1])))))
+
+            body.append(Assign(SymbolRef("mem_local_id1"),
+                               Div(Sub(Sub(SymbolRef("block_size"), SymbolRef("thread_id")), Constant(1)),
+                                   Add(get_local_size(1), Constant(2 * self.ghost_depth[1])))))
+            body.append(Assign(SymbolRef("mem_local_id0"),
+                               Mod(Sub(Sub(SymbolRef("block_size"), SymbolRef("thread_id")), Constant(1)),
+                                   Add(get_local_size(1), Constant(2 * self.ghost_depth[1])))))
+            body.append(Assign(ArrayRef(target, Sub(Sub(SymbolRef("block_size"), SymbolRef("thread_id")), Constant(1))),
+                               ArrayRef(SymbolRef(self.input_names[input_array]),
+                                        self.global_array_macro((global_points[0], global_points[1])))))
         return body
 
     def visit_SymbolRef(self, node):
