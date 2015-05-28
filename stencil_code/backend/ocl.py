@@ -531,8 +531,7 @@ class StencilOclTransformer(StencilBackend):
                 )
             )
         else:
-            loop_code = local_indices + []  # does copy
-            loop_code.append(Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), SymbolRef('tid'))))
+            loop_code = Assign(ArrayRef(target, SymbolRef('tid')), ArrayRef(SymbolRef(self.input_names[input_array]), SymbolRef('tid')))
             body.append(
                 For(
                     Assign(SymbolRef('tid', ct.c_int()), SymbolRef('thread_id')),
