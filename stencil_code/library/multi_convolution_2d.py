@@ -9,6 +9,7 @@ from pycuda import gpuarray
 from pycuda.compiler import SourceModule
 import scikits.cuda.cublas as cublas
 import numpy as np
+import time
 
 # im2col CUDA kernel
 im2col_str = """
@@ -153,6 +154,8 @@ if __name__ == '__main__':  # pragma no cover
     weights_gpu = gpuarray.to_gpu(weights)
     top_gpu = gpuarray.to_gpu(top)
 
+    cublas_time = 0
+
 
     def conv(bottom, weights, top, kernel_size=np.uint32(5), padding=np.uint32(2),
              stride=np.uint32(1)):
@@ -165,9 +168,12 @@ if __name__ == '__main__':  # pragma no cover
                np.uint32(height_col), np.uint32(width_col), col_buf,
                grid=(cuda_get_blocks(num_kernels), 1, 1),
                block=(num_threads, 1, 1))
+        start = time.time()
         cublas.cublasSgemm(cublas_handle, 'n', 'n', n, m, k, np.float32(1.0),
                            col_buf.gpudata, n, weights.gpudata, k, np.float32(0.0),
                            top.gpudata, n)
+        global cublas_time
+        cublas_time = time.time() - start
 
     conv(bottom_gpu, weights_gpu, top_gpu)
 
@@ -190,6 +196,7 @@ if __name__ == '__main__':  # pragma no cover
     np.testing.assert_almost_equal(top_gpu.get(), ocl_out_grid, decimal=2)
     # print(top_gpu.get())
     # print(ocl_out_grid)
+    print("Cublas Time {]".format(cublas_time))
     print("Done.")
 
     exit(0)
