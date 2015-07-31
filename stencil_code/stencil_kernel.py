@@ -31,10 +31,10 @@ _ = ctree.np  # Make PEP8 happy, and pycharm
 from ctree.ocl import get_context_and_queue_from_devices
 from ctree.frontend import get_ast
 from ctree.nodes import Project
-from .backend.omp import StencilOmpTransformer
-from .backend.ocl import StencilOclTransformer
-from .backend.c import StencilCTransformer
-from .python_frontend import PythonToStencilModel
+from stencil_code.backend.omp import StencilOmpTransformer
+from stencil_code.backend.ocl import StencilOclTransformer
+from stencil_code.backend.c import StencilCTransformer
+from stencil_code.python_frontend import PythonToStencilModel
 # import optimizer as optimizer
 from ctypes import byref, c_float, CFUNCTYPE, c_int32, POINTER
 import pycl as cl
@@ -48,7 +48,7 @@ import abc
 
 from stencil_code.halo_enumerator import HaloEnumerator
 try:
-    from hindemith.types.hmarray import hmarray, empty_like, Loop
+    pass  # from hindemith.types.hmarray import hmarray, empty_like, Loop
 except ImportError:
     hmarray, empty_like, Loop = (None, None, None)
 
@@ -159,24 +159,25 @@ class OclStencilFunction(ConcreteSpecializedFunction):
 
         :param *args:
         """
-        if hmarray and isinstance(args[0], hmarray):
-            output = empty_like(args[0])
-        else:
-            output = np.zeros_like(args[0])
+        # if hmarray and isinstance(args[0], hmarray):
+        #     output = empty_like(args[0])
+        # else:
+        #     output = np.zeros_like(args[0])
+        output = np.zeros_like(args[0])
         # self.kernel.argtypes = tuple(
         #     cl_mem for _ in args + (output, )
         # ) + (localmem, )
         buffers = []
         events = []
         for index, arg in enumerate(args + (output, )):
-            if hmarray and isinstance(arg, hmarray):
-                buffers.append(arg.ocl_buf)
-            else:
-                buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
-                # evt.wait()
-                events.append(evt)
-                buffers.append(buf)
-                # self.kernel.setarg(index, buf, sizeof(cl_mem))
+            # if hmarray and isinstance(arg, hmarray):
+            #     buffers.append(arg.ocl_buf)
+            # else:
+            buf, evt = buffer_from_ndarray(self.queue, arg, blocking=True)
+            # evt.wait()
+            events.append(evt)
+            buffers.append(buf)
+            # self.kernel.setarg(index, buf, sizeof(cl_mem))
         cl.clWaitForEvents(*events)
         cl_error = 0
         if isinstance(self.kernel, list):
@@ -203,8 +204,8 @@ class OclStencilFunction(ConcreteSpecializedFunction):
                     cl.cl_errnum(cl_error)
                 )
             )
-        if hmarray and isinstance(output, hmarray):
-            return output
+        # if hmarray and isinstance(output, hmarray):
+        #     return output
         buf, evt = buffer_to_ndarray(
             self.queue, buffers[-1], output
         )
