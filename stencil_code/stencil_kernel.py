@@ -51,6 +51,10 @@ try:
     from hindemith.types.hmarray import hmarray, empty_like, Loop
 except ImportError:
     hmarray, empty_like, Loop = (None, None, None)
+except Exception as e:
+    print("Exception '{}' trying to import hindemith package".format(e))
+    hmarray, empty_like, Loop = (None, None, None)
+
 
 import copy
 
@@ -154,6 +158,7 @@ class OclStencilFunction(ConcreteSpecializedFunction):
         self._c_function = self._compile(entry_name, tree, entry_type)
         return self
 
+    # noinspection PyArgumentList
     def __call__(self, *args):
         """__call__
 
@@ -251,7 +256,7 @@ class SpecializedStencil(LazySpecializedFunction):
         super(SpecializedStencil, self).__init__(get_ast(stencil_kernel.kernel),
                                                  backend_name=backend_key)
 
-    def args_to_subconfig(self, args, kwargs):
+    def args_to_subconfig(self, args, kwargs=None):
         """
         Generates a configuration for the transform method based on the
         arguments passed into the stencil.
@@ -466,7 +471,7 @@ class Stencil(object):
         specialization process using ctree's infrastructure.
 
         :param backend: Optional backend that should be used by ctree.
-        Supported backends are c, omp (openmp), and ocl (opencl).
+        Supported backends are c, omp (OpenMp), and ocl (OpenCL).
         :param neighborhood_definition: an iterable of neighborhoods
             neighborhoods are a list of points(tuples)
         :param boundary_handling: one of skip, clamped, copy; default is clamped
