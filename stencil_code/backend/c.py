@@ -11,6 +11,7 @@ class StencilCTransformer(StencilBackend):
         self.function_decl_helper(node)
 
         for index, arg in enumerate(self.input_grids + (self.input_grids[0],)):
+        #for index, arg in enumerate(self.input_grids):
             def_name = "_%s_array_macro" % node.params[index].name
             calc = "((_d%d)" % (arg.ndim - 1)
             for x in range(arg.ndim - 1):
